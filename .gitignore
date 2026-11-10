@@ -1,0 +1,12 @@
+node_modules/
+.next/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+.env
+.env.local
+backend/django/.venv/
+backend/django/db.sqlite3
+__pycache__/
+*.pyc
+.DS_Store

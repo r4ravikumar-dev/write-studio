@@ -1,0 +1,17 @@
+{
+  "name": "write-studio",
+  "private": true,
+  "description": "Ravi Kumar's portfolio studio: Next.js frontend, Express API, Django auth, Supabase database.",
+  "workspaces": [
+    "frontend",
+    "backend/express",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @studio/frontend",
+    "dev:api": "npm run dev -w @studio/express-api",
+    "dev:auth": "cd backend/django && .venv/bin/python manage.py runserver 8000",
+    "build": "npm run build -w @studio/express-api && npm run build -w @studio/frontend",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
