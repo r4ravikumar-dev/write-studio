@@ -7,7 +7,9 @@ import {StudioCaseStudyList} from '@/components/studio/StudioCaseStudyList';
 import {requireStudioUser} from '@/lib/auth/current-user';
 import {listStudioCaseStudies} from '@/lib/studio/queries';
 
-export const metadata: Metadata = {title: 'Case studies'};
+export async function generateMetadata({searchParams}: {searchParams: Promise<{status?: string}>}): Promise<Metadata> {
+  return {title: (await searchParams).status === 'archived' ? 'Archived case studies' : 'All case studies'};
+}
 
 /** All of the user's case studies: drafts, or the archived ones (?status=archived). */
 export default async function StudioCaseStudiesPage({searchParams}: {searchParams: Promise<{status?: string}>}) {
@@ -26,7 +28,7 @@ export default async function StudioCaseStudiesPage({searchParams}: {searchParam
       <StudioCaseStudyList
         studies={studies}
         emptyTitle={isArchived ? 'Nothing archived' : 'No case studies yet'}
-        emptyText={isArchived ? 'Archive a case study to put it out of the way without deleting it.' : 'Start one with New case study.'}
+        emptyText={isArchived ? 'Archive a case study to put it away without deleting it. You can restore it at any time.' : 'Select New case study to start one.'}
       />
     </VStack>
   );

@@ -96,7 +96,7 @@ class AuthTests(AuthTestBase):
         mail.outbox.clear()
         r = self.post('signup', {'email': 'e@test.invalid', 'password': 'another long pass 99', 'display_name': 'X'})
         self.assertEqual(r.json(), {'status': 'check-email'})
-        self.assertIn('already have a studio account', mail.outbox[-1].subject)
+        self.assertIn('already have a Case Study Studio account', mail.outbox[-1].subject)
         self.assertEqual(User.objects.filter(email='e@test.invalid').count(), 1)
         # …and the existing password was not replaced.
         self.assertEqual(self.post('login', {'email': 'e@test.invalid', 'password': GOOD_PASSWORD}).status_code, 200)

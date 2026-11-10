@@ -29,7 +29,7 @@ export async function createStudioUploadUrl(input: {mime: string; size: number; 
         body: {mime: input.mime, size: input.size, case_study_id: input.caseStudyId ?? null},
         auth: true,
       }),
-    'Couldn’t start the upload.',
+    'We couldn’t start the upload. Try again.',
   );
 }
 
@@ -57,7 +57,7 @@ export async function recordStudioAsset(input: {
           auth: true,
         })
       ).asset,
-    'Couldn’t save the upload.',
+    'We couldn’t save the upload. Try uploading the file again.',
   );
   if (result.ok) revalidatePath('/studio/media');
   return result;
@@ -66,19 +66,19 @@ export async function recordStudioAsset(input: {
 export async function listStudioAssets(kind?: StudioAsset['kind']) {
   return run(
     async () => (await api<{assets: StudioAsset[]}>(`/api/app/assets${kind ? `?kind=${kind}` : ''}`, {auth: true})).assets,
-    'Couldn’t load your media.',
+    'We couldn’t load your media library. Reload the page to try again.',
   );
 }
 
 export async function updateStudioAssetAlt(id: string, alt: string) {
   return run(
     async () => (await api<{asset: StudioAsset}>(`/api/app/assets/${id}`, {method: 'PATCH', body: {alt}, auth: true})).asset,
-    'Couldn’t save the description.',
+    'We couldn’t save the alt text. Try again.',
   );
 }
 
 export async function deleteStudioAsset(id: string) {
-  const result = await run(() => api(`/api/app/assets/${id}`, {method: 'DELETE', auth: true}), 'Couldn’t delete it.');
+  const result = await run(() => api(`/api/app/assets/${id}`, {method: 'DELETE', auth: true}), 'We couldn’t delete the file. Try again.');
   if (result.ok) revalidatePath('/studio/media');
   return result;
 }

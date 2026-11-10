@@ -69,7 +69,7 @@ function MediaItem({asset, onDelete}: {asset: StudioAsset; onDelete: () => void}
       {asset.kind !== 'file' && (
         <TextArea
           label="Alt text"
-          placeholder="Describe it for people who can’t see it."
+          description="Describe what it shows, for people who can’t see it. Leave it empty if it’s only decorative."
           value={alt}
           onChange={value => {
             setAlt(value);
@@ -80,7 +80,7 @@ function MediaItem({asset, onDelete}: {asset: StudioAsset; onDelete: () => void}
           maxLength={500}
           width="100%"
           isLoading={status === 'saving'}
-          status={status === 'error' ? {type: 'error', message: 'Couldn’t save. Try again.'} : status === 'saved' ? {type: 'success', message: 'Saved'} : undefined}
+          status={status === 'error' ? {type: 'error', message: 'We couldn’t save the alt text. Try again.'} : status === 'saved' ? {type: 'success', message: 'Saved'} : undefined}
           statusVariant="detached"
         />
       )}
@@ -121,13 +121,12 @@ export function MediaManager({assets: initial}: {assets: StudioAsset[]}) {
     <VStack gap={8}>
       <HStack justify="between" vAlign="end" gap={6} wrap="wrap">
         <VStack gap={2}>
-          <Heading level={1}>Media</Heading>
+          <Heading level={1}>Media library</Heading>
           <Text color="secondary" style={{maxInlineSize: '60ch'}}>
-            Images, video and documents for your case studies. They’re private: only you can open them while signed in.
-            Up to 50 MB each.
+            Images, videos and documents for your case studies. Each file can be up to 50 MB.
           </Text>
         </VStack>
-        <Button label="Upload" variant="primary" isLoading={isUploading} onClick={upload} icon={<Icon icon={Upload} size="sm" color="inherit" />} />
+        <Button label="Upload files" variant="primary" isLoading={isUploading} onClick={upload} icon={<Icon icon={Upload} size="sm" color="inherit" />} />
       </HStack>
 
       {error && (
@@ -144,8 +143,8 @@ export function MediaManager({assets: initial}: {assets: StudioAsset[]}) {
         </Grid>
       ) : (
         <VStack gap={3} className="studio-empty">
-          <Heading level={2}>Nothing uploaded yet</Heading>
-          <Text color="secondary">Upload screenshots, prototypes, videos or decks to use in your case studies.</Text>
+          <Heading level={2}>No files yet</Heading>
+          <Text color="secondary">Upload screenshots, prototypes, videos or slide decks to use in your case studies.</Text>
         </VStack>
       )}
 
@@ -154,8 +153,8 @@ export function MediaManager({assets: initial}: {assets: StudioAsset[]}) {
         onOpenChange={open => {
           if (!open) setToDelete(null);
         }}
-        title="Delete this file?"
-        description="It’s removed from your library and storage for good. Case studies that use it will show a gap."
+        title={`Delete “${toDelete?.original_name || 'this file'}”?`}
+        description="This deletes the file for good. Any case study that uses it will show an empty space where it was."
         actionLabel="Delete"
         cancelLabel="Keep it"
         isActionLoading={isDeleting}

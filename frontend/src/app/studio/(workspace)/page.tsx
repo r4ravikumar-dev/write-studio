@@ -8,7 +8,7 @@ import {StudioCaseStudyList} from '@/components/studio/StudioCaseStudyList';
 import {getAccountDetails, requireStudioUser} from '@/lib/auth/current-user';
 import {listStudioCaseStudies} from '@/lib/studio/queries';
 
-export const metadata: Metadata = {title: 'Your workspace'};
+export const metadata: Metadata = {title: 'Your case studies'};
 
 /** The workspace home: the user's own private drafts. */
 export default async function StudioHomePage() {
@@ -21,7 +21,7 @@ export default async function StudioHomePage() {
         <VStack gap={2}>
           <Heading level={1}>Welcome, {name}</Heading>
           <Text color="secondary" style={{maxInlineSize: '60ch'}}>
-            Your private workspace. Everything you write and upload here is visible only to you.
+            Pick up where you left off, or start a new case study.
           </Text>
         </VStack>
         <NewCaseStudyButton />
@@ -29,7 +29,7 @@ export default async function StudioHomePage() {
       <StudioCaseStudyList
         studies={studies}
         emptyTitle="No case studies yet"
-        emptyText="Start one with New case study. It opens with a ten-section storytelling template, ready to write over."
+        emptyText="Select New case study to start one. It opens with ten suggested sections and a tip for what to write in each."
       />
       <NextLink href="/studio/case-studies?status=archived" className="studio-auth-link">
         Archived case studies

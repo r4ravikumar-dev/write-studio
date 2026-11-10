@@ -30,7 +30,7 @@ const noStore = (res: import('express').Response) => res.set('Cache-Control', 'p
 /** The draft as stored, from whatever the editor sent (validated against the user's own files). */
 function toRow(draft: Partial<StudioCaseStudyDraft>, ownerId: string, workspaceId: string) {
   const slug = slugify(text(draft.slug, 200) || text(draft.title, 300));
-  if (!slug) throw new HttpError(400, 'Add a headline or a short name.');
+  if (!slug) throw new HttpError(400, 'Enter a headline or a short name.');
   const row = {
     slug,
     title: text(draft.title, 300) || 'Untitled case study',
@@ -96,7 +96,7 @@ appCaseStudiesRouter.post(
       }
       if (error.code !== '23505') throw new HttpError(502, error.message);
     }
-    throw new HttpError(409, 'Couldn’t pick a unique short name. Try again.');
+    throw new HttpError(409, 'We couldn’t create a unique short name. Try again.');
   }),
 );
 
@@ -127,10 +127,10 @@ appCaseStudiesRouter.put(
     if (body.expected_updated_at) query = query.eq('updated_at', body.expected_updated_at);
     const {data, error} = await query.select('updated_at, slug').maybeSingle();
     if (error) {
-      if (error.code === '23505') throw new HttpError(409, 'Another of your case studies already uses that short name.');
+      if (error.code === '23505') throw new HttpError(409, 'Another of your case studies already uses that short name. Choose a different one.');
       throw new HttpError(502, error.message);
     }
-    if (!data) throw new HttpError(409, 'This case study changed somewhere else (another tab?). Reload to get the latest version.', {code: 'conflict'});
+    if (!data) throw new HttpError(409, 'This case study was changed in another tab or window. Reload the page to get the latest version, then make your change again.', {code: 'conflict'});
     noStore(res);
     res.json({updatedAt: data.updated_at, slug: data.slug});
   }),

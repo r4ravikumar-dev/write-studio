@@ -98,7 +98,7 @@ function MediaField({
       {media && (
         <TextInput
           label="Alt text"
-          description={media.kind === 'image' ? 'Describe it for screen readers. Recommended for accessibility.' : 'A short description of the video.'}
+          description={media.kind === 'image' ? 'Describe what the image shows, for people who can’t see it.' : 'Describe what happens in the video, for people who can’t see it.'}
           value={media.alt}
           onChange={alt => onChange({...media, alt})}
           size="sm"
@@ -154,14 +154,14 @@ function ImageGridInspector({config, onChange}: Props<ImageGridConfig>) {
               <Text type="supporting" style={{flex: 1}}>
                 Image {index + 1}
               </Text>
-              <IconButton label="Move earlier" size="sm" variant="ghost" isDisabled={index === 0} onClick={() => move(index, -1)} icon={<Icon icon={ArrowLeft} size="sm" color="inherit" />} />
-              <IconButton label="Move later" size="sm" variant="ghost" isDisabled={index === config.items.length - 1} onClick={() => move(index, 1)} icon={<Icon icon={ArrowRight} size="sm" color="inherit" />} />
-              <IconButton label="Remove image" size="sm" variant="destructive" onClick={() => onChange({...config, items: config.items.filter((_, i) => i !== index)})} icon={<Icon icon={Trash2} size="sm" color="inherit" />} />
+              <IconButton label={`Move image ${index + 1} earlier`} size="sm" variant="ghost" isDisabled={index === 0} onClick={() => move(index, -1)} icon={<Icon icon={ArrowLeft} size="sm" color="inherit" />} />
+              <IconButton label={`Move image ${index + 1} later`} size="sm" variant="ghost" isDisabled={index === config.items.length - 1} onClick={() => move(index, 1)} icon={<Icon icon={ArrowRight} size="sm" color="inherit" />} />
+              <IconButton label={`Remove image ${index + 1}`} size="sm" variant="destructive" onClick={() => onChange({...config, items: config.items.filter((_, i) => i !== index)})} icon={<Icon icon={Trash2} size="sm" color="inherit" />} />
             </HStack>
             <TextInput
               label={`Alt text for image ${index + 1}`}
               isLabelHidden
-              placeholder="Alt text (recommended)"
+              description="Describe what the image shows, for people who can’t see it."
               value={item.alt}
               onChange={alt => onChange({...config, items: config.items.map((it, i) => (i === index ? {...it, alt} : it))})}
               size="sm"

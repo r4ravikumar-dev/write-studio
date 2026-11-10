@@ -4,7 +4,7 @@ import {NotConfigured} from '@/components/editor/NotConfigured';
 import {StudioSignupForm} from '@/components/studio/StudioAuthForms';
 import {isBackendConfigured} from '@/lib/api/env';
 
-export const metadata: Metadata = {title: 'Create your studio'};
+export const metadata: Metadata = {title: 'Create an account'};
 
 export default async function StudioSignupPage() {
   await connection();

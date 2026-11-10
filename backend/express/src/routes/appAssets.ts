@@ -74,7 +74,7 @@ appAssetsRouter.post(
     const body = (req.body ?? {}) as Record<string, unknown>;
     const mime = String(body.mime ?? '').toLowerCase();
     const type = STUDIO_UPLOAD_TYPES[mime];
-    if (!type) throw new HttpError(400, 'That file type isn’t supported. Use PNG, JPG, WebP, GIF, AVIF, MP4, WebM, MOV, PDF, PowerPoint or Word.');
+    if (!type) throw new HttpError(400, 'That type of file isn’t supported. Upload an image (PNG, JPG, WebP, GIF or AVIF), a video (MP4, WebM or MOV), or a PDF, PowerPoint or Word document.');
     const size = Number(body.size ?? 0);
     if (!(size > 0) || size > STUDIO_MAX_UPLOAD_BYTES) {
       throw new HttpError(400, 'Files can be up to 50 MB. For long videos, use a YouTube, Vimeo or Loom link instead.');
@@ -110,7 +110,7 @@ appAssetsRouter.post(
 
     // What actually got stored.
     const head = await fetch(storageUrl(path), {method: 'HEAD', headers: serviceHeaders});
-    if (!head.ok) throw new HttpError(404, 'Upload not found. Try uploading it again.');
+    if (!head.ok) throw new HttpError(404, 'We couldn’t find that upload. Upload the file again.');
     const storedMime = (head.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
     const storedSize = Number(head.headers.get('content-length') ?? 0);
     const type = STUDIO_UPLOAD_TYPES[storedMime];
@@ -118,8 +118,8 @@ appAssetsRouter.post(
       await removeObjects([path]);
       throw new HttpError(400, message);
     };
-    if (!type || !path.endsWith(`.${type.ext}`)) await fail('The uploaded file’s type doesn’t match. Upload it again.');
-    if (!(storedSize > 0) || storedSize > STUDIO_MAX_UPLOAD_BYTES) await fail('The uploaded file is empty or too large.');
+    if (!type || !path.endsWith(`.${type.ext}`)) await fail('The file doesn’t match its type. Upload it again.');
+    if (!(storedSize > 0) || storedSize > STUDIO_MAX_UPLOAD_BYTES) await fail('The file is empty or larger than 50 MB. Choose a different file.');
 
     const dimension = (value: unknown) => (Number(value) > 0 && Number(value) < 100000 ? Math.round(Number(value)) : null);
     const {data, error} = await supabase
@@ -141,7 +141,7 @@ appAssetsRouter.post(
       .single();
     if (error) {
       // Recorded already (a retry) is fine; anything else: don't leave an orphan file.
-      if (error.code === '23505') throw new HttpError(409, 'That upload is already in your library.');
+      if (error.code === '23505') throw new HttpError(409, 'That file is already in your media library.');
       await removeObjects([path]);
       throw new HttpError(502, error.message);
     }

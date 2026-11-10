@@ -1,3 +1,4 @@
+import {cache} from 'react';
 import 'server-only';
 import type {StudioCaseStudy, StudioCaseStudyCard, StudioStatus} from '@studio/shared';
 import {ApiError, api} from '@/lib/api/express';
@@ -7,8 +8,11 @@ export async function listStudioCaseStudies(status?: StudioStatus): Promise<Stud
   return (await api<{studies: StudioCaseStudyCard[]}>(`/api/app/case-studies${status ? `?status=${status}` : ''}`, {auth: true})).studies;
 }
 
-/** One of the user's case studies, or null (unknown and other people's look the same). */
-export async function getStudioCaseStudy(id: string): Promise<StudioCaseStudy | null> {
+/**
+ * One of the user's case studies, or null (unknown and other people's look the same).
+ * Memoised per request, so a page's title (generateMetadata) and body share one fetch.
+ */
+export const getStudioCaseStudy = cache(async function getStudioCaseStudy(id: string): Promise<StudioCaseStudy | null> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
   try {
     return (await api<{study: StudioCaseStudy}>(`/api/app/case-studies/${id}`, {auth: true})).study;
@@ -16,4 +20,4 @@ export async function getStudioCaseStudy(id: string): Promise<StudioCaseStudy | 
     if (error instanceof ApiError && error.status === 404) return null;
     throw error;
   }
-}
+});

@@ -30,13 +30,13 @@ export type AuthFormState = {
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const text = (formData: FormData, name: string) => String(formData.get(name) ?? '');
 const emailOf = (formData: FormData) => text(formData, 'email').trim().toLowerCase();
-const notConfigured: AuthFormState = {status: 'error', message: 'Sign-in isn’t available right now.'};
+const notConfigured: AuthFormState = {status: 'error', message: 'Sign-in isn’t available right now. Try again in a few minutes.'};
 
 /** Email and password sign-in. */
 export async function logInWithPassword(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
   if (!isBackendConfigured) return notConfigured;
   const email = emailOf(formData);
-  if (!EMAIL.test(email)) return {status: 'error', field: 'email', message: 'That email doesn’t look right.', email};
+  if (!EMAIL.test(email)) return {status: 'error', field: 'email', message: 'Enter an email address in the format name@example.com.', email};
   const result = await logIn(email, text(formData, 'password'), await clientIp());
   if (!result.ok) return {status: 'error', message: result.error, email};
   await setSession(result.data);
@@ -48,7 +48,7 @@ export async function sendStudioCode(_: AuthFormState, formData: FormData): Prom
   if (!isBackendConfigured) return notConfigured;
   const email = emailOf(formData);
   const displayName = text(formData, 'display_name').trim().slice(0, 80);
-  if (!EMAIL.test(email)) return {status: 'error', field: 'email', message: 'That email doesn’t look right.', email};
+  if (!EMAIL.test(email)) return {status: 'error', field: 'email', message: 'Enter an email address in the format name@example.com.', email};
   const result = await requestLoginCode(email, await clientIp());
   if (!result.ok) return {status: 'error', message: result.error, email, displayName};
   return {status: 'sent', email, displayName};
@@ -74,10 +74,10 @@ export async function signUpWithPassword(_: AuthFormState, formData: FormData): 
   const email = emailOf(formData);
   const displayName = text(formData, 'display_name').trim();
   const password = text(formData, 'password');
-  if (!displayName) return {status: 'error', field: 'display_name', message: 'Add your name.', email, displayName};
-  if (!EMAIL.test(email)) return {status: 'error', field: 'email', message: 'That email doesn’t look right.', email, displayName};
+  if (!displayName) return {status: 'error', field: 'display_name', message: 'Enter your name.', email, displayName};
+  if (!EMAIL.test(email)) return {status: 'error', field: 'email', message: 'Enter an email address in the format name@example.com.', email, displayName};
   if (password !== text(formData, 'password_again')) {
-    return {status: 'error', field: 'password_again', message: 'The passwords don’t match.', email, displayName};
+    return {status: 'error', field: 'password_again', message: 'The passwords don’t match. Enter the same password in both fields.', email, displayName};
   }
   const result = await signUp(email, password, displayName, await clientIp());
   if (!result.ok) return {status: 'error', field: result.field, message: result.error, email, displayName};
@@ -96,7 +96,7 @@ export async function confirmStudioEmail(_: AuthFormState, formData: FormData): 
 export async function requestPasswordReset(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
   if (!isBackendConfigured) return notConfigured;
   const email = emailOf(formData);
-  if (!EMAIL.test(email)) return {status: 'error', field: 'email', message: 'That email doesn’t look right.', email};
+  if (!EMAIL.test(email)) return {status: 'error', field: 'email', message: 'Enter an email address in the format name@example.com.', email};
   const result = await forgotPassword(email, await clientIp());
   if (!result.ok) return {status: 'error', message: result.error, email};
   return {status: 'sent', email};
@@ -106,7 +106,7 @@ export async function requestPasswordReset(_: AuthFormState, formData: FormData)
 export async function completePasswordReset(_: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const password = text(formData, 'password');
   if (password !== text(formData, 'password_again')) {
-    return {status: 'error', field: 'password_again', message: 'The passwords don’t match.'};
+    return {status: 'error', field: 'password_again', message: 'The passwords don’t match. Enter the same password in both fields.'};
   }
   const result = await resetPassword(text(formData, 'uid'), text(formData, 'token'), password, await clientIp());
   if (!result.ok) return {status: 'error', field: result.field, message: result.error};

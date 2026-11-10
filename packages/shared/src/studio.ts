@@ -100,7 +100,7 @@ export function studioDraftProblems(
   const content = draft.content as JSONContent | undefined;
   if (!content || typeof content !== 'object' || content.type !== 'doc') return ['The document is missing.'];
   if (new TextEncoder().encode(JSON.stringify(content)).length > STUDIO_MAX_CONTENT_BYTES) {
-    return ['This case study is too large to save (over 2 MB of text and settings).'];
+    return ['This case study is too large to save. Its text and settings must be under 2 MB. Move some of it into another case study.'];
   }
   const prefix = `${ownerId}/${workspaceId}/`;
   const own = (path: string) => STUDIO_PATH.test(path) && path.startsWith(prefix);

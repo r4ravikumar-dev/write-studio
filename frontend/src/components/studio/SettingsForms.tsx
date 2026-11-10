@@ -75,7 +75,7 @@ export function SettingsForms({
         </form>
       </Section>
 
-      <Section title="Workspace" intro="Your private workspace. Only you can see what’s in it.">
+      <Section title="Workspace">
         <form action={saveWorkspace}>
           <VStack gap={3}>
             <TextInput label="Workspace name" htmlName="name" value={workspace} onChange={setWorkspace} width="100%" isRequired status={fieldError(workspaceState, 'name')} />
@@ -91,16 +91,16 @@ export function SettingsForms({
         title={hasPassword ? 'Password' : 'Add a password'}
         intro={
           hasPassword
-            ? 'Changing it signs you out on your other devices. You can always sign in with an email code too.'
-            : 'You sign in with email codes. Add a password to sign in either way.'
+            ? 'Changing your password signs you out on your other devices. You can still sign in with an email code at any time.'
+            : 'You sign in with email codes. Add a password if you’d also like to sign in with one.'
         }>
         <form action={savePw}>
           <VStack gap={3}>
             {hasPassword && (
               <TextInput type="password" label="Current password" htmlName="current_password" value={current} onChange={setCurrent} autoComplete="current-password" width="100%" isRequired status={fieldError(passwordState, 'current_password')} />
             )}
-            <TextInput type="password" label="New password" htmlName="password" value={password} onChange={setPassword} autoComplete="new-password" width="100%" isRequired description="At least 10 characters; not a common or all-number password." status={fieldError(passwordState, 'password')} />
-            <TextInput type="password" label="New password again" htmlName="password_again" value={again} onChange={setAgain} autoComplete="new-password" width="100%" isRequired status={fieldError(passwordState, 'password_again')} />
+            <TextInput type="password" label="New password" htmlName="password" value={password} onChange={setPassword} autoComplete="new-password" width="100%" isRequired description="Use at least 10 characters. Don’t use a common password or one made only of numbers." status={fieldError(passwordState, 'password')} />
+            <TextInput type="password" label="Confirm new password" htmlName="password_again" value={again} onChange={setAgain} autoComplete="new-password" width="100%" isRequired status={fieldError(passwordState, 'password_again')} />
             <HStack gap={3} vAlign="center">
               <Button type="submit" label={hasPassword ? 'Change password' : 'Add password'} variant="secondary" isLoading={isSavingPw} />
               <Saved state={passwordState} label="Password saved." />
@@ -126,7 +126,7 @@ function DeleteAccount({hasPassword}: {hasPassword: boolean}) {
   return (
     <Section
       title="Delete account"
-      intro="Deletes your account, your workspace, every case study and every file you uploaded. This can’t be undone.">
+      intro="This permanently deletes your account, your workspace, all your case studies and every file you uploaded. You can’t undo it.">
       <form action={remove}>
         <VStack gap={3}>
           {hasPassword ? (
@@ -143,7 +143,7 @@ function DeleteAccount({hasPassword}: {hasPassword: boolean}) {
                 {codeState.status === 'saved' && <Text color="secondary">{codeState.message}</Text>}
               </HStack>
               <TextInput
-                label="Code from the email"
+                label="6-digit code"
                 htmlName="code"
                 value={code}
                 onChange={value => setCode(value.replace(/[^\d]/g, '').slice(0, 6))}

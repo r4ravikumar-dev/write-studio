@@ -4,7 +4,7 @@ import {NotConfigured} from '@/components/editor/NotConfigured';
 import {StudioForgotPasswordForm} from '@/components/studio/StudioAuthForms';
 import {isBackendConfigured} from '@/lib/api/env';
 
-export const metadata: Metadata = {title: 'Forgot your password?'};
+export const metadata: Metadata = {title: 'Reset your password'};
 
 export default async function StudioForgotPasswordPage() {
   await connection();

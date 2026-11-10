@@ -104,7 +104,7 @@ def _display_name(value: object, fallback: str = '') -> str:
 
 def _password_problems(password: str, user=None) -> list[str]:
     if len(password) > settings.PASSWORD_MAX_LENGTH:
-        return [f'Use at most {settings.PASSWORD_MAX_LENGTH} characters.']
+        return [f'Use no more than {settings.PASSWORD_MAX_LENGTH} characters.']
     try:
         validate_password(password, user)
     except ValidationError as error:
@@ -198,16 +198,16 @@ def request_code(request: HttpRequest) -> JsonResponse:
     data = _body(request)
     email = _email(data)
     if not email:
-        return _error('That email doesn’t look right.')
+        return _error('Enter an email address in the format name@example.com.')
     now = timezone.now()
     LoginCode.objects.filter(expires_at__lt=now - settings.LOGIN_CODE_LIFETIME * 6).delete()
     RevokedToken.objects.filter(expires_at__lt=now).delete()
     throttle.prune()
 
     if throttle.hit('code:ip', _ip(request)):
-        return _error('Too many codes asked for. Wait a few minutes, then try again.', 429)
+        return _error('You’ve asked for too many codes. Wait a few minutes, then try again.', 429)
     if throttle.hit('code:email', email):
-        return _error('Too many codes asked for. Wait a few minutes, then try again.', 429)
+        return _error('You’ve asked for too many codes. Wait a few minutes, then try again.', 429)
     existing = User.objects.filter(email=email).first()
     if existing and not existing.is_active:
         return JsonResponse(SENT)
@@ -219,7 +219,7 @@ def request_code(request: HttpRequest) -> JsonResponse:
         emails.send_login_code(email, code, int(settings.LOGIN_CODE_LIFETIME.total_seconds() // 60))
     except Exception:  # noqa: BLE001
         log.exception('Sending a sign-in code failed')
-        return _error('The code couldn’t be sent. Try again in a minute.', 502)
+        return _error('We couldn’t send the code. Try again in a minute.', 502)
     return JsonResponse(SENT)
 
 
@@ -230,9 +230,9 @@ def verify_code(request: HttpRequest) -> JsonResponse:
     data = _body(request)
     email = _email(data)
     code = re.sub(r'\s+', '', str(data.get('code', '')))
-    wrong = _error('That code isn’t right, or it has expired. Ask for a new one.')
+    wrong = _error('That code is wrong or has expired. Use the latest code we sent, or ask for a new one.')
     if throttle.hit('verify:ip', _ip(request)):
-        return _error('Too many tries. Wait a few minutes, then try again.', 429)
+        return _error('Too many attempts. Wait a few minutes, then try again.', 429)
     if not email or not CODE.match(code):
         return wrong
 
@@ -278,14 +278,14 @@ def signup(request: HttpRequest) -> JsonResponse:
     password = str(data.get('password', ''))
     name = _display_name(data.get('display_name'))
     if not email:
-        return _error('That email doesn’t look right.', field='email')
+        return _error('Enter an email address in the format name@example.com.', field='email')
     if not name:
-        return _error('Add your name.', field='display_name')
+        return _error('Enter your name.', field='display_name')
     problems = _password_problems(password, User(email=email, display_name=name))
     if problems:
         return _error(' '.join(problems), field='password')
     if throttle.hit('signup:ip', _ip(request)) or throttle.hit('signup:email', email):
-        return _error('Too many sign-ups. Wait a few minutes, then try again.', 429)
+        return _error('Too many sign-up attempts. Wait a few minutes, then try again.', 429)
 
     with transaction.atomic():
         user = User.objects.select_for_update().filter(email=email).first()
@@ -308,7 +308,7 @@ def signup(request: HttpRequest) -> JsonResponse:
             emails.send_confirm_email(email, link)
     except Exception:  # noqa: BLE001
         log.exception('Sending a confirmation email failed')
-        return _error('The confirmation email couldn’t be sent. Try again in a minute.', 502)
+        return _error('We couldn’t send the confirmation email. Try again in a minute.', 502)
     return JsonResponse(CHECK_EMAIL)
 
 
@@ -316,7 +316,7 @@ def signup(request: HttpRequest) -> JsonResponse:
 @require_POST
 @service_only
 def confirm_email(request: HttpRequest) -> JsonResponse:
-    invalid = _error('That link has expired or was already used. Sign in, or sign up again for a new link.')
+    invalid = _error('This link has expired or has already been used. Sign in, or sign up again to get a new link.')
     try:
         payload = signing.loads(
             str(_body(request).get('token', '')),
@@ -339,9 +339,9 @@ def login(request: HttpRequest) -> JsonResponse:
     data = _body(request)
     email = _email(data)
     password = str(data.get('password', ''))[: settings.PASSWORD_MAX_LENGTH]
-    wrong = _error('That email or password isn’t right.')
+    wrong = _error('The email address or password is wrong. Check both and try again, or sign in with an email code.')
     if throttle.hit('login:ip', _ip(request)) or (email and throttle.hit('login:email', email)):
-        return _error('Too many tries. Wait a few minutes, or sign in with an email code.', 429)
+        return _error('Too many attempts. Wait a few minutes, or sign in with an email code.', 429)
 
     user = User.objects.filter(email=email, is_active=True).first() if email else None
     if user is None or not user.has_usable_password():
@@ -355,7 +355,7 @@ def login(request: HttpRequest) -> JsonResponse:
             emails.send_confirm_email(user.email, _confirm_link(user))
         except Exception:  # noqa: BLE001
             log.exception('Re-sending a confirmation email failed')
-        return _error('Confirm your email first. We’ve sent the link again.', 403, code='unverified')
+        return _error('Confirm your email address first. We’ve sent you the link again.', 403, code='unverified')
     return _signed_in_reply(user)
 
 
@@ -365,9 +365,9 @@ def login(request: HttpRequest) -> JsonResponse:
 def forgot_password(request: HttpRequest) -> JsonResponse:
     email = _email(_body(request))
     if not email:
-        return _error('That email doesn’t look right.')
+        return _error('Enter an email address in the format name@example.com.')
     if throttle.hit('reset:ip', _ip(request)) or throttle.hit('reset:email', email):
-        return _error('Too many requests. Wait a few minutes, then try again.', 429)
+        return _error('Too many attempts. Wait a few minutes, then try again.', 429)
     user = User.objects.filter(email=email, is_active=True, email_verified_at__isnull=False).first()
     if user:
         uid = urlsafe_base64_encode(force_bytes(str(user.pk)))
@@ -377,7 +377,7 @@ def forgot_password(request: HttpRequest) -> JsonResponse:
             emails.send_password_reset(email, link)
         except Exception:  # noqa: BLE001
             log.exception('Sending a password reset failed')
-            return _error('The email couldn’t be sent. Try again in a minute.', 502)
+            return _error('We couldn’t send the email. Try again in a minute.', 502)
     return JsonResponse(CHECK_EMAIL)
 
 
@@ -386,7 +386,7 @@ def forgot_password(request: HttpRequest) -> JsonResponse:
 @service_only
 def reset_password(request: HttpRequest) -> JsonResponse:
     data = _body(request)
-    invalid = _error('That reset link has expired or was already used. Ask for a new one.')
+    invalid = _error('This reset link has expired or has already been used. Ask for a new one.')
     try:
         user = User.objects.get(pk=uuid.UUID(force_str(urlsafe_base64_decode(str(data.get('uid', ''))))), is_active=True)
     except (User.DoesNotExist, ValueError, TypeError):
@@ -421,7 +421,7 @@ def me(request: HttpRequest, user) -> JsonResponse:
 def update_profile(request: HttpRequest, user) -> JsonResponse:
     name = _display_name(_body(request).get('display_name'))
     if not name:
-        return _error('Add your name.', field='display_name')
+        return _error('Enter your name.', field='display_name')
     user.display_name = name
     user.save(update_fields=['display_name'])
     return JsonResponse({'user': _user_json(user)})
@@ -435,7 +435,7 @@ def set_password(request: HttpRequest, user) -> JsonResponse:
     """Adds a password to an account that signs in by code, or changes an existing one."""
     data = _body(request)
     if user.has_usable_password() and not user.check_password(str(data.get('current_password', ''))):
-        return _error('Your current password isn’t right.', field='current_password')
+        return _error('Your current password is wrong. Check it and try again.', field='current_password')
     password = str(data.get('password', ''))
     problems = _password_problems(password, user)
     if problems:
@@ -463,11 +463,11 @@ def _deletion_token(user) -> str:
 def confirm_account_deletion(request: HttpRequest, user) -> JsonResponse:
     """Step 1: proves it's really the account holder (password, or a fresh email code)."""
     if throttle.hit('login:email', user.email):
-        return _error('Too many tries. Wait a few minutes, then try again.', 429)
+        return _error('Too many attempts. Wait a few minutes, then try again.', 429)
     data = _body(request)
     if user.has_usable_password():
         if not user.check_password(str(data.get('password', ''))[: settings.PASSWORD_MAX_LENGTH]):
-            return _error('That password isn’t right.', field='password')
+            return _error('That password is wrong. Check it and try again.', field='password')
     else:
         code = re.sub(r'\s+', '', str(data.get('code', '')))
         with transaction.atomic():
@@ -478,11 +478,11 @@ def confirm_account_deletion(request: HttpRequest, user) -> JsonResponse:
                 .first()
             )
             if not CODE.match(code) or not login or login.attempts >= settings.LOGIN_CODE_MAX_ATTEMPTS:
-                return _error('That code isn’t right, or it has expired. Ask for a new one.', field='code')
+                return _error('That code is wrong or has expired. Use the latest code we sent, or ask for a new one.', field='code')
             if not hmac.compare_digest(login.code_hash, _hash_code(user.email, code)):
                 login.attempts += 1
                 login.save(update_fields=['attempts'])
-                return _error('That code isn’t right, or it has expired. Ask for a new one.', field='code')
+                return _error('That code is wrong or has expired. Use the latest code we sent, or ask for a new one.', field='code')
             login.used_at = timezone.now()
             login.save(update_fields=['used_at'])
     return JsonResponse({'deletion_token': _deletion_token(user), 'expires_in': DELETION_TOKEN_SECONDS})
@@ -501,9 +501,9 @@ def delete_account(request: HttpRequest, user) -> JsonResponse:
     try:
         payload = signing.loads(str(_body(request).get('deletion_token', '')), salt=DELETION_SALT, max_age=DELETION_TOKEN_SECONDS)
     except signing.BadSignature:
-        return _error('Confirm again to delete your account.', 400)
+        return _error('Your confirmation has expired. Enter your password or code again to delete your account.', 400)
     if payload.get('u') != str(user.pk) or payload.get('sv') != user.session_version:
-        return _error('Confirm again to delete your account.', 400)
+        return _error('Your confirmation has expired. Enter your password or code again to delete your account.', 400)
     with transaction.atomic():
         LoginCode.objects.filter(email=user.email).delete()
         user.delete()

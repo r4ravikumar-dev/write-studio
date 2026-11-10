@@ -60,7 +60,7 @@ export function MediaProvider({caseStudyId, children}: {caseStudyId: string; chi
     });
     listStudioMedia(kind)
       .then(list => !isCancelled && setAssets(list))
-      .catch(listError => !isCancelled && setError(listError instanceof Error ? listError.message : 'Couldn’t load uploads.'))
+      .catch(listError => !isCancelled && setError(listError instanceof Error ? listError.message : 'We couldn’t load your uploads. Close this window and try again.'))
       .finally(() => !isCancelled && setIsLoading(false));
     return () => {
       isCancelled = true;
@@ -96,7 +96,7 @@ export function MediaProvider({caseStudyId, children}: {caseStudyId: string; chi
     try {
       close(await uploadStudioAsset(file, caseStudyId));
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : 'Upload failed.');
+      setError(uploadError instanceof Error ? uploadError.message : 'The upload didn’t finish. Check your connection and try again.');
     } finally {
       setIsUploading(false);
     }
@@ -113,11 +113,11 @@ export function MediaProvider({caseStudyId, children}: {caseStudyId: string; chi
       <Dialog isOpen={kind !== null} onOpenChange={open => !open && close(null)} width={820} maxHeight="86dvh">
         <DialogHeader
           title={kind ? `Choose from ${TITLES[kind].toLowerCase()}` : 'Media'}
-          subtitle="Everything you've uploaded, newest first."
+          subtitle="Everything you’ve uploaded, newest first."
           onOpenChange={open => !open && close(null)}
           endContent={
             <Button
-              label="Upload new"
+              label="Upload a new file"
               variant="primary"
               size="sm"
               isLoading={isUploading}
@@ -147,7 +147,7 @@ export function MediaProvider({caseStudyId, children}: {caseStudyId: string; chi
             <Text color="secondary">Loading…</Text>
           ) : shown.length === 0 ? (
             <VStack gap={2} hAlign="center" className="media-empty">
-              <Text color="secondary">Nothing here yet. Upload something new.</Text>
+              <Text color="secondary">Nothing here yet. Select Upload a new file to add one.</Text>
             </VStack>
           ) : (
             <Grid columns={{minWidth: 150}} gap={3}>

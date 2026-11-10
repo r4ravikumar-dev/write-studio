@@ -25,7 +25,7 @@ export async function saveWorkspaceName(_: SettingsState, formData: FormData): P
   try {
     await api('/api/app/workspace', {method: 'PATCH', body: {name: text(formData, 'name')}, auth: true});
   } catch (error) {
-    return {status: 'error', field: 'name', message: errorMessage(error, 'Couldn’t rename the workspace.')};
+    return {status: 'error', field: 'name', message: errorMessage(error, 'We couldn’t rename your workspace. Try again.')};
   }
   revalidatePath('/studio', 'layout');
   return {status: 'saved'};
@@ -36,7 +36,7 @@ export async function savePassword(_: SettingsState, formData: FormData): Promis
   await requireStudioUser();
   const password = text(formData, 'password');
   if (password !== text(formData, 'password_again')) {
-    return {status: 'error', field: 'password_again', message: 'The passwords don’t match.'};
+    return {status: 'error', field: 'password_again', message: 'The passwords don’t match. Enter the same password in both fields.'};
   }
   const result = await setPassword(await getAccessToken(), password, text(formData, 'current_password') || undefined);
   if (!result.ok) return {status: 'error', field: result.field, message: result.error};
@@ -69,7 +69,7 @@ export async function sendDeletionCode(): Promise<SettingsState> {
 export async function deleteMyAccount(_: SettingsState, formData: FormData): Promise<SettingsState> {
   await requireStudioUser();
   if (text(formData, 'confirm').trim().toLowerCase() !== 'delete') {
-    return {status: 'error', field: 'confirm', message: 'Type DELETE to confirm.'};
+    return {status: 'error', field: 'confirm', message: 'Type the word DELETE to confirm.'};
   }
   const token = await getAccessToken();
   const proof = text(formData, 'password') ? {password: text(formData, 'password')} : {code: text(formData, 'code').replace(/\s+/g, '')};
@@ -78,7 +78,7 @@ export async function deleteMyAccount(_: SettingsState, formData: FormData): Pro
   try {
     await api('/api/app/account/storage', {method: 'DELETE', auth: true});
   } catch (error) {
-    return {status: 'error', message: errorMessage(error, 'Your files couldn’t be removed, so nothing was deleted. Try again.')};
+    return {status: 'error', message: errorMessage(error, 'We couldn’t remove your files, so nothing was deleted. Try again in a few minutes.')};
   }
   const deleted = await deleteAccount(token, confirmed.data.deletion_token);
   if (!deleted.ok) return {status: 'error', message: deleted.error};

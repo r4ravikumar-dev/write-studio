@@ -125,7 +125,7 @@ export function SettingsPanel({
         />
         <TextInput
           label="Alt text"
-          description="Describe the picture for screen readers."
+          description="Describe what the picture shows, for people who can’t see it."
           value={meta.thumbnail_alt}
           onChange={value => onChange({thumbnail_alt: value})}
           width="100%"
@@ -143,7 +143,7 @@ export function SettingsPanel({
       <Group title="Headline">
         <TextInput
           label="Headline"
-          description="Wrap one word in *asterisks* to set it in the accent face."
+          description="To show one word in the accent font, put *asterisks* around it."
           value={meta.title}
           onChange={value => {
             onChange(isSlugEdited ? {title: value} : {title: value, slug: slugify(value)});
@@ -164,11 +164,11 @@ export function SettingsPanel({
       <Divider />
 
       <Group title="Details">
-        <TextInput label="Project label" description="e.g. Client × Product" value={meta.label} onChange={value => onChange({label: value})} width="100%" />
-        <TextInput label="Area" description="e.g. Health and wellness" value={meta.area} onChange={value => onChange({area: value})} width="100%" />
+        <TextInput label="Project label" description="For example: Client × Product" value={meta.label} onChange={value => onChange({label: value})} width="100%" />
+        <TextInput label="Area" description="For example: Health and wellness" value={meta.area} onChange={value => onChange({area: value})} width="100%" />
         <TextInput
           label="Tags"
-          description="Comma-separated, e.g. Mobile app, UX/UI, 2025"
+          description="Separate tags with commas. For example: Mobile app, UX/UI, 2025"
           value={tags}
           onChange={value => {
             setTags(value);
@@ -176,12 +176,12 @@ export function SettingsPanel({
           }}
           width="100%"
         />
-        <TextInput label="Focus" description="e.g. Onboarding · Mobile experience" value={meta.focus} onChange={value => onChange({focus: value})} width="100%" />
+        <TextInput label="Focus" description="For example: Onboarding · Mobile experience" value={meta.focus} onChange={value => onChange({focus: value})} width="100%" />
       </Group>
 
       <Divider />
 
-      <Group title="Opening visual" hint="The large picture at the top of the case study (optional).">
+      <Group title="Opening visual" hint="Optional. The large picture at the top of the case study.">
         <ImageField label="Cover" url={meta.cover_path} onChange={path => onChange({cover_path: path})} />
       </Group>
 
@@ -190,7 +190,7 @@ export function SettingsPanel({
       <Group title="Short name">
         <TextInput
           label="Short name"
-          description="Lowercase letters, numbers and dashes. Unique in your workspace; never public."
+          description="Used in this case study’s private web address. Use lowercase letters, numbers and dashes, and a different name for each case study."
           value={meta.slug}
           onChange={value => {
             setIsSlugEdited(true);

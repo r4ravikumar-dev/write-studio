@@ -40,24 +40,24 @@ export async function saveStudioCaseStudy(id: string, draft: StudioCaseStudyDraf
         body: {...draft, expected_updated_at: expectedUpdatedAt},
         auth: true,
       }),
-    'Couldn’t save.',
+    'We couldn’t save your changes. Check your connection and try again.',
   );
 }
 
 export async function archiveStudioCaseStudy(id: string) {
-  const result = await attempt(() => api(`/api/app/case-studies/${id}/archive`, {method: 'POST', auth: true}), 'Couldn’t archive.');
+  const result = await attempt(() => api(`/api/app/case-studies/${id}/archive`, {method: 'POST', auth: true}), 'We couldn’t archive this case study. Try again.');
   revalidatePath('/studio', 'layout');
   return result;
 }
 
 export async function restoreStudioCaseStudy(id: string) {
-  const result = await attempt(() => api(`/api/app/case-studies/${id}/restore`, {method: 'POST', auth: true}), 'Couldn’t restore.');
+  const result = await attempt(() => api(`/api/app/case-studies/${id}/restore`, {method: 'POST', auth: true}), 'We couldn’t restore this case study. Try again.');
   revalidatePath('/studio', 'layout');
   return result;
 }
 
 export async function deleteStudioCaseStudy(id: string) {
-  const result = await attempt(() => api(`/api/app/case-studies/${id}`, {method: 'DELETE', auth: true}), 'Couldn’t delete.');
+  const result = await attempt(() => api(`/api/app/case-studies/${id}`, {method: 'DELETE', auth: true}), 'We couldn’t delete this case study. Try again.');
   revalidatePath('/studio', 'layout');
   return result;
 }

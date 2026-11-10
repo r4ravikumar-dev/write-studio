@@ -5,7 +5,7 @@ import type {Metadata} from 'next';
  * workspace is private to the account that owns it. Never indexed.
  */
 export const metadata: Metadata = {
-  title: {default: 'Studio', template: '%s · Case Study Studio'},
+  title: {default: 'Case Study Studio', template: '%s · Case Study Studio'},
   robots: {index: false, follow: false, nocache: true},
 };
 

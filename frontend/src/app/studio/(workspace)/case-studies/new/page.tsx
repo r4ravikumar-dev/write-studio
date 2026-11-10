@@ -14,7 +14,7 @@ export default async function NewStudioCaseStudyPage() {
     <VStack gap={6} style={{maxInlineSize: 560}}>
       <VStack gap={2}>
         <Heading level={1}>New case study</Heading>
-        <Text color="secondary">It starts as a private draft with a ten-section storytelling template.</Text>
+        <Text color="secondary">It starts as a private draft, with ten suggested sections to guide you.</Text>
       </VStack>
       <NewCaseStudyForm />
     </VStack>

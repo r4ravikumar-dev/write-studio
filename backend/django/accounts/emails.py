@@ -22,18 +22,18 @@ def send_login_code(to: str, code: str, minutes: int) -> None:
     _send(
         to,
         f'Your sign-in code: {code}',
-        [f'Your code to sign in to the studio is {code}.', f'It works once, for {minutes} minutes.',
-         'If you didn’t ask for it, you can ignore this email.'],
+        [f'Your code to sign in to Case Study Studio is {code}.', f'It works once and expires in {minutes} minutes.',
+         'If you didn’t ask for this code, you can ignore this email.'],
     )
 
 
 def send_confirm_email(to: str, link: str) -> None:
     _send(
         to,
-        'Confirm your email for the studio',
-        ['Someone (hopefully you) created a studio account with this email address.',
-         'Confirm it to finish signing up. The link works for 24 hours.',
-         'If this wasn’t you, ignore this email and no account will be activated.'],
+        'Confirm your email for Case Study Studio',
+        ['Someone created a Case Study Studio account with this email address.',
+         'If it was you, confirm your email to finish signing up. The link works for 24 hours.',
+         'If it wasn’t you, ignore this email. The account won’t be activated.'],
         ('Confirm my email', link),
     )
 
@@ -41,9 +41,9 @@ def send_confirm_email(to: str, link: str) -> None:
 def send_password_reset(to: str, link: str) -> None:
     _send(
         to,
-        'Reset your studio password',
-        ['Someone asked to reset the password for your studio account.',
-         'The link works for one hour, once. If this wasn’t you, ignore this email; your password stays the same.'],
+        'Reset your Case Study Studio password',
+        ['Someone asked to reset the password for your Case Study Studio account.',
+         'The link works once, for one hour. If it wasn’t you, ignore this email. Your password won’t change.'],
         ('Choose a new password', link),
     )
 
@@ -51,8 +51,8 @@ def send_password_reset(to: str, link: str) -> None:
 def send_already_registered(to: str, link: str) -> None:
     _send(
         to,
-        'You already have a studio account',
-        ['Someone tried to sign up with this email, but it already has a studio account.',
-         'If it was you, sign in instead (with your password or an email code), or reset your password.'],
+        'You already have a Case Study Studio account',
+        ['Someone tried to sign up with this email address, but it already has a Case Study Studio account.',
+         'If it was you, sign in with your password or an email code, or reset your password.'],
         ('Sign in', link),
     )

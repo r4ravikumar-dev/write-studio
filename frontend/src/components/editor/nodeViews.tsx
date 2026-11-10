@@ -208,7 +208,7 @@ function CalloutView(props: ReactNodeViewProps) {
 // Files, uploaded video and embeds
 // ----------------------------------------------------------------------------
 function CaptionInput({value, onChange}: {value: string; onChange: (value: string) => void}) {
-  return <TextInput label="Caption" isLabelHidden placeholder="Add a caption (optional)" value={value} onChange={onChange} size="sm" width="100%" />;
+  return <TextInput label="Caption" isLabelHidden placeholder="Caption (optional)" value={value} onChange={onChange} size="sm" width="100%" />;
 }
 
 function FileView(props: ReactNodeViewProps) {

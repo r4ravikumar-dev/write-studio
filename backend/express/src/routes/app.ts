@@ -19,7 +19,7 @@ export async function workspaceOf(userId: string): Promise<StudioWorkspace> {
     .eq('owner_id', userId)
     .maybeSingle();
   if (error) throw new HttpError(502, error.message);
-  if (!data) throw new HttpError(404, 'Your workspace isn’t ready yet. Try again in a moment.');
+  if (!data) throw new HttpError(404, 'Your workspace isn’t ready yet. Reload the page in a moment.');
   return data as StudioWorkspace;
 }
 
@@ -36,7 +36,7 @@ appRouter.patch(
   '/workspace',
   handle(async (req, res) => {
     const name = String((req.body ?? {}).name ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
-    if (!name) throw new HttpError(400, 'Give your workspace a name.');
+    if (!name) throw new HttpError(400, 'Enter a name for your workspace.');
     const {data, error} = await supabase
       .from('studio_workspaces')
       .update({name})
