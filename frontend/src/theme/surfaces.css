@@ -74,78 +74,12 @@
 }
 /* Layer 1 elsewhere: .studio-empty, .studio-media-item, .studio-centered (auth card) in globals.css. */
 
-/* The case-study table: a layer-1 card with a layer-2 header row. */
-.studio-table {
-  overflow: hidden;
-  background: var(--surface-container);
-  border: var(--border-width-100) solid var(--surface-outline);
-  border-radius: var(--surface-container-radius);
-}
-.studio-table thead,
-.studio-table thead th {
-  background: var(--surface-container-high);
-}
-
 /* Settings: one centred column of layer-1 cards. */
 .studio-settings {
   inline-size: 100%;
   max-inline-size: 35rem;
   margin-inline: auto;
 }
-/* Table rows: 16px top and bottom (outranks Astryx's atomic cell padding). */
-.studio-table tbody td:not(#\#):not(#\#):not(#\#):not(#\#) {
-  padding-block: var(--space-16);
-}
-
-/* Case studies: table on wide screens, layer-1 cards below 900px (the table needs ~750px). */
-.studio-cases-cards {
-  display: none;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.studio-case-card {
-  padding: var(--space-16);
-  background: var(--surface-container);
-  border: var(--border-width-100) solid var(--surface-outline);
-  border-radius: var(--surface-container-radius);
-}
-.studio-case-card-actions {
-  /* Actions sit on their own row under the details, separated by a hairline. */
-  padding-block-start: var(--space-12);
-  border-block-start: var(--border-width-100) solid var(--surface-outline);
-}
-.studio-case-card-actions > * {
-  justify-content: flex-start;
-}
-/* Tablets (768–899px): actions at the far right of the card, beside the details. */
-@media (min-width: 768px) {
-  .studio-case-card-body:not(#\#):not(#\#):not(#\#) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    column-gap: var(--space-16);
-  }
-  .studio-case-card-body > :not(.studio-case-card-actions) {
-    grid-column: 1;
-  }
-  .studio-case-card-actions {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    align-self: center;
-    padding-block-start: 0;
-    border-block-start: none;
-  }
-}
-@media (max-width: 899px) {
-  .studio-cases-wide {
-    display: none;
-  }
-  .studio-cases-cards {
-    display: grid;
-    gap: var(--space-12);
-  }
-}
-
 /* Phones: no sheet. The document runs edge to edge on white with the mobile side margin
    (space/16), like Word / Docs on a phone. */
 @media (max-width: 767px) {
@@ -159,5 +93,126 @@
     padding-inline: var(--space-16);
     border: 0;
     border-radius: 0;
+  }
+}
+
+/* ==================================================================================
+ * Project cards (case-study dashboard): a responsive grid of layer-1 cards.
+ *   desktop ≥1024px: 3 columns · tablet 640–1023px: 2 · phone: 1. Pages of 9 (3×3).
+ * The title link stretches over the whole card (one link per card); the ⋯ menu sits above it.
+ * ================================================================================== */
+.project-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-16);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 640px) {
+  .project-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-20);
+  }
+}
+@media (min-width: 1024px) {
+  .project-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-24);
+  }
+}
+.project-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface-container);
+  border: var(--border-width-100) solid var(--surface-outline);
+  border-radius: var(--surface-container-radius);
+  transition: box-shadow var(--glass-duration) var(--glass-ease), border-color var(--glass-duration) ease, transform var(--glass-duration) var(--glass-ease);
+}
+.project-card:hover {
+  border-color: var(--border-gray-normal);
+  box-shadow: var(--elevation-300);
+  transform: translateY(calc(-1 * var(--space-2)));
+}
+.project-card:focus-within {
+  outline: var(--border-width-200) solid var(--border-brand-normal);
+  outline-offset: var(--space-2);
+}
+/* Thumbnail: 16:10, layer-2 well when there's no picture. */
+.project-card-thumb {
+  aspect-ratio: 16 / 10;
+  background: var(--surface-container-high);
+  border-block-end: var(--border-width-100) solid var(--surface-outline);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.project-card-thumb img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  transition: transform var(--glass-duration) var(--glass-ease);
+}
+.project-card:hover .project-card-thumb img {
+  transform: scale(1.02);
+}
+.project-card-initial {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-display-3-size, var(--heading-xxl-size));
+  line-height: 1;
+  color: var(--text-brand-primary);
+  inline-size: var(--size-64);
+  block-size: var(--size-64);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-16);
+  background: var(--bg-brand-light);
+}
+.project-card-body {
+  padding: var(--space-12) var(--space-12) var(--space-16) var(--space-16);
+}
+.project-card-text {
+  min-inline-size: 0;
+}
+.project-card-link {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-primary);
+  font-size: var(--heading-md-size);
+  font-weight: 600;
+  line-height: var(--heading-leading, 1.3);
+  color: var(--text-gray-primary);
+  text-decoration: none;
+}
+/* Stretched link: the whole card opens the case study. */
+.project-card-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.project-card-link:focus-visible {
+  outline: none;
+}
+.project-card-menu {
+  position: relative;
+  z-index: 2;
+  flex: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .project-card,
+  .project-card-thumb img {
+    transition: none;
+  }
+  .project-card:hover {
+    transform: none;
+  }
+  .project-card:hover .project-card-thumb img {
+    transform: none;
   }
 }
