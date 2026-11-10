@@ -1,0 +1,7 @@
+# Django 4.2 LTS runs on Python 3.8+; on Python 3.10+ pip may pick Django 5.x, which also works.
+Django>=4.2,<6.0
+PyJWT>=2.8,<3
+psycopg[binary]>=3.1,<4
+dj-database-url>=2.1,<4
+python-dotenv>=1.0,<2
+gunicorn>=22,<24
