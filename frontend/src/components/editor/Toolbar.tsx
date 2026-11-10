@@ -4,6 +4,7 @@ import {createContext, useContext, useEffect, useState, useSyncExternalStore, ty
 import type {Mark} from '@tiptap/pm/model';
 import {Divider} from '@astryxdesign/core/Divider';
 import {caseStudySections} from '@/content/caseStudyTemplate';
+import {caseStudySectionNodes} from '@studio/shared';
 import {Tab, TabList} from '@astryxdesign/core/TabList';
 import {useEditorState, type Editor} from '@tiptap/react';
 import {HStack, VStack} from '@astryxdesign/core/Layout';
@@ -81,9 +82,8 @@ const BLOCKS = [
 ];
 
 export const FONTS = [
-  {value: 'default', label: 'Sans (IBM Plex Sans)'},
-  {value: 'var(--font-family-accent)', label: 'Serif (Instrument Serif)'},
-  {value: 'var(--font-family-eyebrow)', label: 'Mono (IBM Plex Mono)'},
+  {value: 'default', label: 'Outfit (body)'},
+  {value: 'var(--font-family-accent)', label: 'Bricolage Grotesque (display)'},
 ];
 
 const SIZES = [
@@ -136,7 +136,7 @@ const LINE_HEIGHTS = [
 /** Text and highlight colours as theme tokens, so they adapt to light and dark mode. */
 export const COLORS = [
   {label: 'Default', value: ''},
-  {label: 'Brand blue', value: 'var(--color-brand-text)'},
+  {label: 'Brand purple', value: 'var(--color-brand-text)'},
   {label: 'Secondary', value: 'var(--color-text-secondary)'},
   {label: 'Blue', value: 'var(--color-text-blue)'},
   {label: 'Teal', value: 'var(--color-text-teal)'},
@@ -729,20 +729,7 @@ export function Toolbar({
                 items: caseStudySections.map(section => ({
                   label: section.title,
                   description: section.hint,
-                  onClick: () =>
-                    chain()
-                      .insertContent([
-                        {
-                          type: 'heading',
-                          attrs: {level: 2},
-                          content: [{type: 'text', text: section.title}],
-                        },
-                        {
-                          type: 'paragraph',
-                          content: [{type: 'text', marks: [{type: 'italic'}], text: section.hint}],
-                        },
-                      ])
-                      .run(),
+                  onClick: () => chain().insertContent(caseStudySectionNodes(section)).run(),
                 })),
               },
             ]}
@@ -770,8 +757,8 @@ export function Toolbar({
             renderTrigger={props => (
               <IconButton
                 {...props}
-                label="Space"
-                tooltip="Space"
+                label="Add space"
+                tooltip="Add space"
                 icon={<Icon icon={MoveVertical} size="sm" color="inherit" />}
                 variant="ghost"
                 size="sm"

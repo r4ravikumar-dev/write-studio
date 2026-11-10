@@ -3609,11 +3609,14 @@ dialog.astryx-dialog::backdrop {
   /* Type comes from .cs-prose in src/theme/typography.css. */
 }
 .write-prose .is-empty::before {
+  /* Placeholder hints: shown only while a block is empty, never saved. */
   content: attr(data-placeholder);
   float: left;
   block-size: 0;
   pointer-events: none;
-  color: var(--color-text-disabled);
+  /* Same style as the text it becomes (it inherits the block's font, size and weight), only
+     the colour differs, so the writer sees the style before typing. */
+  color: var(--text-gray-placeholder);
 }
 .write-settings {
   inline-size: 22rem;
@@ -4434,4 +4437,51 @@ dialog.astryx-dialog::backdrop {
   color: var(--color-brand-text);
   text-decoration: underline;
   text-underline-offset: 0.2em;
+}
+
+/* Tablet and desktop: the editor fills the screen and the WINDOW does not scroll. The writing
+   section scrolls on its own, so its scrollbar sits beside the page being written, from below the
+   formatting toolbar (not the far right of the window, past the settings panel); the settings
+   panel scrolls separately under its Block / Case study switch.
+   Phones keep window scrolling (their toolbar is a fixed bottom bar). */
+@media (min-width: 768px) {
+  .write:not(#\#):not(#\#):not(#\#) {
+    block-size: 100svh;
+    min-block-size: 0;
+    overflow: hidden;
+  }
+  .write-main:not(#\#):not(#\#):not(#\#) {
+    flex: 1;
+    min-block-size: 0;
+    align-items: stretch;
+  }
+  /* The canvas is a column: the toolbar stays put on top, only .write-scroll (the writing)
+     scrolls, so the scrollbar runs beside the page from below the toolbar down. */
+  .write-canvas:not(#\#):not(#\#):not(#\#) {
+    min-block-size: 0;
+    overflow: hidden;
+  }
+  .write-toolbar:not(#\#):not(#\#):not(#\#) {
+    position: relative;
+    inset-block-start: 0;
+    flex: none;
+  }
+  .write-scroll {
+    flex: 1;
+    min-block-size: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+@media (min-width: 1024px) {
+  .write-side:not(#\#):not(#\#) {
+    position: relative;
+    inset-block-start: auto;
+    max-block-size: none;
+    min-block-size: 0;
+  }
+  .write-side .write-settings:not(#\#):not(#\#) {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }

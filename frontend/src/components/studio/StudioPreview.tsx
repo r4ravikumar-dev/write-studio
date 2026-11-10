@@ -1,3 +1,4 @@
+import {clearUntouchedHints} from '@studio/shared';
 import {VStack, HStack} from '@astryxdesign/core/Layout';
 import {Text} from '@astryxdesign/core/Text';
 import {Button} from '@astryxdesign/core/Button';
@@ -19,7 +20,7 @@ export function StudioPreview({study, isEmbedded}: {study: StudioCaseStudy; isEm
       {!isEmbedded && (
         <HStack className="studio-bar preview-bar glass glass-bar" justify="between" vAlign="center" gap={4} wrap="wrap">
           <Text type="supporting" style={EYEBROW_STYLE}>
-            Private preview · only you can see this
+            Private preview
           </Text>
           <Button label="Back to editing" size="sm" variant="secondary" href={`/studio/case-studies/${study.id}`} />
         </HStack>
@@ -30,7 +31,7 @@ export function StudioPreview({study, isEmbedded}: {study: StudioCaseStudy; isEm
           // eslint-disable-next-line @next/next/no-img-element
           <img className="cs-cover" src={studioMediaUrl(study.cover_path)} alt={study.thumbnail_alt} fetchPriority="high" />
         )}
-        <CaseStudyArticle content={study.content} />
+        <CaseStudyArticle content={clearUntouchedHints(study.content)} />
       </Chapter>
     </VStack>
   );

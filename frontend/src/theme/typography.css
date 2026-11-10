@@ -161,3 +161,9 @@ body {
 .cs-caption, figcaption {
   font-size: var(--caption-md-size); font-weight: var(--caption-md-weight); line-height: var(--caption-leading);
 }
+
+/* Untouched (empty) section headings and paragraphs take no space in the preview. In the
+   editor they are never :empty (ProseMirror adds a trailing <br>), so placeholders still show. */
+.cs-prose :is(h1, h2, h3, h4, p):empty {
+  display: none;
+}

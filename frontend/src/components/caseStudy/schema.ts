@@ -366,7 +366,30 @@ export const LetterSpacing = Extension.create({
   },
 });
 
+/**
+ * Headings remember which framework section they are (`section`: 'opening', 'overview'…), so an
+ * empty section heading can show its title as a placeholder. Metadata only: never shown.
+ */
+const SectionKey = Extension.create({
+  name: 'sectionKey',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['heading'],
+        attributes: {
+          section: {
+            default: null,
+            parseHTML: element => element.getAttribute('data-section'),
+            renderHTML: attributes => (attributes.section ? {'data-section': attributes.section} : {}),
+          },
+        },
+      },
+    ];
+  },
+});
+
 export const caseStudyExtensions: Extensions = [
+  SectionKey,
   StarterKit.configure({
     heading: {levels: [1, 2, 3, 4]},
     link: {

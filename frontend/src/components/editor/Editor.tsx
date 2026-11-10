@@ -16,6 +16,7 @@ import {Archive, ArchiveRestore, ArrowLeft, Bold, Eye, Italic, Link2, Monitor, P
 import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/SegmentedControl';
 import {caseStudyExtensions} from '@/components/caseStudy/schema';
 import {parseEmbed} from '@/lib/caseStudies/embeds';
+import {clearUntouchedHints, sectionOf} from '@studio/shared';
 import type {StudioCaseStudy, StudioMeta, StudioStatus} from '@studio/shared';
 import {archiveStudioCaseStudy, restoreStudioCaseStudy, saveStudioCaseStudy} from '@/app/studio/case-study-actions';
 import {studioKindOfFile, uploadStudioAsset} from '@/lib/storage/studio-storage';
@@ -175,7 +176,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
         const chain = editor.chain().focus();
         (pos === undefined ? chain.insertContent(node) : chain.insertContentAt(pos, node)).run();
       } catch (uploadError) {
-        setError(uploadError instanceof Error ? uploadError.message : 'Upload failed.');
+        setError(uploadError instanceof Error ? uploadError.message : 'The upload didn’t finish. Check your connection and try again.');
       } finally {
         setUploading(count => count - 1);
       }
@@ -189,14 +190,25 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
       ...caseStudyExtensions.filter(extension => !CUSTOM_NODES.has(extension.name)),
       ...editorNodes,
       Placeholder.configure({
-        placeholder: ({node}) =>
-          node.type.name === 'heading' ? 'Section heading' : 'Write, or type “/” to add a picture, video, file or Figma…',
+        // Every empty section shows its hint (not only the one with the cursor); the hint is
+        // never stored, so typing replaces it and the text takes the normal body style.
+        showOnlyCurrent: false,
+        placeholder: ({editor: e, node, pos, hasAnchor}) => {
+          // An empty framework heading shows its title; the paragraph under it shows the hint.
+          if (node.type.name === 'heading') return sectionOf(node)?.title ?? (hasAnchor ? 'Section heading' : '');
+          if (node.type.name !== 'paragraph') return '';
+          const $pos = e.state.doc.resolve(pos);
+          const before = $pos.index() > 0 ? $pos.parent.child($pos.index() - 1) : null;
+          const hint = before?.type.name === 'heading' ? sectionOf(before)?.hint : undefined;
+          return hint ?? (hasAnchor ? 'Start writing, or type / to add a picture, video, file or Figma design' : '');
+        },
       }),
     ],
-    content: study.content,
+    // Old drafts: untouched template hint text becomes a placeholder (see clearUntouchedHints).
+    content: clearUntouchedHints(study.content),
     editable: study.status !== 'archived',
     editorProps: {
-      attributes: {class: 'cs-prose write-prose', 'aria-label': 'Case study'},
+      attributes: {class: 'cs-prose write-prose', 'aria-label': 'Case study text'},
       handleKeyDown: (_, event) => {
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
           event.preventDefault();
@@ -336,8 +348,8 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
       setEmbedDialog({
         ...embedDialog,
         error: wantsFigma
-          ? 'Paste a Figma file, prototype or board link (figma.com/…).'
-          : 'Paste a YouTube, Vimeo or Loom link.',
+          ? 'That isn’t a Figma link. Paste a link that starts with https://www.figma.com/.'
+          : 'That isn’t a supported video link. Paste a link from YouTube, Vimeo or Loom.',
       });
       return;
     }
@@ -428,8 +440,8 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
             </HStack>
           </span>
           <IconButton
-            label={isPanelOpen ? 'Hide settings' : 'Show settings'}
-            tooltip={isPanelOpen ? 'Hide settings' : 'Show settings'}
+            label={isPanelOpen ? 'Hide settings panel' : 'Show settings panel'}
+            tooltip={isPanelOpen ? 'Hide settings panel' : 'Show settings panel'}
             variant={isPanelOpen ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() =>
@@ -498,7 +510,10 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
               <SlashMenu editor={editor} commands={inserts} />
             </>
           )}
-          <EditorContent editor={editor} className="write-document" />
+          {/* Only the writing scrolls (tablet/desktop): its scrollbar starts below the toolbar. */}
+          <div className="write-scroll">
+            <EditorContent editor={editor} className="write-document" />
+          </div>
         </VStack>
 
         {isDrawer && isPanelOpen && (
@@ -526,7 +541,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                   <VStack gap={2}>
                     <Text weight="semibold">No block selected</Text>
                     <Text color="secondary">
-                      Select a visual block, or its Properties button, to adjust its layout, media and captions here.
+                      Select a visual block, or its Properties button, to change its layout, media and captions.
                     </Text>
                   </VStack>
                 )}
@@ -555,7 +570,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                 <SegmentedControlItem value="tablet" label="Tablet" icon={<Icon icon={Tablet} size="sm" color="inherit" />} />
                 <SegmentedControlItem value="mobile" label="Mobile" icon={<Icon icon={Smartphone} size="sm" color="inherit" />} />
               </SegmentedControl>
-              <Button label="Open in a tab" size="sm" variant="ghost" href={`/studio/case-studies/${study.id}/preview`} target="_blank" />
+              <Button label="Open preview in a new tab" size="sm" variant="ghost" href={`/studio/case-studies/${study.id}/preview`} target="_blank" />
             </HStack>
           }
         />
@@ -574,7 +589,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
 
       {/* Link */}
       <Dialog isOpen={linkDialog !== null} onOpenChange={open => !open && setLinkDialog(null)} purpose="form" width={460}>
-        <DialogHeader title="Link" onOpenChange={open => !open && setLinkDialog(null)} />
+        <DialogHeader title="Add a link" onOpenChange={open => !open && setLinkDialog(null)} />
         <form
           onSubmit={event => {
             event.preventDefault();
@@ -582,7 +597,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
           }}>
           <VStack gap={4} className="write-dialog-body">
             <TextInput
-              label="Address"
+              label="Web address (URL)"
               hasAutoFocus
               placeholder="https://…"
               value={linkDialog?.href ?? ''}
@@ -591,7 +606,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
             />
             <HStack gap={2} hAlign="end">
               <Button label="Remove link" variant="destructive" onClick={() => applyLink('')} />
-              <Button label="Apply" variant="primary" type="submit" />
+              <Button label="Save link" variant="primary" type="submit" />
             </HStack>
           </VStack>
         </form>
@@ -600,11 +615,11 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
       {/* Figma / video embed */}
       <Dialog isOpen={embedDialog !== null} onOpenChange={open => !open && setEmbedDialog(null)} purpose="form" width={520}>
         <DialogHeader
-          title={embedDialog?.kind === 'figma' ? 'Embed Figma' : 'Embed a video'}
+          title={embedDialog?.kind === 'figma' ? 'Embed a Figma design' : 'Embed a video'}
           subtitle={
             embedDialog?.kind === 'figma'
-              ? 'In Figma, use Share → Copy link. The file must be viewable by anyone with the link.'
-              : 'A YouTube, Vimeo or Loom link.'
+              ? 'In Figma, select Share, then Copy link. Anyone with the link must be able to view the file.'
+              : 'Paste a link to a video on YouTube, Vimeo or Loom.'
           }
           onOpenChange={open => !open && setEmbedDialog(null)}
         />
@@ -615,7 +630,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
           }}>
           <VStack gap={4} className="write-dialog-body">
             <TextInput
-              label="Link"
+              label={embedDialog?.kind === 'figma' ? 'Figma link' : 'Video link'}
               hasAutoFocus
               placeholder={embedDialog?.kind === 'figma' ? 'https://www.figma.com/design/…' : 'https://youtu.be/…'}
               value={embedDialog?.url ?? ''}
