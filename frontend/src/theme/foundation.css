@@ -1,0 +1,50 @@
+/*
+ * The Studio's layout defaults, built only from DNA tokens (dna-tokens.css: --space-N,
+ * --radius-N, --border-width-N, --icon-size-*, --opacity-N, --elevation-*). Values here
+ * are references, never raw numbers off the scale.
+ */
+:root {
+  /* DNA "defaults that read as DNA" */
+  --card-padding: var(--space-24);        /* 16–24 */
+  --card-padding-compact: var(--space-16);
+  --section-gap: var(--space-64);         /* 48–96 on web */
+  --section-gap-compact: var(--space-48);
+  --section-gap-loose: var(--space-96);
+  --stack-gap: var(--space-12);           /* inner stacks 8–12 */
+  --stack-gap-tight: var(--space-8);
+  --radius-card: var(--radius-12);        /* cards 12–16 */
+  --radius-card-lg: var(--radius-16);
+  --radius-control: var(--radius-8);      /* buttons, inputs */
+  --radius-pill: var(--radius-round);     /* pills, chips */
+  --border-default: var(--border-width-100) solid var(--border-gray-normal);
+
+  /* Layout names the existing Studio styles expect, on the DNA scale. */
+  --space-gutter: clamp(var(--space-16), 4vw, var(--space-48));
+  --content-max: 720px;
+  --content-inset: var(--space-gutter);
+  --space-block: var(--space-24);
+  --space-section: var(--section-gap);
+  --space-chapter-gap: var(--space-48);
+}
+
+@media (max-width: 767px) {
+  :root {
+    --card-padding: var(--space-16);
+    --section-gap: var(--space-48);
+  }
+}
+
+.card { padding: var(--card-padding); border-radius: var(--radius-card); border: var(--border-default); background: var(--bg-gray-inverse); }
+.stack { display: flex; flex-direction: column; gap: var(--stack-gap); }
+.pill { border-radius: var(--radius-pill); }
+
+/* Show/hide by width (phones = below 768px, matching the mobile type scale). */
+@media (max-width: 767px) {
+  .only-wide:not(#\#):not(#\#):not(#\#) { display: none; }
+}
+@media (min-width: 768px) {
+  .only-narrow:not(#\#):not(#\#):not(#\#) { display: none; }
+}
+.studio-home {
+  white-space: nowrap;
+}

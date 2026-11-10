@@ -1,0 +1,114 @@
+/*
+ * Bridges DNA (dna-tokens.css) into the rest of the app. Values are never typed here:
+ * everything points at a DNA semantic token.
+ *
+ * - The Studio's fonts: primary = Outfit (product decision; DNA v2.0 says Inter),
+ *   secondary = Bricolage Grotesque. Loaded by next/font in src/app/fonts.ts.
+ * - Light mode only: DNA has no dark mode ("don't invent dark values"), so the Astryx
+ *   theme's light-dark() colours are pinned to light.
+ * - Astryx component colour, radius and border names → DNA semantic tokens, so Astryx
+ *   components render in DNA. Also the brand names the Studio styles use.
+ * Unlayered on purpose: it overrides the Astryx theme's layered tokens.
+ */
+html {
+  color-scheme: light;
+}
+
+:root {
+  --font-family-primary: var(--font-primary-face), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-family-secondary: var(--font-display-face), var(--font-family-primary);
+
+  /* Surfaces */
+  --color-background-body: var(--surface-base);
+  --color-background-surface: var(--surface-container);
+  --color-background-card: var(--surface-container);
+  --color-background-popover: var(--surface-container);
+  --color-background-muted: var(--surface-container-high);
+  --color-background-gray: var(--surface-container-high);
+  --color-background-inverted: var(--bg-gray-dark);
+  --color-overlay: var(--bg-overlay-normal);
+  --color-tint-hover: var(--bg-gray-subtle);
+  --color-skeleton: var(--bg-gray-normal);
+  --color-neutral: var(--bg-gray-moderate);
+
+  /* Text */
+  --color-text-primary: var(--text-gray-primary);
+  --color-text-secondary: var(--text-gray-secondary);
+  --color-text-tertiary: var(--text-gray-tertiary);
+  --color-text-disabled: var(--text-gray-disabled-subtle);
+  --color-text-accent: var(--text-brand-primary);
+  --color-text-error: var(--text-error-normal);
+  --color-text-success: var(--text-success-normal);
+  --color-text-warning: var(--text-warning-normal);
+  --color-text-info: var(--text-info-normal);
+  --color-on-dark: var(--text-gray-inverse);
+  --color-on-light: var(--text-gray-primary);
+
+  /* Borders */
+  --color-border: var(--border-gray-normal);
+  --color-border-emphasized: var(--border-gray-intense);
+  --color-border-error: var(--border-error-normal);
+  --color-border-success: var(--border-success-normal);
+  --color-border-info: var(--border-info-normal);
+  --color-focus-ring: var(--border-brand-normal);
+
+  /* Icons */
+  --color-icon-primary: var(--icon-gray-intense);
+  --color-icon-secondary: var(--icon-gray-normal);
+  --color-icon-disabled: var(--icon-gray-disabled-intense);
+  --color-icon-accent: var(--icon-brand-normal);
+  --color-icon-error: var(--icon-error-normal);
+
+  /* Brand (Astryx "accent", plus the names the Studio styles use) */
+  --color-accent: var(--bg-brand-normal);
+  --color-accent-muted: var(--bg-brand-subtle);
+  --color-on-accent: var(--text-brand-on-primary);
+  --color-brand: var(--bg-brand-normal);
+  --color-brand-text: var(--text-brand-primary);
+  --color-on-brand: var(--text-brand-on-primary);
+
+  /* Status: solid = …/normal + inverse text; muted = …/subtle + …/normal text */
+  --color-error: var(--bg-error-normal);
+  --color-error-muted: var(--bg-error-subtle);
+  --color-on-error: var(--text-gray-inverse);
+  --color-on-error-muted: var(--text-error-normal);
+  --color-success: var(--bg-success-normal);
+  --color-success-muted: var(--bg-success-subtle);
+  --color-on-success: var(--text-gray-inverse);
+  --color-on-success-muted: var(--text-success-normal);
+  --color-warning: var(--bg-warning-normal);
+  --color-warning-muted: var(--bg-warning-subtle);
+  --color-on-warning: var(--text-gray-inverse);
+  --color-on-warning-muted: var(--text-warning-normal);
+  --color-info: var(--bg-info-normal);
+  --color-info-muted: var(--bg-info-subtle);
+  --color-on-info: var(--text-gray-inverse);
+  --color-on-info-muted: var(--text-info-normal);
+
+  /* Radius and borders: DNA defaults (buttons/inputs 8, cards 12, pills round, 1px borders) */
+  --radius-element: var(--radius-8);
+  --radius-container: var(--radius-12);
+  --radius-full: var(--radius-round);
+  --border-width: var(--border-width-100);
+}
+
+body {
+  background: var(--surface-base);
+  color: var(--text-gray-primary);
+}
+
+/* Buttons: DNA radius/8 as the base. NOTE: liquid-glass.css turns all buttons into glass capsules
+   (radius/round) by product decision; this stays as the fallback base. */
+.astryx-button {
+  --_button-radius: var(--radius-8);
+  border-radius: var(--radius-8);
+}
+/* Primary hover/pressed: surface/background/brand/Intense. */
+.astryx-button[data-variant='primary']:hover:where(:not(:disabled, [aria-disabled='true'])) {
+  background-color: var(--bg-brand-intense);
+}
+/* Focus: brand border (DNA: "brand border / focus"). */
+.astryx-button:focus-visible {
+  outline: var(--border-width-200) solid var(--border-brand-normal);
+  outline-offset: var(--space-2);
+}

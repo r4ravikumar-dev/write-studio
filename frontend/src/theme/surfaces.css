@@ -1,0 +1,163 @@
+/* ==================================================================================
+ * Surface layers (Material 3 style "tonal surfaces"), built only on DNA semantic tokens.
+ *
+ *   Layer 0  --surface-base            bg/gray/normal   page background, the editor desk
+ *   Layer 1  --surface-container       bg/gray/inverse  cards, sections, the document sheet,
+ *                                                       side panel, tables, dialogs, menus
+ *   Layer 2  --surface-container-high  bg/gray/moderate nested wells inside a container:
+ *                                                       empty media frames, tracks, table heads
+ *
+ * Rules: a layer only sits on the layer below it (0 → 1 → 2). Containers separate from the
+ * base by tone plus a hairline (borderColor/gray/subtle), not heavy shadows. Floating glass
+ * (header, toolbar, menus) is not a layer: it sits above all three.
+ * ================================================================================== */
+:root {
+  --surface-base: var(--bg-gray-normal);
+  --surface-container: var(--bg-gray-inverse);
+  --surface-container-high: var(--bg-gray-moderate);
+  --surface-outline: var(--border-gray-subtle);
+  --surface-container-radius: var(--radius-16);
+  --surface-container-padding: var(--space-24);
+}
+
+.surface-base {
+  background: var(--surface-base);
+}
+.surface-container {
+  background: var(--surface-container);
+  border: var(--border-width-100) solid var(--surface-outline);
+  border-radius: var(--surface-container-radius);
+}
+.surface-container-high {
+  background: var(--surface-container-high);
+  border-radius: var(--radius-12);
+}
+
+/* ---- Where each layer is used ----------------------------------------------------- */
+
+/* Layer 0: page backgrounds. */
+.studio,
+.write,
+.write-canvas,
+.write-preview-stage {
+  background: var(--surface-base);
+}
+
+/* Layer 1: containers. */
+.studio-settings-section {
+  background: var(--surface-container);
+  border: var(--border-width-100) solid var(--surface-outline);
+  border-radius: var(--surface-container-radius);
+}
+.studio-settings-section {
+  padding: var(--surface-container-padding);
+}
+/* The document is a sheet on the desk. */
+.write-document {
+  inline-size: min(100% - 2 * var(--space-24), 60rem);
+  margin: var(--space-24) auto;
+  background: var(--surface-container);
+  border: var(--border-width-100) solid var(--surface-outline);
+  border-radius: var(--surface-container-radius);
+}
+.write-side,
+.write-settings {
+  background: var(--surface-container);
+  border-inline-start-color: var(--surface-outline);
+}
+
+/* Layer 2: wells inside a container. (.write-image-empty, media thumbnails via
+   --color-background-muted, segmented tracks, table heads: see globals.css / the bridge.) */
+.studio-media-file {
+  background: var(--surface-container-high);
+  border-radius: var(--radius-12);
+}
+/* Layer 1 elsewhere: .studio-empty, .studio-media-item, .studio-centered (auth card) in globals.css. */
+
+/* The case-study table: a layer-1 card with a layer-2 header row. */
+.studio-table {
+  overflow: hidden;
+  background: var(--surface-container);
+  border: var(--border-width-100) solid var(--surface-outline);
+  border-radius: var(--surface-container-radius);
+}
+.studio-table thead,
+.studio-table thead th {
+  background: var(--surface-container-high);
+}
+
+/* Settings: one centred column of layer-1 cards. */
+.studio-settings {
+  inline-size: 100%;
+  max-inline-size: 35rem;
+  margin-inline: auto;
+}
+/* Table rows: 16px top and bottom (outranks Astryx's atomic cell padding). */
+.studio-table tbody td:not(#\#):not(#\#):not(#\#):not(#\#) {
+  padding-block: var(--space-16);
+}
+
+/* Case studies: table on wide screens, layer-1 cards below 900px (the table needs ~750px). */
+.studio-cases-cards {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.studio-case-card {
+  padding: var(--space-16);
+  background: var(--surface-container);
+  border: var(--border-width-100) solid var(--surface-outline);
+  border-radius: var(--surface-container-radius);
+}
+.studio-case-card-actions {
+  /* Actions sit on their own row under the details, separated by a hairline. */
+  padding-block-start: var(--space-12);
+  border-block-start: var(--border-width-100) solid var(--surface-outline);
+}
+.studio-case-card-actions > * {
+  justify-content: flex-start;
+}
+/* Tablets (768–899px): actions at the far right of the card, beside the details. */
+@media (min-width: 768px) {
+  .studio-case-card-body:not(#\#):not(#\#):not(#\#) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-16);
+  }
+  .studio-case-card-body > :not(.studio-case-card-actions) {
+    grid-column: 1;
+  }
+  .studio-case-card-actions {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+    padding-block-start: 0;
+    border-block-start: none;
+  }
+}
+@media (max-width: 899px) {
+  .studio-cases-wide {
+    display: none;
+  }
+  .studio-cases-cards {
+    display: grid;
+    gap: var(--space-12);
+  }
+}
+
+/* Phones: no sheet. The document runs edge to edge on white with the mobile side margin
+   (space/16), like Word / Docs on a phone. */
+@media (max-width: 767px) {
+  .write-canvas {
+    background: var(--surface-container);
+  }
+  .write-document:not(#\#):not(#\#) {
+    inline-size: 100%;
+    margin-inline: 0;
+    margin-block-start: 0;
+    padding-inline: var(--space-16);
+    border: 0;
+    border-radius: 0;
+  }
+}

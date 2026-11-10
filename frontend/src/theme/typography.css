@@ -1,0 +1,163 @@
+/*
+ * Studio typography: the DNA v2.0 web/mobile text scale as variables, for places that
+ * can't take a class (Astryx's text tokens, the case-study prose). For new UI use DNA's
+ * text-style classes (.t-web-* / .t-mobile-*, in dna-tokens.css), never raw sizes.
+ *
+ *   fontFamily/primary   = Outfit               everything
+ *   fontFamily/secondary = Bricolage Grotesque  display only (600, Title Case)
+ *
+ * Web scale by default; the mobile scale applies below 768px. Use the
+ * .text-* classes (or the --<level>-<size>-* tokens) rather than raw sizes:
+ *   body copy → body (Regular) · buttons, tabs, inputs, nav → label (Medium/SemiBold)
+ *   card titles → heading sm–md · hero → display · eyebrow above headings → overline
+ *
+ * Unlayered on purpose: it overrides the Astryx theme's (layered) font tokens.
+ */
+
+:root {
+  /* DNA fontFamily/primary and /secondary (set in dna-bridge.css; faces in src/app/fonts.ts). */
+  --font-primary: var(--font-family-primary);
+  --font-display: var(--font-family-secondary);
+
+  /* ---- Web scale ---------------------------------------------------------- */
+  /* Display: Bricolage 600, Title Case, LH 125% */
+  --display-xl-size: 64px; --display-lg-size: 56px; --display-md-size: 48px; --display-sm-size: 40px;
+  --display-xs-size: 40px;
+  --display-leading: 1.25; --display-tracking: 0;
+
+  /* Heading: primary 600, −1%, LH 130% */
+  --heading-xxl-size: 28px; --heading-xl-size: 24px; --heading-lg-size: 20px;
+  --heading-md-size: 18px; --heading-sm-size: 16px; --heading-xs-size: 14px;
+  --heading-leading: 1.3; --heading-tracking: -0.01em;
+
+  /* Body: xxl LH 140%, the rest 150% */
+  --body-xxl-size: 18px; --body-xxl-leading: 1.4;
+  --body-xl-size: 16px; --body-lg-size: 14px; --body-sm-size: 12px; --body-xs-size: 10px;
+  --body-leading: 1.5;
+
+  /* Label: xxl–lg LH 120%, md–xs 130% */
+  --label-xxl-size: 16px; --label-xl-size: 14px; --label-lg-size: 13px;
+  --label-md-size: 12px; --label-sm-size: 11px; --label-xs-size: 10px;
+  --label-leading-tight: 1.2; --label-leading: 1.3;
+
+  /* Caption: 400, LH 150% */
+  --caption-md-size: 12px; --caption-sm-size: 11px; --caption-leading: 1.5;
+  --caption-md-weight: 400; --caption-sm-weight: 400;
+
+  /* Overline: 600, UPPERCASE */
+  --overline-lg-size: 12px; --overline-lg-tracking: 0.06em;
+  --overline-sm-size: 10px; --overline-sm-tracking: 0.04em;
+  --overline-leading: 1.2;
+  --label-tracking: -0.01em;
+  --heading-xxl-tracking: var(--heading-tracking);
+
+  /* Reading text in case studies (preview and editor canvas). */
+  --reading-size: var(--body-xxl-size);
+  --reading-leading: var(--body-xxl-leading);
+
+  /* ---- Astryx components use the Studio faces ---------------------------- */
+  --font-family-body: var(--font-primary);
+  --font-family-heading: var(--font-primary);
+  --font-family-eyebrow: var(--font-primary);
+  /* The one-word headline accent ("*word*") uses the display face. */
+  --font-family-accent: var(--font-display);
+
+  /* Astryx text styles (<Heading>, <Text type=…>, labels) on the Studio scale. */
+  --text-display-1-size: var(--display-xl-size); --text-display-1-leading: var(--display-leading); --text-display-1-weight: 600;
+  --text-display-2-size: var(--display-lg-size); --text-display-2-leading: var(--display-leading); --text-display-2-weight: 600;
+  --text-display-3-size: var(--display-md-size); --text-display-3-leading: var(--display-leading); --text-display-3-weight: 600;
+  --text-heading-1-size: var(--heading-xxl-size); --text-heading-1-leading: var(--heading-leading); --text-heading-1-weight: 600;
+  --text-heading-2-size: var(--heading-xl-size); --text-heading-2-leading: var(--heading-leading); --text-heading-2-weight: 600;
+  --text-heading-3-size: var(--heading-lg-size); --text-heading-3-leading: var(--heading-leading); --text-heading-3-weight: 600;
+  --text-heading-4-size: var(--heading-md-size); --text-heading-4-leading: var(--heading-leading); --text-heading-4-weight: 600;
+  --text-heading-5-size: var(--heading-sm-size); --text-heading-5-leading: var(--heading-leading); --text-heading-5-weight: 600;
+  --text-heading-6-size: var(--heading-xs-size); --text-heading-6-leading: var(--heading-leading); --text-heading-6-weight: 600;
+  --text-large-size: var(--body-xxl-size); --text-large-leading: var(--body-xxl-leading); --text-large-weight: 400;
+  --text-body-size: var(--body-xl-size); --text-body-leading: var(--body-leading); --text-body-weight: 400;
+  --text-supporting-size: var(--body-lg-size); --text-supporting-leading: var(--body-leading); --text-supporting-weight: 400;
+  --text-label-size: var(--label-xl-size); --text-label-leading: var(--label-leading-tight); --text-label-weight: 500;
+  --text-label-tracking: var(--label-tracking);
+
+  /* ---- Names the existing Studio styles expect, mapped onto the scale ---- */
+  --type-display-xxl-size: var(--display-xl-size);
+  --type-display-xl-size: var(--display-xl-size);
+  --type-display-xl-leading: var(--display-leading);
+  --type-display-l-size: var(--display-lg-size);
+  --type-display-m-size: var(--display-md-size);
+  --type-hero-title-size: var(--display-xl-size);
+  --type-section-title-size: var(--heading-xxl-size);
+  --type-headline-xl-size: var(--heading-xxl-size);
+  --type-headline-l-size: var(--heading-xl-size);
+  --type-headline-m-size: var(--heading-lg-size);
+  --type-headline-s-size: var(--heading-md-size);
+  --type-body-l-size: var(--body-xxl-size);
+  --type-caption-l-size: var(--caption-md-size);
+}
+
+/* ---- Mobile scale (below 768px) ------------------------------------------- */
+@media (max-width: 767px) {
+  :root {
+    /* Display: Bricolage 600, −1%, LH 120% */
+    --display-xl-size: 28px; --display-lg-size: 28px; --display-md-size: 24px;
+    --display-sm-size: 20px; --display-xs-size: 16px;
+    --display-leading: 1.2; --display-tracking: -0.01em;
+    /* Heading: 600, LH 120% */
+    --heading-xxl-size: 24px; --heading-xl-size: 20px; --heading-lg-size: 18px;
+    --heading-md-size: 16px; --heading-sm-size: 14px; --heading-xs-size: 14px;
+    --heading-leading: 1.2;
+    --heading-xxl-tracking: -0.02em;
+    /* Body: lg 14 · sm 12 (140%) · xs 10 (150%) */
+    --body-xxl-size: 14px; --body-xxl-leading: 1.4;
+    --body-xl-size: 14px; --body-lg-size: 14px; --body-sm-size: 12px; --body-xs-size: 10px;
+    --body-leading: 1.4;
+    /* Label: xl 14 · lg 13 · md 12 · sm 11 · xs 10 */
+    --label-xxl-size: 14px;
+    /* Caption: md 12 Medium · sm 10 SemiBold */
+    --caption-sm-size: 10px; --caption-md-weight: 500; --caption-sm-weight: 600;
+  }
+}
+
+/* ---- Base ------------------------------------------------------------------ */
+html {
+  font-family: var(--font-primary);
+}
+body {
+  font-family: var(--font-primary);
+  font-size: var(--body-xl-size);
+  line-height: var(--body-leading);
+  font-weight: 400;
+  /* Colours come from the theme (colour tokens aren't part of this spec yet). */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Text styles for UI: use DNA's classes from dna-tokens.css (.t-web-* on web, .t-mobile-* in
+   app contexts), e.g. .t-web-body-xl-regular, .t-web-label-xl-medium, .t-web-heading-md. */
+
+/* ---- Case-study writing (editor canvas and private preview) --------------- */
+.cs-prose {
+  font-family: var(--font-primary);
+  font-size: var(--reading-size);
+  line-height: var(--reading-leading);
+}
+.cs-prose h1, .cs-prose h2 {
+  font-size: var(--heading-xxl-size); font-weight: 600;
+  line-height: var(--heading-leading); letter-spacing: var(--heading-xxl-tracking);
+  margin-block: 1.6em 0.5em;
+}
+.cs-prose h3 {
+  font-size: var(--heading-xl-size); font-weight: 600;
+  line-height: var(--heading-leading); letter-spacing: var(--heading-tracking);
+  margin-block: 1.4em 0.4em;
+}
+.cs-prose h4 {
+  font-size: var(--heading-lg-size); font-weight: 600;
+  line-height: var(--heading-leading); letter-spacing: var(--heading-tracking);
+  margin-block: 1.2em 0.4em;
+}
+.cs-prose > :first-child { margin-block-start: 0; }
+/* Astryx's reset gives <p> its own size; inside a case study, text follows the reading size. */
+.cs-prose p, .cs-prose li, .cs-prose blockquote { font-size: inherit; line-height: inherit; }
+.cs-prose p { margin-block: 0 0.9em; }
+.cs-caption, figcaption {
+  font-size: var(--caption-md-size); font-weight: var(--caption-md-weight); line-height: var(--caption-leading);
+}
