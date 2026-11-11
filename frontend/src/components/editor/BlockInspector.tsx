@@ -17,7 +17,7 @@ import {IconButton} from '@astryxdesign/core/IconButton';
 import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
 import {Divider} from '@astryxdesign/core/Divider';
 import {Icon} from '@astryxdesign/core/Icon';
-import {ArrowLeft, ArrowRight, BringToFront, Copy, ImageUp, Plus, SendToBack, Trash2} from 'lucide-react';
+import {ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BringToFront, Copy, ImageUp, Plus, SendToBack, Trash2} from 'lucide-react';
 import type {Node as PMNode} from '@tiptap/pm/model';
 import {
   COMPARISON_LABELS,
@@ -38,6 +38,15 @@ import {
   type QuoteConfig,
   type ShowcaseConfig,
   type SplitConfig,
+  type TimelineConfig,
+  type ScreenSequenceConfig,
+  type AnnotatedImageConfig,
+  type FlowDiagramConfig,
+  type FlowNodeKind,
+  FLOW_KINDS,
+  newPhase,
+  newStep,
+  newFlowNode,
 } from '@/lib/caseStudies/blocks';
 import type {MediaRef} from '@studio/shared';
 import {studioMediaUrl} from '@studio/shared';
@@ -484,6 +493,170 @@ function MetricsInspector({config, onChange}: Props<MetricsConfig>) {
 }
 
 // ----------------------------------------------------------------------------
+// Insert 2.0 blocks: timeline, screen sequence, annotated screenshot, flow diagram
+// ----------------------------------------------------------------------------
+/** Moves item `index` by `direction` in a list (returns a new list). */
+function moved<T>(items: T[], index: number, direction: -1 | 1) {
+  const next = [...items];
+  const target = index + direction;
+  if (target < 0 || target >= next.length) return items;
+  [next[index], next[target]] = [next[target], next[index]];
+  return next;
+}
+
+/** Move earlier / later / remove buttons for one list item, named for screen readers. */
+function ItemActions({name, index, count, onMove, onRemove}: {name: string; index: number; count: number; onMove: (direction: -1 | 1) => void; onRemove: () => void}) {
+  return (
+    <HStack gap={1} hAlign="end">
+      <IconButton label={`Move ${name} ${index + 1} earlier`} tooltip="Move earlier" size="sm" variant="ghost" isDisabled={index === 0} onClick={() => onMove(-1)} icon={<Icon icon={ArrowUp} size="sm" color="inherit" />} />
+      <IconButton label={`Move ${name} ${index + 1} later`} tooltip="Move later" size="sm" variant="ghost" isDisabled={index === count - 1} onClick={() => onMove(1)} icon={<Icon icon={ArrowDown} size="sm" color="inherit" />} />
+      <IconButton label={`Remove ${name} ${index + 1}`} tooltip="Remove" size="sm" variant="destructive" onClick={onRemove} icon={<Icon icon={Trash2} size="sm" color="inherit" />} />
+    </HStack>
+  );
+}
+
+function TimelineInspector({config, onChange}: Props<TimelineConfig>) {
+  const setPhase = (index: number, patch: Partial<TimelineConfig['phases'][number]>) =>
+    onChange({...config, phases: config.phases.map((phase, i) => (i === index ? {...phase, ...patch} : phase))});
+  return (
+    <VStack gap={6}>
+      <Section title="Layout">
+        <SegmentedControl label="Direction" value={config.layout} onChange={value => onChange({...config, layout: value as TimelineConfig['layout']})} size="sm" layout="fill">
+          <SegmentedControlItem value="horizontal" label="Across" />
+          <SegmentedControlItem value="vertical" label="Down" />
+        </SegmentedControl>
+        <SegmentedControl label="Style" value={config.style} onChange={value => onChange({...config, style: value as TimelineConfig['style']})} size="sm" layout="fill">
+          <SegmentedControlItem value="line" label="Line" />
+          <SegmentedControlItem value="cards" label="Cards" />
+        </SegmentedControl>
+      </Section>
+      <Divider />
+      <Section title={`Phases (${config.phases.length})`}>
+        {config.phases.map((phase, index) => (
+          <VStack key={phase.id} gap={2} className="inspector-item">
+            <Grid columns={2} gap={2}>
+              <TextInput label="Phase" value={phase.title} onChange={title => setPhase(index, {title})} size="sm" width="100%" />
+              <TextInput label="When" description="For example: Weeks 1–2" value={phase.when} onChange={when => setPhase(index, {when})} size="sm" width="100%" />
+            </Grid>
+            <TextArea label="What happened" value={phase.text} onChange={text => setPhase(index, {text})} rows={2} width="100%" />
+            <ItemActions name="phase" index={index} count={config.phases.length} onMove={direction => onChange({...config, phases: moved(config.phases, index, direction)})} onRemove={() => onChange({...config, phases: config.phases.filter((_, i) => i !== index)})} />
+          </VStack>
+        ))}
+        <Button label="Add phase" size="sm" variant="secondary" icon={<Icon icon={Plus} size="sm" color="inherit" />} onClick={() => onChange({...config, phases: [...config.phases, newPhase()]})} />
+      </Section>
+      <TextInput label="Caption" value={config.caption} onChange={caption => onChange({...config, caption})} size="sm" width="100%" />
+    </VStack>
+  );
+}
+
+function SequenceInspector({config, onChange}: Props<ScreenSequenceConfig>) {
+  const setStep = (index: number, patch: Partial<ScreenSequenceConfig['steps'][number]>) =>
+    onChange({...config, steps: config.steps.map((step, i) => (i === index ? {...step, ...patch} : step))});
+  return (
+    <VStack gap={6}>
+      <Section title="Layout">
+        <SegmentedControl label="Columns" value={String(config.columns)} onChange={value => onChange({...config, columns: Number(value) as 2 | 3 | 4})} size="sm" layout="fill">
+          <SegmentedControlItem value="2" label="2 columns" />
+          <SegmentedControlItem value="3" label="3" />
+          <SegmentedControlItem value="4" label="4" />
+        </SegmentedControl>
+        <Selector
+          label="Frame"
+          options={[
+            {value: 'phone', label: 'Phone'},
+            {value: 'browser', label: 'Browser window'},
+            {value: 'none', label: 'No frame'},
+          ]}
+          value={config.frame}
+          onChange={value => onChange({...config, frame: value as ScreenSequenceConfig['frame']})}
+          size="sm"
+        />
+        {ratioSelector(config.ratio, value => onChange({...config, ratio: value as ScreenSequenceConfig['ratio']}), 'Screen shape')}
+        <Switch label="Arrows between screens" value={config.arrows} onChange={arrows => onChange({...config, arrows})} size="sm" />
+      </Section>
+      <Divider />
+      <Section title={`Screens (${config.steps.length})`}>
+        {config.steps.map((step, index) => (
+          <VStack key={step.id} gap={2} className="inspector-item">
+            <MediaField label={`Screen ${index + 1}`} media={step.media} kinds={['image', 'video']} onChange={media => setStep(index, {media})} />
+            <TextInput label="Step title" value={step.title} onChange={title => setStep(index, {title})} size="sm" width="100%" />
+            <TextArea label="What happens here" value={step.text} onChange={text => setStep(index, {text})} rows={2} width="100%" />
+            <ItemActions name="screen" index={index} count={config.steps.length} onMove={direction => onChange({...config, steps: moved(config.steps, index, direction)})} onRemove={() => onChange({...config, steps: config.steps.filter((_, i) => i !== index)})} />
+          </VStack>
+        ))}
+        <Button label="Add screen" size="sm" variant="secondary" icon={<Icon icon={Plus} size="sm" color="inherit" />} onClick={() => onChange({...config, steps: [...config.steps, newStep()]})} />
+      </Section>
+      <TextInput label="Caption" value={config.caption} onChange={caption => onChange({...config, caption})} size="sm" width="100%" />
+    </VStack>
+  );
+}
+
+function AnnotatedInspector({config, onChange}: Props<AnnotatedImageConfig>) {
+  const setNote = (index: number, patch: Partial<AnnotatedImageConfig['annotations'][number]>) =>
+    onChange({...config, annotations: config.annotations.map((note, i) => (i === index ? {...note, ...patch} : note))});
+  return (
+    <VStack gap={6}>
+      <MediaField label="Screenshot" media={config.media} onChange={media => onChange({...config, media})} />
+      <Section title="Layout">
+        {ratioSelector(config.ratio, value => onChange({...config, ratio: value as AnnotatedImageConfig['ratio']}), 'Shape')}
+        <SegmentedControl label="Notes" value={config.notes} onChange={value => onChange({...config, notes: value as AnnotatedImageConfig['notes']})} size="sm" layout="fill">
+          <SegmentedControlItem value="below" label="Below" />
+          <SegmentedControlItem value="side" label="Beside" />
+        </SegmentedControl>
+      </Section>
+      <Divider />
+      <Section title={`Notes (${config.annotations.length})`}>
+        <Text type="supporting" color="secondary">
+          Click the screenshot in the document to add a numbered marker there, then describe it here.
+        </Text>
+        {config.annotations.map((note, index) => (
+          <VStack key={note.id} gap={2} className="inspector-item">
+            <TextInput label={`Note ${index + 1} title`} value={note.title} onChange={title => setNote(index, {title})} size="sm" width="100%" />
+            <TextArea label="What it shows" value={note.text} onChange={text => setNote(index, {text})} rows={2} width="100%" />
+            <Slider label="Left to right" min={0} max={100} value={note.x} onChange={(x: number) => setNote(index, {x})} formatValue={v => `${v}%`} />
+            <Slider label="Top to bottom" min={0} max={100} value={note.y} onChange={(y: number) => setNote(index, {y})} formatValue={v => `${v}%`} />
+            <ItemActions name="note" index={index} count={config.annotations.length} onMove={direction => onChange({...config, annotations: moved(config.annotations, index, direction)})} onRemove={() => onChange({...config, annotations: config.annotations.filter((_, i) => i !== index)})} />
+          </VStack>
+        ))}
+      </Section>
+      <TextInput label="Caption" value={config.caption} onChange={caption => onChange({...config, caption})} size="sm" width="100%" />
+    </VStack>
+  );
+}
+
+function FlowInspector({config, onChange}: Props<FlowDiagramConfig>) {
+  const setNode = (index: number, patch: Partial<FlowDiagramConfig['nodes'][number]>) =>
+    onChange({...config, nodes: config.nodes.map((node, i) => (i === index ? {...node, ...patch} : node))});
+  return (
+    <VStack gap={6}>
+      <Section title="Layout">
+        <SegmentedControl label="Direction" value={config.direction} onChange={value => onChange({...config, direction: value as FlowDiagramConfig['direction']})} size="sm" layout="fill">
+          <SegmentedControlItem value="horizontal" label="Across" />
+          <SegmentedControlItem value="vertical" label="Down" />
+        </SegmentedControl>
+      </Section>
+      <Divider />
+      <Section title={`Steps (${config.nodes.length})`}>
+        {config.nodes.map((node, index) => (
+          <VStack key={node.id} gap={2} className="inspector-item">
+            <Grid columns={2} gap={2}>
+              <TextInput label={`Step ${index + 1}`} value={node.label} onChange={label => setNode(index, {label})} size="sm" width="100%" />
+              <Selector label="Shape" options={FLOW_KINDS} value={node.kind} onChange={kind => setNode(index, {kind: kind as FlowNodeKind})} size="sm" />
+            </Grid>
+            {index < config.nodes.length - 1 && (
+              <TextInput label="Arrow label (optional)" description="For example: Yes, or Taps Pay" value={node.next} onChange={next => setNode(index, {next})} size="sm" width="100%" />
+            )}
+            <ItemActions name="step" index={index} count={config.nodes.length} onMove={direction => onChange({...config, nodes: moved(config.nodes, index, direction)})} onRemove={() => onChange({...config, nodes: config.nodes.filter((_, i) => i !== index)})} />
+          </VStack>
+        ))}
+        <Button label="Add step" size="sm" variant="secondary" icon={<Icon icon={Plus} size="sm" color="inherit" />} onClick={() => onChange({...config, nodes: [...config.nodes, newFlowNode()]})} />
+      </Section>
+      <TextInput label="Caption" value={config.caption} onChange={caption => onChange({...config, caption})} size="sm" width="100%" />
+    </VStack>
+  );
+}
+
+// ----------------------------------------------------------------------------
 /** Image properties (spec A7): replace, decorative, alt text, caption, size, alignment, shape. */
 const IMAGE_SIZES = [
   {value: 'full', label: 'Full width'},
@@ -619,6 +792,18 @@ export function BlockInspector({editor, block}: {editor: Editor; block: {name: s
           />
         </VStack>
       );
+      break;
+    case 'timeline':
+      body = <TimelineInspector config={config} onChange={setConfig} />;
+      break;
+    case 'screenSequence':
+      body = <SequenceInspector config={config} onChange={setConfig} />;
+      break;
+    case 'annotatedImage':
+      body = <AnnotatedInspector config={config} onChange={setConfig} />;
+      break;
+    case 'flowDiagram':
+      body = <FlowInspector config={config} onChange={setConfig} />;
       break;
     case 'image':
       body = <ImageInspector editor={editor} pos={pos} node={node} />;

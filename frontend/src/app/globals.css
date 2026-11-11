@@ -4112,6 +4112,350 @@ dialog.astryx-dialog::backdrop {
 }
 
 /* =====================================================================
+   Insert 2.0 blocks: process timeline, screen sequence, annotated
+   screenshot, flow diagram. DNA tokens only; horizontal layouts stack on
+   phones. Markers and arrows are decorative (the lists carry the meaning).
+   ===================================================================== */
+.vb .vb-timeline-list,
+.vb .vb-sequence-list,
+.vb .vb-annotations,
+.vb .vb-flow-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vb-timeline .cs-prose p,
+.vb :is(.vb-phase-when, .vb-phase-title, .vb-phase-text, .vb-step-title, .vb-step-text, .vb-annotation-title, .vb-annotation-text) {
+  margin: 0;
+}
+.vb-visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- Process timeline ---- */
+.vb .vb-timeline-list {
+  display: grid;
+  gap: var(--space-24);
+}
+.vb-timeline[data-layout='horizontal'] .vb-timeline-list {
+  grid-template-columns: repeat(min(var(--vb-count, 4), 4), minmax(0, 1fr));
+}
+.vb-phase {
+  position: relative;
+  display: grid;
+  gap: var(--space-12);
+  align-content: start;
+}
+.vb-phase-marker {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  inline-size: var(--size-32);
+  block-size: var(--size-32);
+  border-radius: var(--radius-round);
+  background: var(--bg-brand-normal);
+  color: var(--text-brand-on-primary);
+  font-size: var(--label-lg-size);
+  font-weight: 600;
+}
+/* Connecting line: across between markers… */
+.vb-timeline[data-layout='horizontal'] .vb-phase:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  inset-block-start: calc(var(--size-32) / 2);
+  inset-inline: calc(var(--size-32) + var(--space-8)) calc(-1 * var(--space-24) + var(--space-8));
+  border-block-start: var(--border-width-200) solid var(--border-brand-light);
+}
+.vb-phase-when {
+  font-size: var(--overline-lg-size);
+  font-weight: 600;
+  letter-spacing: var(--overline-lg-tracking);
+  text-transform: uppercase;
+  color: var(--text-brand-primary);
+}
+.vb-phase-title {
+  font-size: var(--heading-sm-size);
+  font-weight: 600;
+  color: var(--text-gray-primary);
+}
+.vb-phase-text {
+  font-size: var(--body-lg-size);
+  line-height: var(--body-leading);
+  color: var(--text-gray-secondary);
+}
+.vb-phase-body {
+  display: grid;
+  gap: var(--space-4);
+}
+.vb-timeline[data-style='cards'] .vb-phase-body {
+  padding: var(--space-16);
+  background: var(--surface-container);
+  border: var(--border-width-100) solid var(--surface-outline);
+  border-radius: var(--radius-12);
+}
+/* …or down, beside the markers (vertical layout, and every timeline on phones). */
+.vb-timeline[data-layout='vertical'] .vb-phase {
+  grid-template-columns: var(--size-32) minmax(0, 1fr);
+  column-gap: var(--space-16);
+}
+.vb-timeline[data-layout='vertical'] .vb-phase:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: calc(var(--size-32) / 2 - var(--border-width-100));
+  inset-block: calc(var(--size-32) + var(--space-4)) calc(-1 * var(--space-24) + var(--space-4));
+  border-inline-start: var(--border-width-200) solid var(--border-brand-light);
+}
+@media (max-width: 767.98px) {
+  .vb-timeline[data-layout='horizontal'] .vb-timeline-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .vb-timeline[data-layout='horizontal'] .vb-phase {
+    grid-template-columns: var(--size-32) minmax(0, 1fr);
+    column-gap: var(--space-16);
+  }
+  .vb-timeline[data-layout='horizontal'] .vb-phase:not(:last-child)::after {
+    inset-inline: calc(var(--size-32) / 2 - var(--border-width-100)) auto;
+    inset-block: calc(var(--size-32) + var(--space-4)) calc(-1 * var(--space-24) + var(--space-4));
+    border-block-start: 0;
+    border-inline-start: var(--border-width-200) solid var(--border-brand-light);
+  }
+}
+
+/* ---- Screen sequence ---- */
+.vb .vb-sequence-list {
+  display: grid;
+  grid-template-columns: repeat(var(--vb-columns, 3), minmax(0, 1fr));
+  gap: var(--space-32) var(--space-24);
+}
+.vb-step {
+  position: relative;
+  display: grid;
+  gap: var(--space-8);
+  align-content: start;
+}
+.vb-step-screen {
+  overflow: hidden;
+}
+.vb-step-screen[data-frame='phone'] {
+  padding: var(--space-6);
+  border-radius: var(--radius-24);
+  background: var(--bg-gray-dark);
+}
+.vb-step-screen[data-frame='phone'] .vb-media,
+.vb-step-screen[data-frame='phone'] .vb-empty {
+  border-radius: var(--radius-20);
+}
+.vb-step-screen[data-frame='browser'] {
+  padding-block-start: var(--space-20);
+  border: var(--border-width-100) solid var(--border-gray-normal);
+  border-radius: var(--radius-12);
+  background: var(--surface-container-high);
+}
+.vb-step-screen .vb-media {
+  display: block;
+  inline-size: 100%;
+}
+.vb-step-title {
+  display: flex;
+  gap: var(--space-8);
+  align-items: center;
+  font-size: var(--label-lg-size);
+  font-weight: 600;
+  color: var(--text-gray-primary);
+}
+.vb-step-number {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  inline-size: var(--size-24);
+  block-size: var(--size-24);
+  border-radius: var(--radius-round);
+  background: var(--bg-brand-light);
+  color: var(--text-brand-primary);
+  font-size: var(--label-md-size);
+}
+.vb-step-text {
+  font-size: var(--body-lg-size);
+  line-height: var(--body-leading);
+  color: var(--text-gray-secondary);
+}
+.vb-sequence[data-arrows] .vb-step:not(:last-child)::after {
+  content: '→';
+  position: absolute;
+  inset-block-start: 40%;
+  inset-inline-end: calc(-1 * var(--space-24) / 2 - var(--space-6));
+  font-size: var(--heading-md-size);
+  color: var(--text-brand-primary);
+}
+@media (max-width: 767.98px) {
+  .vb .vb-sequence-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .vb-sequence[data-arrows] .vb-step::after {
+    display: none;
+  }
+}
+
+/* ---- Annotated screenshot ---- */
+.vb-annotated-stage {
+  position: relative;
+}
+.vb-annotated-stage .vb-media {
+  display: block;
+  inline-size: 100%;
+}
+.vb-marker {
+  position: absolute;
+  z-index: 1;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  inline-size: var(--size-28);
+  block-size: var(--size-28);
+  border-radius: var(--radius-round);
+  background: var(--bg-brand-normal);
+  color: var(--text-brand-on-primary);
+  font-size: var(--label-md-size);
+  font-weight: 600;
+  box-shadow: 0 0 0 var(--border-width-200) var(--color-base-white), var(--elevation-200);
+  pointer-events: none;
+}
+.vb-marker[data-selected] {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+.vb-marker--static {
+  position: static;
+  transform: none;
+  flex: none;
+}
+.vb-annotated-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: crosshair;
+}
+.vb .vb-annotations {
+  display: grid;
+  gap: var(--space-12);
+  margin-block-start: var(--space-16);
+}
+.vb-annotation {
+  display: flex;
+  gap: var(--space-12);
+  align-items: start;
+}
+.vb-annotation-title {
+  font-weight: 600;
+  color: var(--text-gray-primary);
+}
+.vb-annotation-text {
+  font-size: var(--body-lg-size);
+  line-height: var(--body-leading);
+  color: var(--text-gray-secondary);
+}
+@media (min-width: 1024px) {
+  .vb-annotated[data-notes='side'] {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: var(--space-24);
+    align-items: start;
+  }
+  .vb-annotated[data-notes='side'] .vb-annotations {
+    margin-block-start: 0;
+  }
+  .vb-annotated[data-notes='side'] .cs-caption {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---- Flow diagram ---- */
+.vb .vb-flow-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: var(--space-16);
+}
+.vb-flow-item {
+  display: flex;
+  align-items: center;
+}
+.vb-flow-node {
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: var(--size-96, 6rem);
+  max-inline-size: 12rem;
+  padding: var(--space-12) var(--space-16);
+  border: var(--border-width-150) solid var(--border-gray-intense);
+  border-radius: var(--radius-8);
+  background: var(--surface-container);
+  color: var(--text-gray-primary);
+  font-size: var(--label-lg-size);
+  font-weight: 500;
+  text-align: center;
+}
+.vb-flow-node:is([data-kind='start'], [data-kind='end']) {
+  border-color: var(--border-brand-light);
+  border-radius: var(--radius-round);
+  background: var(--bg-brand-light);
+  color: var(--text-brand-primary);
+  font-weight: 600;
+}
+.vb-flow-node[data-kind='decision'] {
+  min-block-size: var(--size-80, 5rem);
+  padding: var(--space-24) var(--space-32);
+  border: 0;
+  background: var(--bg-gray-moderate);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.vb-flow-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-inline-size: var(--size-56);
+  padding-inline: var(--space-8);
+  color: var(--text-gray-tertiary);
+  font-size: var(--caption-md-size);
+  line-height: var(--caption-leading);
+}
+.vb-flow-arrow::after {
+  content: '→';
+  font-size: var(--heading-md-size);
+  line-height: 1;
+  color: var(--text-brand-primary);
+}
+.vb-flow[data-direction='vertical'] .vb-flow-list,
+.vb-flow[data-direction='vertical'] .vb-flow-item {
+  flex-direction: column;
+}
+.vb-flow[data-direction='vertical'] .vb-flow-arrow {
+  padding-block: var(--space-4);
+}
+.vb-flow[data-direction='vertical'] .vb-flow-arrow::after {
+  content: '↓';
+}
+@media (max-width: 767.98px) {
+  .vb-flow .vb-flow-list,
+  .vb-flow .vb-flow-item {
+    flex-direction: column;
+  }
+  .vb-flow .vb-flow-arrow {
+    padding-block: var(--space-4);
+  }
+  .vb-flow .vb-flow-arrow::after {
+    content: '↓';
+  }
+}
+
+/* =====================================================================
    Editor chrome for blocks, the side panel, the media library, preview.
    ===================================================================== */
 .write-block-bar {

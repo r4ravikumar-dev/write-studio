@@ -23,6 +23,10 @@ import {
   type Ratio,
   type ShowcaseConfig,
   type SplitConfig,
+  type TimelineConfig,
+  type ScreenSequenceConfig,
+  type AnnotatedImageConfig,
+  type FlowDiagramConfig,
 } from '@/lib/caseStudies/blocks';
 import {EYEBROW_STYLE} from '@/theme/eyebrow';
 
@@ -294,6 +298,168 @@ export function Metrics({config}: {config: MetricsConfig}) {
           </div>
         ))}
       </dl>
+      <Caption>{config.caption}</Caption>
+    </figure>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// 7. Process timeline (Insert 2.0)
+// ----------------------------------------------------------------------------
+/** Project phases in order. Horizontal timelines stack vertically on phones. */
+export function Timeline({config, isEditing}: {config: TimelineConfig; isEditing?: boolean}) {
+  return (
+    <figure className="vb vb-timeline" data-layout={config.layout} data-style={config.style}>
+      <ol className="vb-timeline-list" style={{['--vb-count' as string]: Math.max(config.phases.length, 1)}}>
+        {config.phases.map((phase, index) => (
+          <li key={phase.id} className="vb-phase">
+            <span className="vb-phase-marker" aria-hidden="true">
+              {index + 1}
+            </span>
+            <div className="vb-phase-body">
+              {phase.when && <p className="vb-phase-when">{phase.when}</p>}
+              {(phase.title || isEditing) && <p className="vb-phase-title">{phase.title || 'Phase name'}</p>}
+              {phase.text && <p className="vb-phase-text">{phase.text}</p>}
+            </div>
+          </li>
+        ))}
+      </ol>
+      <Caption>{config.caption}</Caption>
+    </figure>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// 8. Screen sequence (Insert 2.0)
+// ----------------------------------------------------------------------------
+/** Screens in the order a person moves through them, numbered, with optional arrows. */
+export function ScreenSequence({config, edit}: {config: ScreenSequenceConfig; edit?: EditHooks}) {
+  return (
+    <figure className="vb vb-sequence" data-frame={config.frame} data-arrows={config.arrows || undefined}>
+      <ol className="vb-sequence-list" style={{['--vb-columns' as string]: config.columns}}>
+        {/* In the preview, steps with nothing in them are left out (no empty frames). */}
+        {config.steps.filter(step => edit || step.media || step.title || step.text).map((step, index) => (
+          <li key={step.id} className="vb-step">
+            {(edit || step.media) && (
+            <div className="vb-step-screen" data-frame={config.frame}>
+              <MediaView
+                media={step.media}
+                ratio={config.ratio}
+                emptyLabel="Choose screen"
+                onPick={edit ? () => edit.pickMedia(`step:${step.id}`, 'any') : undefined}
+                sizes={`(min-width: 1024px) ${Math.round(100 / config.columns)}vw, 50vw`}
+              />
+            </div>
+            )}
+            <p className="vb-step-title">
+              <span className="vb-step-number" aria-hidden="true">
+                {index + 1}
+              </span>
+              {step.title}
+            </p>
+            {step.text && <p className="vb-step-text">{step.text}</p>}
+          </li>
+        ))}
+      </ol>
+      <Caption>{config.caption}</Caption>
+    </figure>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// 9. Annotated screenshot (Insert 2.0)
+// ----------------------------------------------------------------------------
+/**
+ * An image with numbered markers and the matching numbered notes. The notes carry the meaning
+ * (markers are decorative), so screen readers get the full explanation in order.
+ */
+export function AnnotatedImage({
+  config,
+  edit,
+  onAddAnnotation,
+  selectedId,
+}: {
+  config: AnnotatedImageConfig;
+  edit?: EditHooks;
+  /** Editor only: clicking the image adds a marker there (x, y in %). */
+  onAddAnnotation?: (x: number, y: number) => void;
+  selectedId?: string;
+}) {
+  const hasMedia = Boolean(config.media);
+  return (
+    <figure className="vb vb-annotated" data-notes={config.notes}>
+      <div className="vb-annotated-stage">
+        <MediaView
+          media={config.media}
+          ratio={config.ratio}
+          emptyLabel="Choose screenshot"
+          onPick={edit && !hasMedia ? () => edit.pickMedia('image', 'image') : undefined}
+        />
+        {hasMedia &&
+          config.annotations.map((annotation, index) => (
+            <span
+              key={annotation.id}
+              className="vb-marker"
+              data-selected={annotation.id === selectedId || undefined}
+              style={{insetInlineStart: `${annotation.x}%`, insetBlockStart: `${annotation.y}%`}}
+              aria-hidden="true">
+              {index + 1}
+            </span>
+          ))}
+        {hasMedia && onAddAnnotation && (
+          <button
+            type="button"
+            className="vb-annotated-hit"
+            aria-label="Add a note at this point of the screenshot"
+            onClick={event => {
+              const box = event.currentTarget.getBoundingClientRect();
+              const clamp = (value: number) => Math.round(Math.min(97, Math.max(3, value)));
+              onAddAnnotation(clamp(((event.clientX - box.left) / box.width) * 100), clamp(((event.clientY - box.top) / box.height) * 100));
+            }}
+          />
+        )}
+      </div>
+      {config.annotations.length > 0 && (
+        <ol className="vb-annotations">
+          {config.annotations.map((annotation, index) => (
+            <li key={annotation.id} className="vb-annotation">
+              <span className="vb-marker vb-marker--static" aria-hidden="true">
+                {index + 1}
+              </span>
+              <div>
+                {annotation.title && <p className="vb-annotation-title">{annotation.title}</p>}
+                {annotation.text && <p className="vb-annotation-text">{annotation.text}</p>}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+      <Caption>{config.caption}</Caption>
+    </figure>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// 10. Flow diagram (Insert 2.0)
+// ----------------------------------------------------------------------------
+/** A user or system flow: start, steps, decisions and end, joined by labelled arrows. */
+export function FlowDiagram({config}: {config: FlowDiagramConfig}) {
+  return (
+    <figure className="vb vb-flow" data-direction={config.direction}>
+      <ol className="vb-flow-list">
+        {config.nodes.map((node, index) => (
+          <li key={node.id} className="vb-flow-item">
+            <span className="vb-flow-node" data-kind={node.kind}>
+              <span className="vb-flow-label">{node.label || '…'}</span>
+            </span>
+            {index < config.nodes.length - 1 && (
+              <span className="vb-flow-arrow">
+                {node.next ? <span className="vb-flow-arrow-label">{node.next}</span> : <span className="vb-visually-hidden">then</span>}
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
       <Caption>{config.caption}</Caption>
     </figure>
   );

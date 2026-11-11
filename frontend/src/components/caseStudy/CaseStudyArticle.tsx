@@ -14,6 +14,10 @@ import {
   PullQuote,
   Showcase,
   SplitLayout,
+  Timeline,
+  ScreenSequence,
+  AnnotatedImage,
+  FlowDiagram,
 } from './visualBlocks';
 import {studioMediaUrl} from '@studio/shared';
 import {
@@ -24,6 +28,10 @@ import {
   defaultQuote,
   defaultShowcase,
   defaultSplit,
+  defaultTimeline,
+  defaultScreenSequence,
+  defaultAnnotatedImage,
+  defaultFlowDiagram,
   type CalloutIcon,
   type CalloutTone,
 } from '@/lib/caseStudies/blocks';
@@ -177,6 +185,10 @@ export function CaseStudyArticle({content}: {content: JSONContent}) {
           <DeviceMockup config={configOf(node.attrs, defaultDeviceMockup)} />
         ),
         metrics: ({node}: RenderProps) => <Metrics config={configOf(node.attrs, defaultMetrics)} />,
+        timeline: ({node}: RenderProps) => <Timeline config={configOf(node.attrs, defaultTimeline)} />,
+        screenSequence: ({node}: RenderProps) => <ScreenSequence config={configOf(node.attrs, defaultScreenSequence)} />,
+        annotatedImage: ({node}: RenderProps) => <AnnotatedImage config={configOf(node.attrs, defaultAnnotatedImage)} />,
+        flowDiagram: ({node}: RenderProps) => <FlowDiagram config={configOf(node.attrs, defaultFlowDiagram)} />,
         splitLayout: ({node, children}: RenderProps) => (
           <SplitLayout config={configOf(node.attrs, defaultSplit)}>{children}</SplitLayout>
         ),

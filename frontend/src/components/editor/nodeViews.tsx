@@ -20,6 +20,10 @@ import {
   ShowcaseNode,
   SplitLayoutNode,
   VideoFile,
+  TimelineNode,
+  ScreenSequenceNode,
+  AnnotatedImageNode,
+  FlowDiagramNode,
 } from '@/components/caseStudy/schema';
 import {EmbedBlock, FileBlock, VideoBlock} from '@/components/caseStudy/blocks';
 import {
@@ -31,6 +35,10 @@ import {
   PullQuote,
   Showcase,
   SplitLayout,
+  Timeline,
+  ScreenSequence,
+  AnnotatedImage,
+  FlowDiagram,
   type EditHooks,
 } from '@/components/caseStudy/visualBlocks';
 import type {
@@ -39,7 +47,10 @@ import type {
   ImageGridConfig,
   ShowcaseConfig,
   SplitConfig,
+  ScreenSequenceConfig,
+  AnnotatedImageConfig,
 } from '@/lib/caseStudies/blocks';
+import {newAnnotation} from '@/lib/caseStudies/blocks';
 import {fileKind} from '@/lib/caseStudies/embeds';
 import type {StudioAsset as Asset} from '@studio/shared';
 import {studioMediaUrl} from '@studio/shared';
@@ -205,6 +216,57 @@ function CalloutView(props: ReactNodeViewProps) {
 }
 
 // ----------------------------------------------------------------------------
+// Insert 2.0 blocks
+// ----------------------------------------------------------------------------
+function TimelineView(props: ReactNodeViewProps) {
+  return (
+    <BlockFrame props={props}>
+      <Timeline config={props.node.attrs.config} isEditing />
+    </BlockFrame>
+  );
+}
+
+function ScreenSequenceView(props: ReactNodeViewProps) {
+  const config = props.node.attrs.config as ScreenSequenceConfig;
+  const edit = useEditHooks<ScreenSequenceConfig>(props, (current, slot, asset) => {
+    const id = slot.split(':')[1];
+    return {...current, steps: current.steps.map(step => (step.id === id ? {...step, media: mediaFromAsset(asset, step.media)} : step))};
+  });
+  return (
+    <BlockFrame props={props}>
+      <ScreenSequence config={config} edit={edit} />
+    </BlockFrame>
+  );
+}
+
+function AnnotatedImageView(props: ReactNodeViewProps) {
+  const config = props.node.attrs.config as AnnotatedImageConfig;
+  const edit = useEditHooks<AnnotatedImageConfig>(props, (current, _slot, asset) => ({...current, media: mediaFromAsset(asset, current.media)}));
+  return (
+    <BlockFrame props={props}>
+      <AnnotatedImage
+        config={config}
+        edit={edit}
+        onAddAnnotation={(x, y) => {
+          props.updateAttributes({config: {...config, annotations: [...config.annotations, newAnnotation(x, y)]}});
+          // Open its properties so the note can be written straight away.
+          const pos = props.getPos();
+          if (typeof pos === 'number') selectBlock(props.editor, pos);
+        }}
+      />
+    </BlockFrame>
+  );
+}
+
+function FlowDiagramView(props: ReactNodeViewProps) {
+  return (
+    <BlockFrame props={props}>
+      <FlowDiagram config={props.node.attrs.config} />
+    </BlockFrame>
+  );
+}
+
+// ----------------------------------------------------------------------------
 // Files, uploaded video and embeds
 // ----------------------------------------------------------------------------
 function CaptionInput({value, onChange}: {value: string; onChange: (value: string) => void}) {
@@ -257,4 +319,8 @@ export const editorNodes = [
   MetricsNode.extend({addNodeView: () => ReactNodeViewRenderer(MetricsView)}),
   SplitLayoutNode.extend({addNodeView: () => ReactNodeViewRenderer(SplitLayoutView)}),
   PullQuoteNode.extend({addNodeView: () => ReactNodeViewRenderer(PullQuoteView)}),
+  TimelineNode.extend({addNodeView: () => ReactNodeViewRenderer(TimelineView)}),
+  ScreenSequenceNode.extend({addNodeView: () => ReactNodeViewRenderer(ScreenSequenceView)}),
+  AnnotatedImageNode.extend({addNodeView: () => ReactNodeViewRenderer(AnnotatedImageView)}),
+  FlowDiagramNode.extend({addNodeView: () => ReactNodeViewRenderer(FlowDiagramView)}),
 ];

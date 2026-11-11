@@ -18,6 +18,10 @@ import {
   defaultQuote,
   defaultShowcase,
   defaultSplit,
+  defaultTimeline,
+  defaultScreenSequence,
+  defaultAnnotatedImage,
+  defaultFlowDiagram,
 } from '@/lib/caseStudies/blocks';
 
 /**
@@ -139,6 +143,11 @@ export const ComparisonNode = visualAtom('comparison', defaultComparison);
 export const ShowcaseNode = visualAtom('showcase', defaultShowcase);
 export const DeviceMockupNode = visualAtom('deviceMockup', defaultDeviceMockup);
 export const MetricsNode = visualAtom('metrics', defaultMetrics);
+// Insert 2.0 blocks
+export const TimelineNode = visualAtom('timeline', defaultTimeline);
+export const ScreenSequenceNode = visualAtom('screenSequence', defaultScreenSequence);
+export const AnnotatedImageNode = visualAtom('annotatedImage', defaultAnnotatedImage);
+export const FlowDiagramNode = visualAtom('flowDiagram', defaultFlowDiagram);
 
 /** Media beside editable text: the text is ordinary content inside the block. */
 export const SplitLayoutNode = Node.create({
@@ -481,4 +490,8 @@ export const caseStudyExtensions: Extensions = [
   MetricsNode,
   SplitLayoutNode,
   PullQuoteNode,
+  TimelineNode,
+  ScreenSequenceNode,
+  AnnotatedImageNode,
+  FlowDiagramNode,
 ];
