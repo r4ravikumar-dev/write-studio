@@ -29,7 +29,7 @@ def last_link(kind):
     return re.findall(rf'http://localhost:3000/studio/{kind}\?[^\s"<]+', mail_text())[-1]
 def last_code(email):
     time.sleep(0.5)
-    return re.findall(r'sign in to the studio is (\d{6})', mail_text())[-1]
+    return re.findall(r'sign in to Case Study Studio is (\d{6})', mail_text())[-1]
 
 # A: password sign-up + confirm link
 s, b, _ = D('signup', {'email': A, 'password': 'a perfectly fine pass 1', 'display_name': 'Alice Test'}); ok('A signs up with a password', s == 200, s)

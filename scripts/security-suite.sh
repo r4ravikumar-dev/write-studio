@@ -42,5 +42,6 @@ step 'Schema: ownership, constraints, lockdown (SEC-005/006/007/016)'; $PY supab
 step 'Auth: both methods, one identity, sessions (SEC-001/002/003)'; $PY -I supabase/tests/test_studio_auth_live.py "$PWD" "$LOG"
 step 'Storage: private files, isolation (SEC-008/009/010)';              $PY -I supabase/tests/test_studio_storage_live.py "$PWD" "$LOG"
 step 'Documents: editor data, isolation, no publishing, portfolio gone (SEC-004/011-016)'; $PY -I supabase/tests/test_studio_documents_live.py "$PWD" "$LOG"
+step 'Project setup: frameworks, resume, duplicate, ownership (Stage 1)'; $PY -I supabase/tests/test_studio_setup_live.py "$PWD" "$LOG"
 step 'Lifecycle and caching (SEC-017/018)';                               $PY -I supabase/tests/test_studio_lifecycle_live.py "$PWD" "$LOG"
 echo; echo 'All checks passed.'

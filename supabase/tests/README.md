@@ -11,6 +11,7 @@ throwaway `@example.test` accounts.
 | `test_studio_auth_live.py` | all services | 23 checks: two accounts end to end through Django, Express and Next |
 | `test_studio_storage_live.py` | all services | 30 checks: private bucket, owner-only file route, cross-user denial, upload safety, Range, delete |
 | `test_studio_documents_live.py` | all services | 55 checks: every block round-trips, foreign paths refused, cross-user 404s, archive, no publish, old portfolio routes/APIs/tables/bucket gone |
+| `test_studio_setup_live.py` | all services | 35 checks (Stage 1): document from the outline (placeholders, renamed and own sections, no guidance stored), framework/version/outline/cover validation, save and finish later + resume, no autosave or re-setup in the wrong state, duplicate, cross-user 404s, GET never creates |
 | `test_studio_lifecycle_live.py` | all services | 27 checks: account deletion incl. orphan files, B unaffected, dead tokens, no-store caching |
 
 ## Acceptance matrix (from the master plan) → where it's tested
