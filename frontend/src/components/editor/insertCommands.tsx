@@ -2,6 +2,8 @@
 
 import type {Editor} from '@tiptap/react';
 import type {JSONContent} from '@tiptap/core';
+import {Icon} from '@astryxdesign/core/Icon';
+import {caseStudySectionNodes, caseStudySections} from '@studio/shared';
 import {
   defaultComparison,
   defaultDeviceMockup,
@@ -23,6 +25,11 @@ import {
   FileText,
   Heading2,
   Image as ImageIcon,
+  ListChecks,
+  Table2,
+  SquareCode,
+  ListCollapse,
+  MoveVertical,
   Lightbulb,
   List,
   ListOrdered,
@@ -33,11 +40,15 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
+/** Insert and "/" menu categories, in menu order (docs/toolbar-2.0-spec.md, A8). */
+export const INSERT_GROUPS = ['Text', 'Media', 'Visual', 'Data', 'Structure', 'Advanced'] as const;
+export type InsertGroup = (typeof INSERT_GROUPS)[number];
+
 /** One thing that can be added to a case study, from the Insert menu or by typing "/". */
 export type InsertCommand = {
   id: string;
-  /** Groups in the Insert menu. */
-  group: 'Visual' | 'Media' | 'Text';
+  /** Category in the Insert and "/" menus. */
+  group: InsertGroup;
   label: string;
   description: string;
   icon: LucideIcon;
@@ -111,7 +122,7 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
     },
     {
       id: 'metrics',
-      group: 'Visual',
+      group: 'Data',
       label: 'Metrics',
       description: 'Key results as large figures',
       icon: BarChart3,
@@ -177,8 +188,8 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
     },
     {
       id: 'section',
-      group: 'Text',
-      label: 'Section heading',
+      group: 'Structure',
+      label: 'New section',
       description: 'Start a new section of the story',
       icon: Heading2,
       keywords: 'heading h2 title section',
@@ -186,7 +197,7 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
     },
     {
       id: 'callout',
-      group: 'Visual',
+      group: 'Text',
       label: 'Callout',
       description: 'A highlighted note or key insight',
       icon: Lightbulb,
@@ -231,6 +242,82 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
       icon: Minus,
       keywords: 'hr rule separator line',
       run: () => chain().setHorizontalRule().run(),
+    },
+    {
+      id: 'checklist',
+      group: 'Text',
+      label: 'Checklist',
+      description: 'A list with tick boxes',
+      icon: ListChecks,
+      keywords: 'todo task checkbox list',
+      run: () => chain().toggleTaskList().run(),
+    },
+    {
+      id: 'table',
+      group: 'Advanced',
+      label: 'Table',
+      description: 'A 3 × 3 table with a header row',
+      icon: Table2,
+      keywords: 'grid rows columns data',
+      run: () => chain().insertTable({rows: 3, cols: 3, withHeaderRow: true}).run(),
+    },
+    {
+      id: 'code-block',
+      group: 'Advanced',
+      label: 'Code block',
+      description: 'Code shown in a fixed-width font',
+      icon: SquareCode,
+      keywords: 'code snippet pre monospace',
+      run: () => chain().toggleCodeBlock().run(),
+    },
+    {
+      id: 'collapsible',
+      group: 'Advanced',
+      label: 'Collapsible section',
+      description: 'Content readers can open and close',
+      icon: ListCollapse,
+      keywords: 'details accordion toggle expand',
+      run: () => chain().setDetails().run(),
+    },
+    {
+      id: 'space',
+      group: 'Advanced',
+      label: 'Space',
+      description: 'Extra space between parts',
+      icon: MoveVertical,
+      keywords: 'spacer gap padding blank',
+      run: () => chain().insertSpacer('md').run(),
+    },
+  ];
+}
+
+/**
+ * The Insert menu's sections (desktop Insert button and the phone floating button): the six
+ * categories in order, then the framework's template sections under Structure.
+ */
+export function insertMenuItems(commands: InsertCommand[], editor: Editor) {
+  const sections = INSERT_GROUPS.map(group => ({
+    type: 'section' as const,
+    title: group,
+    items: commands
+      .filter(command => command.group === group)
+      .map(command => ({
+        label: command.label,
+        description: command.description,
+        icon: <Icon icon={command.icon} size="sm" color="inherit" />,
+        onClick: () => command.run(),
+      })),
+  })).filter(section => section.items.length);
+  return [
+    ...sections,
+    {
+      type: 'section' as const,
+      title: 'Template sections',
+      items: caseStudySections.map(section => ({
+        label: section.title,
+        description: section.hint,
+        onClick: () => editor.chain().focus().insertContent(caseStudySectionNodes(section)).run(),
+      })),
     },
   ];
 }

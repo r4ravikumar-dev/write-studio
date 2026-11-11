@@ -444,7 +444,7 @@ function MetricsInspector({config, onChange}: Props<MetricsConfig>) {
           options={[
             {value: 'plain', label: 'Plain figures'},
             {value: 'cards', label: 'Cards'},
-            {value: 'brand', label: 'Brand blue'},
+            {value: 'brand', label: 'Brand purple'},
           ]}
           value={config.style}
           onChange={value => onChange({...config, style: value as MetricsConfig['style']})}
@@ -479,6 +479,78 @@ function MetricsInspector({config, onChange}: Props<MetricsConfig>) {
         />
       </Section>
       <TextInput label="Caption" value={config.caption} onChange={caption => onChange({...config, caption})} size="sm" width="100%" />
+    </VStack>
+  );
+}
+
+// ----------------------------------------------------------------------------
+/** Image properties (spec A7): replace, decorative, alt text, caption, size, alignment, shape. */
+const IMAGE_SIZES = [
+  {value: 'full', label: 'Full width'},
+  {value: 'large', label: 'Large (75%)'},
+  {value: 'medium', label: 'Medium (50%)'},
+  {value: 'small', label: 'Small (33%)'},
+];
+const IMAGE_RATIOS = [
+  {value: 'original', label: 'Original shape'},
+  {value: '16/9', label: 'Wide (16:9)'},
+  {value: '4/3', label: 'Standard (4:3)'},
+  {value: '1/1', label: 'Square (1:1)'},
+  {value: '3/4', label: 'Portrait (3:4)'},
+];
+
+function ImageInspector({editor, pos, node}: {editor: Editor; pos: number; node: PMNode}) {
+  const picker = useMedia();
+  const attrs = node.attrs as {src: string; alt?: string; title?: string; decorative?: boolean; size?: string | null; align?: string | null; ratio?: string | null; focus?: string | null};
+  const set = (next: Record<string, unknown>) => setBlockAttrs(editor, pos, next);
+  const size = attrs.size ?? 'full';
+  return (
+    <VStack gap={4}>
+      <div className="write-image-frame">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={studioMediaUrl(attrs.src)} alt="" className="inspector-thumb" />
+        <HStack gap={2} className="write-image-actions">
+          <Button
+            label="Replace image"
+            variant="secondary"
+            size="sm"
+            icon={<Icon icon={ImageUp} size="sm" color="inherit" />}
+            onClick={async () => {
+              const asset = await picker.pick('image');
+              if (asset) set({src: asset.path, width: asset.width, height: asset.height, alt: attrs.decorative ? '' : asset.alt || attrs.alt || ''});
+            }}
+          />
+        </HStack>
+      </div>
+      <Switch
+        label="Decorative image"
+        description="Turn this on if the image adds nothing to the text. Screen readers will skip it."
+        value={Boolean(attrs.decorative)}
+        onChange={decorative => set(decorative ? {decorative, alt: ''} : {decorative})}
+      />
+      {!attrs.decorative && (
+        <TextInput
+          label="Alt text"
+          description="Describe what the image shows, for people who can’t see it."
+          value={attrs.alt ?? ''}
+          onChange={alt => set({alt})}
+          size="sm"
+          width="100%"
+        />
+      )}
+      <TextInput label="Caption" value={attrs.title ?? ''} onChange={title => set({title})} size="sm" width="100%" />
+      <Section title="Layout">
+        <Selector label="Size" options={IMAGE_SIZES} value={size} onChange={value => set({size: value === 'full' ? null : value, align: value === 'full' ? null : attrs.align ?? 'center'})} size="sm" />
+        {size !== 'full' && (
+          <SegmentedControl label="Alignment" value={attrs.align ?? 'center'} onChange={align => set({align})} size="sm" layout="fill">
+            <SegmentedControlItem value="left" label="Left" />
+            <SegmentedControlItem value="center" label="Centre" />
+            <SegmentedControlItem value="right" label="Right" />
+          </SegmentedControl>
+        )}
+        <Selector label="Shape" description="Crops the image to this shape." options={IMAGE_RATIOS} value={attrs.ratio ?? 'original'} onChange={value => set({ratio: value === 'original' ? null : value})} size="sm" />
+        {attrs.ratio && <Selector label="Keep in view when cropped" options={FOCUS_POINTS} value={attrs.focus ?? 'center'} onChange={focus => set({focus})} size="sm" />}
+      </Section>
     </VStack>
   );
 }
@@ -522,7 +594,7 @@ export function BlockInspector({editor, block}: {editor: Editor; block: {name: s
           <Selector
             label="Tone"
             options={[
-              {value: 'brand', label: 'Brand blue'},
+              {value: 'brand', label: 'Brand purple'},
               {value: 'neutral', label: 'Neutral'},
               {value: 'success', label: 'Positive'},
               {value: 'warning', label: 'Caution'},
@@ -549,27 +621,7 @@ export function BlockInspector({editor, block}: {editor: Editor; block: {name: s
       );
       break;
     case 'image':
-      body = (
-        <VStack gap={4}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={studioMediaUrl(node.attrs.src)} alt="" className="inspector-thumb" />
-          <TextInput
-            label="Alt text"
-            description="Describe it for screen readers. Recommended for accessibility."
-            value={node.attrs.alt ?? ''}
-            onChange={alt => setBlockAttrs(editor, pos, {alt})}
-            size="sm"
-            width="100%"
-          />
-          <TextInput
-            label="Caption"
-            value={node.attrs.title ?? ''}
-            onChange={title => setBlockAttrs(editor, pos, {title})}
-            size="sm"
-            width="100%"
-          />
-        </VStack>
-      );
+      body = <ImageInspector editor={editor} pos={pos} node={node} />;
       break;
   }
 

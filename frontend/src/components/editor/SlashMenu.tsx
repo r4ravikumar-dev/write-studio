@@ -6,7 +6,7 @@ import {VStack} from '@astryxdesign/core/Layout';
 import {Text} from '@astryxdesign/core/Text';
 import {Button} from '@astryxdesign/core/Button';
 import {Icon} from '@astryxdesign/core/Icon';
-import type {InsertCommand} from './insertCommands';
+import {INSERT_GROUPS, type InsertCommand} from './insertCommands';
 
 type Slash = {query: string; from: number; to: number; top: number; left: number};
 
@@ -24,9 +24,9 @@ export function SlashMenu({editor, commands}: {editor: Editor; commands: InsertC
   const matches = useMemo(() => {
     if (!slash) return [];
     const query = slash.query.toLowerCase();
-    return commands.filter(
-      command => !query || `${command.label} ${command.keywords}`.toLowerCase().includes(query),
-    );
+    // Unfiltered: in category order (Text, Media, Visual, Data, Structure, Advanced).
+    if (!query) return INSERT_GROUPS.flatMap(group => commands.filter(command => command.group === group));
+    return commands.filter(command => `${command.label} ${command.keywords} ${command.group}`.toLowerCase().includes(query));
   }, [commands, slash]);
 
   // Watch the text: "/" + up to 24 non-space characters, alone in a paragraph, cursor at its end.
@@ -105,7 +105,13 @@ export function SlashMenu({editor, commands}: {editor: Editor; commands: InsertC
           Nothing matches “{slash.query}”
         </Text>
       ) : (
-        matches.map((command, index) => (
+        matches.map((command, index) => [
+          // Category headings while nothing is typed (presentation only: options stay one list).
+          !slash.query && command.group !== matches[index - 1]?.group ? (
+            <Text key={`group-${command.group}`} type="supporting" color="secondary" role="presentation" className="write-slash-group">
+              {command.group}
+            </Text>
+          ) : null,
           <Button
             key={command.id}
             role="option"
@@ -119,8 +125,8 @@ export function SlashMenu({editor, commands}: {editor: Editor; commands: InsertC
             onMouseEnter={() => setActive(index)}
             onMouseDown={event => event.preventDefault()}
             onClick={() => choose(command)}
-          />
-        ))
+          />,
+        ])
       )}
     </VStack>
   );

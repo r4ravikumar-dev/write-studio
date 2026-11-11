@@ -3454,7 +3454,72 @@ dialog.astryx-dialog::backdrop {
 .write-toolbar.glass:not(#\#)::before {
   border-radius: 0;
 }
-/* The tab row, then the open tab's tools. */
+/* Toolbar 2.0 (desktop/tablet): one row, no tabs; Insert pushed to the right edge. */
+.write-toolbar--row:not(#\#):not(#\#):not(#\#) {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-4);
+  min-inline-size: 0;
+}
+.write-toolbar--row .write-tool-end {
+  margin-inline-start: auto;
+}
+.write-toolbar--row .write-tool-separator {
+  block-size: var(--space-24);
+  align-self: center;
+}
+/* The More (⋯) panel: labelled groups. */
+.write-more {
+  inline-size: min(22rem, 88vw);
+}
+.write-more-label {
+  text-transform: uppercase;
+  letter-spacing: var(--overline-sm-tracking);
+  font-size: var(--overline-sm-size);
+  font-weight: 600;
+}
+/* Find and replace: a glass panel docked under the toolbar, at the right. */
+.write-canvas {
+  position: relative;
+}
+.write-find {
+  position: absolute;
+  z-index: 20;
+  inset-block-start: calc(var(--size-56) + var(--space-8));
+  inset-inline-end: var(--space-16);
+  inline-size: min(26rem, calc(100% - 2 * var(--space-16)));
+  padding: var(--space-12) var(--space-16);
+}
+.write-find-count {
+  white-space: nowrap;
+  min-inline-size: 4.5rem;
+  text-align: end;
+  padding-block-end: var(--space-8);
+}
+/* Search matches (decorations, never stored): all matches tinted, the current one stronger. */
+.write-match {
+  background: var(--bg-warning-subtle, var(--color-background-yellow));
+  border-radius: var(--radius-2);
+}
+.write-match--current {
+  background: var(--bg-brand-light);
+  box-shadow: 0 0 0 var(--border-width-200) var(--border-brand-normal);
+}
+/* Table bar and selection bubble: small glass capsules. */
+.write-table-bar,
+.write-bubble {
+  padding: var(--space-4);
+}
+@media (max-width: 767px) {
+  .write-find {
+    position: fixed;
+    inset-block-start: calc(var(--glass-bar-height) + var(--space-8));
+    inset-inline: var(--space-8);
+    inline-size: auto;
+  }
+}
+/* Phone sheet: tool group rows (the base rules below are overridden by the phone block). */
 .write-tool-separator {
   align-self: stretch;
   margin-inline: var(--spacing-1);
@@ -3697,6 +3762,13 @@ dialog.astryx-dialog::backdrop {
 }
 .write-slash-empty {
   padding: var(--spacing-3);
+}
+.write-slash-group {
+  padding: var(--space-8) var(--space-12) var(--space-4);
+  text-transform: uppercase;
+  letter-spacing: var(--overline-sm-tracking);
+  font-size: var(--overline-sm-size);
+  font-weight: 600;
 }
 /* Rich blocks: an outline when selected, and their settings beneath. */
 .write-block {

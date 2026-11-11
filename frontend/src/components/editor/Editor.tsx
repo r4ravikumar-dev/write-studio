@@ -12,7 +12,13 @@ import {Banner} from '@astryxdesign/core/Banner';
 import {Dialog, DialogHeader} from '@astryxdesign/core/Dialog';
 import {TextInput} from '@astryxdesign/core/TextInput';
 import {Icon} from '@astryxdesign/core/Icon';
-import {Archive, ArchiveRestore, ArrowLeft, Bold, Eye, Italic, Link2, Monitor, PanelRight, Smartphone, Tablet, Underline} from 'lucide-react';
+import {Archive, ArchiveRestore, ArrowLeft, Bold, Code, Eye, Highlighter, Italic, Link2, Monitor, MoreHorizontal, PanelRight, RemoveFormatting, Smartphone, Strikethrough, Tablet, Underline} from 'lucide-react';
+import {TextSelection} from '@tiptap/pm/state';
+import {Switch} from '@astryxdesign/core/Switch';
+import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
+import {StudioSearch} from './search';
+import {FindReplace} from './FindReplace';
+import {TableBar} from './TableBar';
 import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/SegmentedControl';
 import {caseStudyExtensions} from '@/components/caseStudy/schema';
 import {parseEmbed} from '@/lib/caseStudies/embeds';
@@ -48,6 +54,39 @@ function nodeFor(asset: Asset) {
   }
   if (asset.kind === 'video') return {type: 'videoFile', attrs: {src: asset.path}};
   return {type: 'fileAttachment', attrs: {src: asset.path, name: asset.original_name, size: asset.size, mime: asset.mime}};
+}
+
+/** What the link editor is editing. */
+type LinkDraft = {href: string; text: string; newTab: boolean; isNew: boolean; from: number; to: number; error?: string};
+
+/** Opens the link editor on the link under the cursor (all of it) or on the selected text. */
+function linkDraftFor(editor: TiptapEditor): LinkDraft {
+  const isLink = editor.isActive('link');
+  if (isLink) editor.chain().extendMarkRange('link').run();
+  const {from, to} = editor.state.selection;
+  const attrs = editor.getAttributes('link');
+  return {
+    href: (attrs.href as string | undefined) ?? '',
+    text: editor.state.doc.textBetween(from, to, ' '),
+    newTab: isLink ? attrs.target === '_blank' : true,
+    isNew: !isLink,
+    from,
+    to,
+  };
+}
+
+/**
+ * A safe link address, or null. Only web, email and phone links (and links within the page or
+ * site) are allowed; anything else (javascript:, data:, file:…) is refused. A bare address like
+ * "example.com" becomes https://example.com.
+ */
+export function safeHref(input: string): string | null {
+  const href = input.trim();
+  if (!href || /\s/.test(href)) return null;
+  if (href.startsWith('/') || href.startsWith('#')) return href;
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(href)?.[1]?.toLowerCase();
+  if (!scheme) return `https://${href}`;
+  return ['https', 'http', 'mailto', 'tel'].includes(scheme) ? href : null;
 }
 
 /**
@@ -124,7 +163,9 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
     () => false,
   );
   const isPanelOpen = panelChoice ?? !isDrawer;
-  const [linkDialog, setLinkDialog] = useState<{href: string} | null>(null);
+  /** The link editor: address, displayed text, new tab, and the range it applies to. */
+  const [linkDialog, setLinkDialog] = useState<LinkDraft | null>(null);
+  const [isFindOpen, setIsFindOpen] = useState(false);
   const [embedDialog, setEmbedDialog] = useState<{kind: 'figma' | 'video'; url: string; error?: string} | null>(null);
   const [uploading, setUploading] = useState(0);
 
@@ -189,6 +230,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
     extensions: [
       ...caseStudyExtensions.filter(extension => !CUSTOM_NODES.has(extension.name)),
       ...editorNodes,
+      StudioSearch,
       Placeholder.configure({
         // Every empty section shows its hint (not only the one with the cursor); the hint is
         // never stored, so typing replaces it and the text takes the normal body style.
@@ -212,7 +254,12 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
       handleKeyDown: (_, event) => {
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
           event.preventDefault();
-          setLinkDialog({href: (editorRef.current?.getAttributes('link').href as string | undefined) ?? ''});
+          if (editorRef.current) setLinkDialog(linkDraftFor(editorRef.current));
+          return true;
+        }
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
+          event.preventDefault();
+          setIsFindOpen(true);
           return true;
         }
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
@@ -332,11 +379,28 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
     editor.setEditable(!archived, false);
   };
 
-  const applyLink = (href: string) => {
+  /** Applies the link editor: sets or updates the link (and its text), or removes it. */
+  const applyLink = (draft: LinkDraft, remove = false) => {
     if (!editor) return;
-    const chain = editor.chain().focus().extendMarkRange('link');
-    if (!href.trim()) chain.unsetLink().run();
-    else chain.setLink({href: /^(https?:|mailto:|\/|#)/.test(href.trim()) ? href.trim() : `https://${href.trim()}`}).run();
+    const range = {from: draft.from, to: draft.to};
+    if (remove || !draft.href.trim()) {
+      editor.chain().focus().setTextSelection(range).extendMarkRange('link').unsetLink().run();
+      setLinkDialog(null);
+      return;
+    }
+    const href = safeHref(draft.href);
+    if (!href) {
+      setLinkDialog({...draft, error: 'Enter a web address that starts with https://, or an email address link that starts with mailto:.'});
+      return;
+    }
+    const attrs = {href, target: draft.newTab ? '_blank' : null};
+    const current = editor.state.doc.textBetween(draft.from, draft.to, ' ');
+    const text = draft.text.trim() || current || href;
+    if (draft.from === draft.to || text !== current) {
+      editor.chain().focus().insertContentAt(range, {type: 'text', text, marks: [{type: 'link', attrs}]}).run();
+    } else {
+      editor.chain().focus().setTextSelection(range).setLink(attrs).run();
+    }
     setLinkDialog(null);
   };
 
@@ -473,37 +537,44 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
               <Toolbar
                 editor={editor}
                 inserts={inserts}
-                onLink={() => setLinkDialog({href: (editor.getAttributes('link').href as string | undefined) ?? ''})}
+                onLink={() => setLinkDialog(linkDraftFor(editor))}
+                onFind={() => setIsFindOpen(true)}
               />
-              <BubbleMenu editor={editor} className="write-bubble glass glass-group glass--interactive">
-                <HStack gap={1}>
+              {isFindOpen && <FindReplace editor={editor} onClose={() => setIsFindOpen(false)} />}
+              <TableBar editor={editor} />
+              {/* Selected text (spec A4): B, I, U, link, highlight, More. Hidden in tables (the
+                  table bar takes over) and for block selections (the inspector takes over). */}
+              <BubbleMenu
+                editor={editor}
+                pluginKey="studioTextBubble"
+                className="write-bubble glass glass-group glass--interactive"
+                shouldShow={({editor: e, state: s}) => !isFindOpen && e.isEditable && !s.selection.empty && s.selection instanceof TextSelection && !e.isActive('table')}>
+                <HStack gap={1} role="toolbar" aria-label="Selected text">
+                  <IconButton label="Bold" tooltip="Bold" size="sm" variant={editor.isActive('bold') ? 'secondary' : 'ghost'} icon={<Icon icon={Bold} size="sm" color="inherit" />} onClick={() => editor.chain().focus().toggleBold().run()} />
+                  <IconButton label="Italic" tooltip="Italic" size="sm" variant={editor.isActive('italic') ? 'secondary' : 'ghost'} icon={<Icon icon={Italic} size="sm" color="inherit" />} onClick={() => editor.chain().focus().toggleItalic().run()} />
+                  <IconButton label="Underline" tooltip="Underline" size="sm" variant={editor.isActive('underline') ? 'secondary' : 'ghost'} icon={<Icon icon={Underline} size="sm" color="inherit" />} onClick={() => editor.chain().focus().toggleUnderline().run()} />
+                  <IconButton label="Link" tooltip="Link" size="sm" variant={editor.isActive('link') ? 'secondary' : 'ghost'} icon={<Icon icon={Link2} size="sm" color="inherit" />} onClick={() => setLinkDialog(linkDraftFor(editor))} />
                   <IconButton
-                    label="Bold"
+                    label="Highlight"
+                    tooltip="Highlight"
                     size="sm"
-                    variant={editor.isActive('bold') ? 'secondary' : 'ghost'}
-                    icon={<Icon icon={Bold} size="sm" color="inherit" />}
-                    onClick={() => editor.chain().focus().toggleBold().run()}
+                    variant={editor.isActive('highlight') ? 'secondary' : 'ghost'}
+                    icon={<Icon icon={Highlighter} size="sm" color="inherit" />}
+                    onClick={() =>
+                      editor.isActive('highlight')
+                        ? editor.chain().focus().unsetHighlight().run()
+                        : editor.chain().focus().setHighlight({color: 'var(--color-background-yellow)'}).run()
+                    }
                   />
-                  <IconButton
-                    label="Italic"
-                    size="sm"
-                    variant={editor.isActive('italic') ? 'secondary' : 'ghost'}
-                    icon={<Icon icon={Italic} size="sm" color="inherit" />}
-                    onClick={() => editor.chain().focus().toggleItalic().run()}
-                  />
-                  <IconButton
-                    label="Underline"
-                    size="sm"
-                    variant={editor.isActive('underline') ? 'secondary' : 'ghost'}
-                    icon={<Icon icon={Underline} size="sm" color="inherit" />}
-                    onClick={() => editor.chain().focus().toggleUnderline().run()}
-                  />
-                  <IconButton
-                    label="Link"
-                    size="sm"
-                    variant={editor.isActive('link') ? 'secondary' : 'ghost'}
-                    icon={<Icon icon={Link2} size="sm" color="inherit" />}
-                    onClick={() => setLinkDialog({href: (editor.getAttributes('link').href as string | undefined) ?? ''})}
+                  <DropdownMenu
+                    renderTrigger={props => <IconButton {...props} label="More formatting" tooltip="More formatting" size="sm" variant="ghost" icon={<Icon icon={MoreHorizontal} size="sm" color="inherit" />} />}
+                    items={[
+                      {label: 'Strikethrough', icon: <Icon icon={Strikethrough} size="sm" color="inherit" />, onClick: () => editor.chain().focus().toggleStrike().run()},
+                      {label: 'Inline code', icon: <Icon icon={Code} size="sm" color="inherit" />, onClick: () => editor.chain().focus().toggleCode().run()},
+                      {label: 'Clear formatting', icon: <Icon icon={RemoveFormatting} size="sm" color="inherit" />, onClick: () => editor.chain().focus().unsetAllMarks().run()},
+                    ]}
+                    menuWidth={200}
+                    hasChevron={false}
                   />
                 </HStack>
               </BubbleMenu>
@@ -587,25 +658,34 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
         )}
       </Dialog>
 
-      {/* Link */}
+      {/* Link editor (spec A5) */}
       <Dialog isOpen={linkDialog !== null} onOpenChange={open => !open && setLinkDialog(null)} purpose="form" width={460}>
-        <DialogHeader title="Add a link" onOpenChange={open => !open && setLinkDialog(null)} />
+        <DialogHeader title={linkDialog?.isNew ? 'Add a link' : 'Edit link'} onOpenChange={open => !open && setLinkDialog(null)} />
         <form
           onSubmit={event => {
             event.preventDefault();
-            applyLink(linkDialog?.href ?? '');
+            if (linkDialog) applyLink(linkDialog);
           }}>
           <VStack gap={4} className="write-dialog-body">
             <TextInput
               label="Web address (URL)"
+              description="For example: https://www.example.com or mailto:name@example.com"
               hasAutoFocus
-              placeholder="https://…"
               value={linkDialog?.href ?? ''}
-              onChange={href => setLinkDialog({href})}
+              onChange={href => linkDialog && setLinkDialog({...linkDialog, href, error: undefined})}
+              status={linkDialog?.error ? {type: 'error', message: linkDialog.error} : undefined}
               width="100%"
             />
+            <TextInput
+              label="Text to show"
+              description="Leave it as it is to keep the selected text."
+              value={linkDialog?.text ?? ''}
+              onChange={text => linkDialog && setLinkDialog({...linkDialog, text})}
+              width="100%"
+            />
+            <Switch label="Open in a new tab" value={linkDialog?.newTab ?? true} onChange={newTab => linkDialog && setLinkDialog({...linkDialog, newTab})} />
             <HStack gap={2} hAlign="end">
-              <Button label="Remove link" variant="destructive" onClick={() => applyLink('')} />
+              {!linkDialog?.isNew && <Button label="Remove link" variant="destructive" onClick={() => linkDialog && applyLink(linkDialog, true)} />}
               <Button label="Save link" variant="primary" type="submit" />
             </HStack>
           </VStack>

@@ -1,12 +1,9 @@
 'use client';
 
-import {createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactNode} from 'react';
+import {useEffect, useRef, useState, useSyncExternalStore, type ReactNode} from 'react';
 import type {Mark} from '@tiptap/pm/model';
-import {Divider} from '@astryxdesign/core/Divider';
-import {caseStudySections} from '@/content/caseStudyTemplate';
-import {caseStudySectionNodes} from '@studio/shared';
-import {Tab, TabList} from '@astryxdesign/core/TabList';
 import {useEditorState, type Editor} from '@tiptap/react';
+import {Divider} from '@astryxdesign/core/Divider';
 import {HStack, VStack} from '@astryxdesign/core/Layout';
 import {Grid} from '@astryxdesign/core/Grid';
 import {Text} from '@astryxdesign/core/Text';
@@ -19,27 +16,14 @@ import {
   AArrowDown,
   AArrowUp,
   ALargeSmall,
-  ChartColumn,
-  Columns2,
-  CornerDownLeft,
-  Heading2,
-  LayoutTemplate,
-  Lightbulb,
-  ListCollapse,
-  MoveVertical,
-  PaintbrushVertical,
-  TextQuote,
-  Unlink,
   AlignCenter,
   AlignJustify,
   AlignLeft,
   AlignRight,
   Baseline,
-  BetweenHorizontalEnd,
-  BetweenHorizontalStart,
-  BetweenVerticalEnd,
-  BetweenVerticalStart,
   Bold,
+  ChevronDown,
+  ChevronUp,
   Code,
   Highlighter,
   Italic,
@@ -49,34 +33,41 @@ import {
   ListIndentDecrease,
   ListIndentIncrease,
   ListOrdered,
-  PanelTop,
+  MoreHorizontal,
+  PaintbrushVertical,
   Plus,
-  Quote,
   Redo2,
   RemoveFormatting,
-  SeparatorHorizontal,
-  SquareCode,
+  Search,
   Strikethrough,
   Subscript,
   Superscript,
-  Table2,
-  TableCellsMerge,
-  TableCellsSplit,
-  Trash2,
   Underline,
   Undo2,
-  ChevronDown,
-  ChevronUp,
+  Unlink,
 } from 'lucide-react';
+import {TEXT_ROLES, type TextRole} from '@/components/caseStudy/schema';
 import type {InsertCommand} from './insertCommands';
+import {insertMenuItems} from './insertCommands';
 
-/** Paragraph styles, font families and sizes on offer (the site's own type). */
-const BLOCKS = [
-  {value: 'p', label: 'Paragraph'},
+// ---------------------------------------------------------------------------------------------
+// Options
+
+/**
+ * Text styles (semantic, from the design system). Headings are real h1–h4; Display, Lead,
+ * Small, Caption and Label are paragraphs with a text role (a class the type scale styles).
+ */
+const STYLES = [
+  {value: 'display', label: 'Display'},
   {value: 'h1', label: 'Title'},
-  {value: 'h2', label: 'Section heading'},
-  {value: 'h3', label: 'Subheading'},
-  {value: 'h4', label: 'Small heading'},
+  {value: 'h2', label: 'Heading 1'},
+  {value: 'h3', label: 'Heading 2'},
+  {value: 'h4', label: 'Heading 3'},
+  {value: 'lead', label: 'Lead'},
+  {value: 'p', label: 'Body'},
+  {value: 'small', label: 'Small'},
+  {value: 'caption', label: 'Caption'},
+  {value: 'label', label: 'Label'},
   {value: 'quote', label: 'Quote'},
   {value: 'code', label: 'Code'},
 ];
@@ -86,24 +77,10 @@ export const FONTS = [
   {value: 'var(--font-family-accent)', label: 'Bricolage Grotesque (display)'},
 ];
 
-const SIZES = [
-  'default',
-  '12px',
-  '14px',
-  '16px',
-  '18px',
-  '20px',
-  '24px',
-  '28px',
-  '32px',
-  '40px',
-  '48px',
-  '64px',
-];
+const SIZES = ['default', '12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px', '40px', '48px', '64px'];
 
-/** Font weights the site's fonts carry (IBM Plex Sans has them all). */
 const WEIGHTS = [
-  {value: 'default', label: 'Weight'},
+  {value: 'default', label: 'Default'},
   {value: '300', label: 'Light'},
   {value: '400', label: 'Regular'},
   {value: '500', label: 'Medium'},
@@ -111,9 +88,8 @@ const WEIGHTS = [
   {value: '700', label: 'Bold'},
 ];
 
-/** Letter spacing, from tight (big headings) to wide (small caps labels). */
 const LETTER_SPACINGS = [
-  {value: 'default', label: 'Letter spacing'},
+  {value: 'default', label: 'Default'},
   {value: '-0.03em', label: 'Tighter (−3%)'},
   {value: '-0.02em', label: 'Tight (−2%)'},
   {value: '-0.01em', label: 'Slightly tight (−1%)'},
@@ -123,9 +99,8 @@ const LETTER_SPACINGS = [
   {value: '0.08em', label: 'Wider (8%)'},
 ];
 
-/** Line height, as in Word and Google Docs. */
 const LINE_HEIGHTS = [
-  {value: 'default', label: 'Line height'},
+  {value: 'default', label: 'Default'},
   {value: '1', label: 'Single'},
   {value: '1.15', label: '1.15'},
   {value: '1.5', label: '1.5'},
@@ -133,7 +108,7 @@ const LINE_HEIGHTS = [
   {value: '2', label: 'Double'},
 ];
 
-/** Text and highlight colours as theme tokens, so they adapt to light and dark mode. */
+/** Text and highlight colours as theme tokens. */
 export const COLORS = [
   {label: 'Default', value: ''},
   {label: 'Brand purple', value: 'var(--color-brand-text)'},
@@ -161,36 +136,82 @@ export const HIGHLIGHTS = [
   {label: 'Gray', value: 'var(--color-background-gray)'},
 ];
 
-function blockOf(editor: Editor) {
-  for (const level of [1, 2, 3, 4] as const)
-    if (editor.isActive('heading', {level})) return `h${level}`;
-  if (editor.isActive('blockquote')) return 'quote';
+const ALIGNMENTS = [
+  {value: 'left', label: 'Align left', icon: AlignLeft, shortcut: '⇧⌘L'},
+  {value: 'center', label: 'Align centre', icon: AlignCenter, shortcut: '⇧⌘E'},
+  {value: 'right', label: 'Align right', icon: AlignRight, shortcut: '⇧⌘R'},
+  {value: 'justify', label: 'Justify', icon: AlignJustify, shortcut: '⇧⌘J'},
+] as const;
+
+// ---------------------------------------------------------------------------------------------
+// Helpers
+
+function styleOf(editor: Editor) {
+  for (const level of [1, 2, 3, 4] as const) if (editor.isActive('heading', {level})) return `h${level}`;
   if (editor.isActive('codeBlock')) return 'code';
-  return 'p';
+  if (editor.isActive('blockquote')) return 'quote';
+  const role = editor.getAttributes('paragraph').textRole as TextRole | null | undefined;
+  return role ?? 'p';
 }
 
-function setBlock(editor: Editor, value: string) {
+function setStyle(editor: Editor, value: string) {
   const chain = editor.chain().focus();
-  if (value === 'p') chain.setParagraph().run();
-  else if (value === 'quote') chain.setParagraph().toggleBlockquote().run();
-  else if (value === 'code') chain.toggleCodeBlock().run();
-  else chain.setHeading({level: Number(value.slice(1)) as 1 | 2 | 3 | 4}).run();
+  if (value === 'code') return chain.toggleCodeBlock().run();
+  if (editor.isActive('blockquote') && value !== 'quote') chain.unsetBlockquote();
+  if (value === 'quote') return chain.setParagraph().updateAttributes('paragraph', {textRole: null}).setBlockquote().run();
+  if (value.startsWith('h')) return chain.setHeading({level: Number(value.slice(1)) as 1 | 2 | 3 | 4}).run();
+  const role = (TEXT_ROLES as readonly string[]).includes(value) ? value : null;
+  return chain.setParagraph().updateAttributes('paragraph', {textRole: role}).run();
+}
+
+function shiftListItem(editor: Editor, direction: 'in' | 'out') {
+  const item = editor.isActive('taskItem') ? 'taskItem' : 'listItem';
+  const chain = editor.chain().focus();
+  return direction === 'in' ? chain.sinkListItem(item).run() : chain.liftListItem(item).run();
+}
+
+const media = (query: string) =>
+  [
+    (onChange: () => void) => {
+      const list = window.matchMedia(query);
+      list.addEventListener('change', onChange);
+      return () => list.removeEventListener('change', onChange);
+    },
+    () => window.matchMedia(query).matches,
+  ] as const;
+
+/** Phones (below 768px, the Studio's mobile breakpoint). */
+function useIsPhone() {
+  const [subscribe, get] = media('(max-width: 767px)');
+  return useSyncExternalStore(subscribe, get, () => false);
+}
+
+/** Shortcut text for this platform: ⌘ on Apple devices, Ctrl elsewhere. */
+function useShortcut() {
+  const isApple = useSyncExternalStore(
+    () => () => {},
+    () => /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent),
+    () => true,
+  );
+  return (shortcut: string) =>
+    isApple ? shortcut : shortcut.replace(/⇧/g, 'Shift+').replace(/⌥/g, 'Alt+').replace(/⌘/g, 'Ctrl+');
+}
+
+/** True when the toolbar is too narrow for the paragraph menus (they move into More). */
+function useIsCompact(ref: React.RefObject<HTMLElement | null>) {
+  const [isCompact, setIsCompact] = useState(false);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => setIsCompact(entry.contentRect.width < 720));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref]);
+  return isCompact;
 }
 
 /** A row of swatches for picking a text or highlight colour. */
-export function Swatches({
-  label,
-  options,
-  current,
-  onPick,
-  kind,
-}: {
-  label: string;
-  options: {label: string; value: string}[];
-  current: string;
-  onPick: (value: string) => void;
-  kind: 'text' | 'highlight';
-}) {
+export function Swatches({label, options, current, onPick, kind}: {label: string; options: {label: string; value: string}[]; current: string; onPick: (value: string) => void; kind: 'text' | 'highlight'}) {
   return (
     <VStack gap={2}>
       <Text type="supporting" color="secondary">
@@ -205,15 +226,7 @@ export function Swatches({
             size="sm"
             variant={current === option.value ? 'secondary' : 'ghost'}
             onClick={() => onPick(option.value)}
-            icon={
-              <span
-                aria-hidden
-                className="write-swatch"
-                data-kind={kind}
-                data-empty={option.value ? undefined : true}
-                style={{['--swatch' as string]: option.value || 'transparent'}}
-              />
-            }
+            icon={<span aria-hidden className="write-swatch" data-kind={kind} data-empty={option.value ? undefined : true} style={{['--swatch' as string]: option.value || 'transparent'}} />}
           />
         ))}
       </Grid>
@@ -221,77 +234,43 @@ export function Swatches({
   );
 }
 
-/** The toolbar's tabs, like Word's ribbon: one per group of tools. */
-const TABS = ['Text', 'Format', 'Paragraph', 'Structure'] as const;
-type ToolTab = (typeof TABS)[number];
-
-const ActiveTab = createContext<ToolTab>('Format');
-
-/** Phones (below 768px, the mobile breakpoint used across the Studio). */
-const PHONE_QUERY = '(max-width: 767px)';
-function useIsPhone() {
-  return useSyncExternalStore(
-    onChange => {
-      const query = window.matchMedia(PHONE_QUERY);
-      query.addEventListener('change', onChange);
-      return () => query.removeEventListener('change', onChange);
-    },
-    () => window.matchMedia(PHONE_QUERY).matches,
-    () => false,
-  );
-}
-
-/** One tab's tools: shown only while its tab is selected. */
-function ToolGroup({label, children}: {label: ToolTab; children: ReactNode}) {
-  if (useContext(ActiveTab) !== label) return null;
+function Group({label, children}: {label: string; children: ReactNode}) {
   return (
-    <HStack
-      gap={1}
-      vAlign="center"
-      wrap="wrap"
-      className="write-tool-panel"
-      role="tabpanel"
-      id={`write-tools-${label}`}
-      aria-label={label}>
-      {children}
-    </HStack>
+    <VStack gap={2} className="write-more-group">
+      <Text type="supporting" color="secondary" className="write-more-label">
+        {label}
+      </Text>
+      <HStack gap={1} vAlign="center" wrap="wrap">
+        {children}
+      </HStack>
+    </VStack>
   );
 }
 
-/** Indents or outdents whichever kind of list item the cursor is in. */
-function shiftListItem(editor: Editor, direction: 'in' | 'out') {
-  const item = editor.isActive('taskItem') ? 'taskItem' : 'listItem';
-  const chain = editor.chain().focus();
-  return direction === 'in' ? chain.sinkListItem(item).run() : chain.liftListItem(item).run();
-}
+// ---------------------------------------------------------------------------------------------
+// Toolbar
+
+/** Phone sheet groups (the desktop More menu's groups, plus the text style). */
+const PHONE_GROUPS = ['Text style', 'Format', 'Paragraph'] as const;
+type PhoneGroup = (typeof PHONE_GROUPS)[number];
 
 /**
- * The editor's formatting bar, in tabs like Word's ribbon, one per group:
- * Text (style, font, size, weight, line height, letter spacing), Format (bold to code, colour,
- * link, clear formatting), Paragraph (alignment, lists, indent) and Structure (quote, code block, divider, table and its rows and
- * columns).
+ * The formatting toolbar (Toolbar 2.0, docs/toolbar-2.0-spec.md). Desktop: one row, no tabs:
+ * history, find, text style, inline formatting, colour, alignment, lists, More, Insert. When the
+ * column is narrow, alignment and lists move into More. Phones: a bottom bar of quick tools; ⌃
+ * opens a sheet with a group picker, undo/redo and that group's tools; Insert is a floating
+ * button. Tables have their own bar (TableBar) and selected text its own bubble.
  */
-export function Toolbar({
-  editor,
-  onLink,
-  inserts,
-}: {
-  editor: Editor;
-  onLink: () => void;
-  inserts: InsertCommand[];
-}) {
-  const [tab, setTab] = useState<ToolTab>('Format');
-  /**
-   * Phones follow Word / Google Docs mobile: a collapsed bottom bar of quick tools (the Format
-   * group) with ⌃, which opens a sheet with a tab picker, undo/redo and that tab's tools.
-   */
-  const [isExpanded, setIsExpanded] = useState(false);
+export function Toolbar({editor, onLink, onFind, inserts}: {editor: Editor; onLink: () => void; onFind: () => void; inserts: InsertCommand[]}) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const isPhone = useIsPhone();
-  const shownTab: ToolTab = isPhone && !isExpanded ? 'Format' : tab;
-  /** Bottom bar on phones: every picker and menu opens upward, never off-screen. */
+  const isCompact = useIsCompact(rootRef);
+  const shortcut = useShortcut();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [phoneGroup, setPhoneGroup] = useState<PhoneGroup>('Format');
   const popupPlacement = isPhone ? ('above' as const) : undefined;
-  // Format painter: the marks copied from the text under the cursor, waiting
-  // to be laid onto the next selection (like Word's Format Painter).
+
+  // Format painter: copies the marks under the cursor onto the next selection.
   const [painter, setPainter] = useState<readonly Mark[] | null>(null);
   useEffect(() => {
     if (!painter) return;
@@ -307,602 +286,287 @@ export function Toolbar({
       editor.off('selectionUpdate', apply);
     };
   }, [editor, painter]);
+
   const state = useEditorState({
     editor,
-    selector: ({editor: e}) => ({
-      block: blockOf(e),
-      font: (e.getAttributes('textStyle').fontFamily as string | undefined) ?? 'default',
-      size: (e.getAttributes('textStyle').fontSize as string | undefined) ?? 'default',
-      lineHeight: (e.getAttributes('textStyle').lineHeight as string | undefined) ?? 'default',
-      weight: (e.getAttributes('textStyle').fontWeight as string | undefined) ?? 'default',
-      textCase: (e.getAttributes('textStyle').textTransform as string | undefined) ?? '',
-      details: e.isActive('details'),
-      letterSpacing:
-        (e.getAttributes('textStyle').letterSpacing as string | undefined) ?? 'default',
-      color: (e.getAttributes('textStyle').color as string | undefined) ?? '',
-      highlight: (e.getAttributes('highlight').color as string | undefined) ?? '',
-      bold: e.isActive('bold'),
-      italic: e.isActive('italic'),
-      underline: e.isActive('underline'),
-      strike: e.isActive('strike'),
-      subscript: e.isActive('subscript'),
-      superscript: e.isActive('superscript'),
-      code: e.isActive('code'),
-      link: e.isActive('link'),
-      bullet: e.isActive('bulletList'),
-      ordered: e.isActive('orderedList'),
-      task: e.isActive('taskList'),
-      inList: e.isActive('listItem') || e.isActive('taskItem'),
-      quote: e.isActive('blockquote'),
-      codeBlock: e.isActive('codeBlock'),
-      table: e.isActive('table'),
-      align:
-        (['center', 'right', 'justify'] as const).find(a => e.isActive({textAlign: a})) ?? 'left',
-      canUndo: e.can().undo(),
-      canRedo: e.can().redo(),
-      canMerge: e.can().mergeCells(),
-      canSplit: e.can().splitCell(),
-    }),
+    selector: ({editor: e}) => {
+      const style = e.getAttributes('textStyle');
+      return {
+        style: styleOf(e),
+        font: (style.fontFamily as string | undefined) ?? 'default',
+        size: (style.fontSize as string | undefined) ?? 'default',
+        lineHeight: (style.lineHeight as string | undefined) ?? 'default',
+        weight: (style.fontWeight as string | undefined) ?? 'default',
+        letterSpacing: (style.letterSpacing as string | undefined) ?? 'default',
+        textCase: (style.textTransform as string | undefined) ?? '',
+        color: (style.color as string | undefined) ?? '',
+        highlight: (e.getAttributes('highlight').color as string | undefined) ?? '',
+        bold: e.isActive('bold'),
+        italic: e.isActive('italic'),
+        underline: e.isActive('underline'),
+        strike: e.isActive('strike'),
+        subscript: e.isActive('subscript'),
+        superscript: e.isActive('superscript'),
+        code: e.isActive('code'),
+        link: e.isActive('link'),
+        bullet: e.isActive('bulletList'),
+        ordered: e.isActive('orderedList'),
+        task: e.isActive('taskList'),
+        inList: e.isActive('listItem') || e.isActive('taskItem'),
+        align: (['center', 'right', 'justify'] as const).find(a => e.isActive({textAlign: a})) ?? 'left',
+        canUndo: e.can().undo(),
+        canRedo: e.can().redo(),
+        isEditable: e.isEditable,
+      };
+    },
   });
 
-  const tool = (
-    label: string,
-    icon: typeof Bold,
-    isActive: boolean,
-    run: () => void,
-    options: {shortcut?: string; isDisabled?: boolean} = {},
-  ) => (
+  const chain = () => editor.chain().focus();
+  /** An icon button. Disabled buttons say why in their tooltip (spec A9). */
+  const tool = (label: string, icon: typeof Bold, isActive: boolean, run: () => void, options: {shortcut?: string; isDisabled?: boolean; why?: string} = {}) => (
     <IconButton
+      key={label}
       label={label}
-      tooltip={options.shortcut ? `${label} (${options.shortcut})` : label}
+      tooltip={options.isDisabled && options.why ? options.why : options.shortcut ? `${label} (${shortcut(options.shortcut)})` : label}
       icon={<Icon icon={icon} size="sm" color="inherit" />}
       variant={isActive ? 'secondary' : 'ghost'}
       size="sm"
-      isDisabled={options.isDisabled}
+      isDisabled={options.isDisabled || !state.isEditable}
       onClick={run}
     />
   );
-  const chain = () => editor.chain().focus();
-  /** Runs one of the Insert menu's commands (visual blocks and the like). */
-  const runInsert = (id: string) => inserts.find(item => item.id === id)?.run();
-  /** One step up or down the size list, from the text's current size. */
+  const separator = (key: string) => <Divider key={key} orientation="vertical" className="write-tool-separator" />;
   const stepSize = (direction: 1 | -1) => {
     const sizes = SIZES.filter(size => size !== 'default');
     const current = parseInt(state.size === 'default' ? '18px' : state.size, 10);
     const index = sizes.findIndex(size => parseInt(size, 10) >= current);
     const from = index === -1 ? sizes.length - 1 : index;
-    const next = sizes[Math.max(0, Math.min(sizes.length - 1, from + direction))];
-    chain().setFontSize(next).run();
+    chain().setFontSize(sizes[Math.max(0, Math.min(sizes.length - 1, from + direction))]).run();
   };
-  const separator = <Divider orientation="vertical" className="write-tool-separator" />;
-  const tableItem = (
-    label: string,
-    icon: typeof Bold,
-    run: () => void,
-    isDisabled = !state.table,
-  ) => ({
-    label,
-    icon: <Icon icon={icon} size="sm" color="inherit" />,
-    isDisabled,
-    onClick: run,
-    ...(label.startsWith('Delete') ? {variant: 'destructive' as const} : {}),
-  });
 
-  const insertItems = (['Visual', 'Media', 'Text'] as const).map(group => ({
-    type: 'section' as const,
-    title: group === 'Visual' ? 'Visual blocks' : group,
-    items: inserts
-      .filter(item => item.group === group)
-      .map(item => ({
-        label: item.label,
-        description: item.description,
-        icon: <Icon icon={item.icon} size="sm" color="inherit" />,
-        onClick: () => item.run(),
-      })),
-  }));
+  // ---- pieces ------------------------------------------------------------------------------
+  const history = [
+    tool('Undo', Undo2, false, () => chain().undo().run(), {shortcut: '⌘Z', isDisabled: !state.canUndo, why: 'Nothing to undo'}),
+    tool('Redo', Redo2, false, () => chain().redo().run(), {shortcut: '⇧⌘Z', isDisabled: !state.canRedo, why: 'Nothing to redo'}),
+  ];
+  const find = (
+    <IconButton key="find" label="Find and replace" tooltip={`Find and replace (${shortcut('⌘F')})`} size="sm" variant="ghost" onClick={onFind} icon={<Icon icon={Search} size="sm" color="inherit" />} />
+  );
+  const styleSelect = (
+    <Selector
+      key="style"
+      placement={popupPlacement}
+      label="Text style"
+      isLabelHidden
+      options={STYLES}
+      value={state.style}
+      onChange={value => setStyle(editor, value)}
+      size="sm"
+      variant="ghost"
+      isDisabled={!state.isEditable}
+    />
+  );
+  const colour = (
+    <Popover
+      key="colour"
+      label="Text colour and highlight"
+      content={
+        <VStack gap={4}>
+          <Swatches label="Text colour" kind="text" options={COLORS} current={state.color} onPick={value => (value ? chain().setColor(value).run() : chain().unsetColor().run())} />
+          <Swatches label="Highlight" kind="highlight" options={HIGHLIGHTS} current={state.highlight} onPick={value => (value ? chain().setHighlight({color: value}).run() : chain().unsetHighlight().run())} />
+        </VStack>
+      }>
+      <IconButton
+        label="Text colour and highlight"
+        tooltip="Text colour and highlight"
+        icon={<Icon icon={state.highlight ? Highlighter : Baseline} size="sm" color="inherit" />}
+        variant={state.color || state.highlight ? 'secondary' : 'ghost'}
+        size="sm"
+        isDisabled={!state.isEditable}
+      />
+    </Popover>
+  );
+  const inline = [
+    tool('Bold', Bold, state.bold, () => chain().toggleBold().run(), {shortcut: '⌘B'}),
+    tool('Italic', Italic, state.italic, () => chain().toggleItalic().run(), {shortcut: '⌘I'}),
+    tool('Underline', Underline, state.underline, () => chain().toggleUnderline().run(), {shortcut: '⌘U'}),
+    tool('Link', Link2, state.link, onLink, {shortcut: '⌘K'}),
+    colour,
+  ];
+  const decoration = [
+    tool('Strikethrough', Strikethrough, state.strike, () => chain().toggleStrike().run(), {shortcut: '⇧⌘S'}),
+    tool('Subscript', Subscript, state.subscript, () => chain().toggleSubscript().run(), {shortcut: '⌘,'}),
+    tool('Superscript', Superscript, state.superscript, () => chain().toggleSuperscript().run(), {shortcut: '⌘.'}),
+    tool('Inline code', Code, state.code, () => chain().toggleCode().run(), {shortcut: '⌘E'}),
+  ];
+  const editing = [
+    tool(painter ? 'Format painter: select text to apply' : 'Format painter', PaintbrushVertical, Boolean(painter), () => setPainter(current => (current ? null : editor.state.selection.$from.marks()))),
+    tool('Clear formatting', RemoveFormatting, false, () => chain().unsetAllMarks().clearNodes().unsetTextAlign().run(), {shortcut: '⌘\\'}),
+    tool('Remove link', Unlink, false, () => chain().extendMarkRange('link').unsetLink().run(), {isDisabled: !state.link, why: 'Put the cursor in a link to remove it'}),
+  ];
+  const alignButtons = ALIGNMENTS.map(a => tool(a.label, a.icon, state.align === a.value, () => chain().setTextAlign(a.value).run(), {shortcut: a.shortcut}));
+  const listButtons = [
+    tool('Bulleted list', List, state.bullet, () => chain().toggleBulletList().run(), {shortcut: '⇧⌘8'}),
+    tool('Numbered list', ListOrdered, state.ordered, () => chain().toggleOrderedList().run(), {shortcut: '⇧⌘7'}),
+    tool('Checklist', ListChecks, state.task, () => chain().toggleTaskList().run(), {shortcut: '⇧⌘9'}),
+  ];
+  const indentButtons = [
+    tool('Decrease indent', ListIndentDecrease, false, () => shiftListItem(editor, 'out'), {shortcut: '⇧Tab', isDisabled: !state.inList, why: 'Put the cursor in a list to change its indent'}),
+    tool('Increase indent', ListIndentIncrease, false, () => shiftListItem(editor, 'in'), {shortcut: 'Tab', isDisabled: !state.inList, why: 'Put the cursor in a list to change its indent'}),
+  ];
+  const currentAlign = ALIGNMENTS.find(a => a.value === state.align) ?? ALIGNMENTS[0];
+  const alignMenu = (
+    <DropdownMenu
+      key="align"
+      placement={popupPlacement}
+      renderTrigger={props => <IconButton {...props} label={`Alignment: ${currentAlign.label.replace('Align ', '')}`} tooltip="Alignment" size="sm" variant="ghost" isDisabled={!state.isEditable} icon={<Icon icon={currentAlign.icon} size="sm" color="inherit" />} />}
+      items={ALIGNMENTS.map(a => ({label: a.label, description: shortcut(a.shortcut), icon: <Icon icon={a.icon} size="sm" color="inherit" />, onClick: () => chain().setTextAlign(a.value).run()}))}
+      menuWidth={220}
+      hasChevron={false}
+    />
+  );
+  const listMenu = (
+    <DropdownMenu
+      key="lists"
+      placement={popupPlacement}
+      renderTrigger={props => <IconButton {...props} label="Lists" tooltip="Lists" size="sm" variant={state.bullet || state.ordered || state.task ? 'secondary' : 'ghost'} isDisabled={!state.isEditable} icon={<Icon icon={state.ordered ? ListOrdered : state.task ? ListChecks : List} size="sm" color="inherit" />} />}
+      items={[
+        {
+          type: 'section' as const,
+          title: 'Lists',
+          items: [
+            {label: 'Bulleted list', description: shortcut('⇧⌘8'), icon: <Icon icon={List} size="sm" color="inherit" />, onClick: () => chain().toggleBulletList().run()},
+            {label: 'Numbered list', description: shortcut('⇧⌘7'), icon: <Icon icon={ListOrdered} size="sm" color="inherit" />, onClick: () => chain().toggleOrderedList().run()},
+            {label: 'Checklist', description: shortcut('⇧⌘9'), icon: <Icon icon={ListChecks} size="sm" color="inherit" />, onClick: () => chain().toggleTaskList().run()},
+          ],
+        },
+        {
+          type: 'section' as const,
+          title: 'Indent',
+          items: [
+            {label: 'Increase indent', description: state.inList ? 'Tab' : 'Put the cursor in a list first', isDisabled: !state.inList, icon: <Icon icon={ListIndentIncrease} size="sm" color="inherit" />, onClick: () => shiftListItem(editor, 'in')},
+            {label: 'Decrease indent', description: state.inList ? shortcut('⇧Tab') : 'Put the cursor in a list first', isDisabled: !state.inList, icon: <Icon icon={ListIndentDecrease} size="sm" color="inherit" />, onClick: () => shiftListItem(editor, 'out')},
+          ],
+        },
+      ]}
+      menuWidth={240}
+      hasChevron={false}
+    />
+  );
+  const typography = (
+    <VStack gap={3} key="typography" className="write-more-typography">
+      <Selector placement={popupPlacement} label="Font" options={FONTS} value={state.font} onChange={value => (value === 'default' ? chain().unsetFontFamily().run() : chain().setFontFamily(value).run())} size="sm" />
+      <HStack gap={2}>
+        <Selector placement={popupPlacement} label="Size" options={SIZES.map(size => ({value: size, label: size === 'default' ? 'Default' : size.replace('px', '')}))} value={state.size} onChange={value => (value === 'default' ? chain().unsetFontSize().run() : chain().setFontSize(value).run())} size="sm" />
+        <Selector placement={popupPlacement} label="Weight" options={WEIGHTS} value={state.weight} onChange={value => (value === 'default' ? chain().unsetFontWeight().run() : chain().setFontWeight(value).run())} size="sm" />
+      </HStack>
+      <HStack gap={2}>
+        <Selector placement={popupPlacement} label="Line height" options={LINE_HEIGHTS} value={state.lineHeight} onChange={value => (value === 'default' ? chain().unsetLineHeight().run() : chain().setLineHeight(value).run())} size="sm" />
+        <Selector placement={popupPlacement} label="Letter spacing" options={LETTER_SPACINGS} value={state.letterSpacing} onChange={value => (value === 'default' ? chain().unsetLetterSpacing().run() : chain().setLetterSpacing(value).run())} size="sm" />
+      </HStack>
+      <HStack gap={1} vAlign="center">
+        <DropdownMenu
+          placement={popupPlacement}
+          renderTrigger={props => <IconButton {...props} label="Text case" tooltip="Text case" size="sm" variant={state.textCase ? 'secondary' : 'ghost'} icon={<Icon icon={ALargeSmall} size="sm" color="inherit" />} />}
+          items={[
+            {label: 'Normal', onClick: () => chain().unsetTextTransform().run()},
+            {label: 'UPPERCASE', onClick: () => chain().setTextTransform('uppercase').run()},
+            {label: 'lowercase', onClick: () => chain().setTextTransform('lowercase').run()},
+            {label: 'Title Case', onClick: () => chain().setTextTransform('capitalize').run()},
+          ]}
+          menuWidth={180}
+          hasChevron={false}
+        />
+        {tool('Increase font size', AArrowUp, false, () => stepSize(1))}
+        {tool('Decrease font size', AArrowDown, false, () => stepSize(-1))}
+      </HStack>
+    </VStack>
+  );
+  const insertItems = insertMenuItems(inserts, editor);
+
+  // ---- phone -------------------------------------------------------------------------------
+  if (isPhone) {
+    const groupTools: Record<PhoneGroup, ReactNode> = {
+      'Text style': [styleSelect, typography],
+      Format: [...inline, ...decoration, ...editing],
+      Paragraph: [...alignButtons, ...listButtons, ...indentButtons],
+    };
+    return (
+      <>
+        <VStack gap={0} ref={rootRef} className="write-toolbar glass glass--panel" role="toolbar" aria-label="Formatting" data-expanded={isExpanded ? 'true' : undefined}>
+          <HStack gap={2} vAlign="center" className="write-tool-tabs">
+            <HStack gap={1} className="write-tool-quick only-wide">
+              {history}
+            </HStack>
+            <HStack gap={2} vAlign="center" className="write-tool-centre">
+              <Selector placement="above" label="Tool group" isLabelHidden options={PHONE_GROUPS.map(name => ({value: name, label: name}))} value={phoneGroup} onChange={value => setPhoneGroup(value as PhoneGroup)} size="sm" variant="ghost" />
+            </HStack>
+          </HStack>
+          <HStack gap={1} vAlign="center" className="write-tool-panel" role="group" aria-label={isExpanded ? phoneGroup : 'Quick formatting'}>
+            {isExpanded ? groupTools[phoneGroup] : [...inline, alignMenu, listMenu, find]}
+          </HStack>
+          <span className="write-tool-toggle">
+            <IconButton label={isExpanded ? 'Close tools' : 'More tools'} tooltip={isExpanded ? 'Close tools' : 'More tools'} variant="ghost" size="sm" aria-expanded={isExpanded} onClick={() => setIsExpanded(open => !open)} icon={<Icon icon={isExpanded ? ChevronDown : ChevronUp} size="sm" color="inherit" />} />
+          </span>
+        </VStack>
+        <div className="write-fab">
+          <DropdownMenu
+            renderTrigger={props => <IconButton {...props} label="Insert" tooltip="Insert" variant="primary" size="lg" isDisabled={!state.isEditable} icon={<Icon icon={Plus} size="md" color="inherit" />} />}
+            items={insertItems}
+            placement="above"
+            alignment="end"
+            menuWidth="75vw"
+            menuMaxHeight={480}
+          />
+        </div>
+      </>
+    );
+  }
+
+  // ---- desktop and tablet ----------------------------------------------------------------------
+  const more = (
+    <Popover
+      key="more"
+      label="More formatting"
+      content={
+        <VStack gap={4} className="write-more">
+          {isCompact && (
+            <Group label="Paragraph">
+              {alignButtons}
+              {listButtons}
+              {indentButtons}
+            </Group>
+          )}
+          <Group label="Typography">{typography}</Group>
+          <Group label="Decoration">{decoration}</Group>
+          <Group label="Editing">{editing}</Group>
+        </VStack>
+      }>
+      <IconButton label="More formatting" tooltip="More formatting" size="sm" variant="ghost" isDisabled={!state.isEditable} icon={<Icon icon={MoreHorizontal} size="sm" color="inherit" />} />
+    </Popover>
+  );
 
   return (
-    <ActiveTab.Provider value={shownTab}>
-      <VStack gap={0} className="write-toolbar glass glass--panel" role="toolbar" aria-label="Formatting" data-expanded={isPhone && isExpanded ? 'true' : undefined}>
-        <HStack gap={2} vAlign="center" className="write-tool-tabs">
-          {/* Undo and redo at the left edge, whichever tab is open. */}
-          <HStack gap={1} className="write-tool-quick only-wide">
-            {tool('Undo', Undo2, false, () => chain().undo().run(), {
-              shortcut: '⌘Z',
-              isDisabled: !state.canUndo,
-            })}
-            {tool('Redo', Redo2, false, () => chain().redo().run(), {
-              shortcut: '⇧⌘Z',
-              isDisabled: !state.canRedo,
-            })}
-          </HStack>
-          <HStack gap={2} vAlign="center" className="write-tool-centre">
-            <span className="only-wide">
-              <TabList
-                value={tab}
-                onChange={value => setTab(value as ToolTab)}
-                size="sm"
-                role="tablist">
-                {TABS.map(name => (
-                  <Tab key={name} value={name} label={name} panelId={`write-tools-${name}`} />
-                ))}
-              </TabList>
-            </span>
-            {/* Phones: a compact picker instead of four tabs. */}
-            <span className="only-narrow">
-              <Selector
-                placement={popupPlacement}
-                label="Tools"
-                isLabelHidden
-                options={TABS.map(name => ({value: name, label: name}))}
-                value={tab}
-                onChange={value => setTab(value as ToolTab)}
-                size="sm"
-                variant="ghost"
-              />
-            </span>
-          </HStack>
-          {/* Insert at the right edge, whichever tab is open. */}
-          <HStack gap={2} vAlign="center" className="write-tool-end only-wide">
-            <DropdownMenu
-              placement={popupPlacement}
-              button={{
-                label: 'Insert',
-                size: 'sm',
-                variant: 'primary',
-                icon: <Icon icon={Plus} size="sm" color="inherit" />,
-              }}
-              items={insertItems}
-              menuWidth={280}
-              menuMaxHeight={560}
-            />
-          </HStack>
-        </HStack>
-
-        <ToolGroup label="Text">
-          <Selector
-            placement={popupPlacement}
-            label="Paragraph style"
-            isLabelHidden
-            options={BLOCKS}
-            value={state.block}
-            onChange={value => setBlock(editor, value)}
-            size="sm"
-            variant="ghost"
-          />
-          <Selector
-            placement={popupPlacement}
-            label="Font"
-            isLabelHidden
-            options={FONTS}
-            value={state.font}
-            onChange={value =>
-              value === 'default'
-                ? chain().unsetFontFamily().run()
-                : chain().setFontFamily(value).run()
-            }
-            size="sm"
-            variant="ghost"
-          />
-          <Selector
-            placement={popupPlacement}
-            label="Size"
-            isLabelHidden
-            options={SIZES.map(size => ({
-              value: size,
-              label: size === 'default' ? 'Size' : size.replace('px', ''),
-            }))}
-            value={state.size}
-            onChange={value =>
-              value === 'default' ? chain().unsetFontSize().run() : chain().setFontSize(value).run()
-            }
-            size="sm"
-            variant="ghost"
-          />
-          <Selector
-            placement={popupPlacement}
-            label="Weight"
-            isLabelHidden
-            options={WEIGHTS}
-            value={state.weight}
-            onChange={value =>
-              value === 'default'
-                ? chain().unsetFontWeight().run()
-                : chain().setFontWeight(value).run()
-            }
-            size="sm"
-            variant="ghost"
-          />
-          <Selector
-            placement={popupPlacement}
-            label="Line height"
-            isLabelHidden
-            options={LINE_HEIGHTS}
-            value={state.lineHeight}
-            onChange={value =>
-              value === 'default'
-                ? chain().unsetLineHeight().run()
-                : chain().setLineHeight(value).run()
-            }
-            size="sm"
-            variant="ghost"
-          />
-          <Selector
-            placement={popupPlacement}
-            label="Letter spacing"
-            isLabelHidden
-            options={LETTER_SPACINGS}
-            value={state.letterSpacing}
-            onChange={value =>
-              value === 'default'
-                ? chain().unsetLetterSpacing().run()
-                : chain().setLetterSpacing(value).run()
-            }
-            size="sm"
-            variant="ghost"
-          />
-        </ToolGroup>
-
-        <ToolGroup label="Format">
-          {tool('Bold', Bold, state.bold, () => chain().toggleBold().run(), {shortcut: '⌘B'})}
-          {tool('Italic', Italic, state.italic, () => chain().toggleItalic().run(), {
-            shortcut: '⌘I',
-          })}
-          {tool('Underline', Underline, state.underline, () => chain().toggleUnderline().run(), {
-            shortcut: '⌘U',
-          })}
-          {tool('Strikethrough', Strikethrough, state.strike, () => chain().toggleStrike().run(), {
-            shortcut: '⇧⌘S',
-          })}
-          {tool('Subscript', Subscript, state.subscript, () => chain().toggleSubscript().run(), {
-            shortcut: '⌘,',
-          })}
-          {tool(
-            'Superscript',
-            Superscript,
-            state.superscript,
-            () => chain().toggleSuperscript().run(),
-            {shortcut: '⌘.'},
-          )}
-          {tool('Inline code', Code, state.code, () => chain().toggleCode().run(), {
-            shortcut: '⌘E',
-          })}
-          {separator}
-          <DropdownMenu
-            placement={popupPlacement}
-            renderTrigger={props => (
-              <IconButton
-                {...props}
-                label="Text case"
-                tooltip="Text case"
-                icon={<Icon icon={ALargeSmall} size="sm" color="inherit" />}
-                variant={state.textCase ? 'secondary' : 'ghost'}
-                size="sm"
-              />
-            )}
-            items={[
-              {label: 'Normal', onClick: () => chain().unsetTextTransform().run()},
-              {label: 'UPPERCASE', onClick: () => chain().setTextTransform('uppercase').run()},
-              {label: 'lowercase', onClick: () => chain().setTextTransform('lowercase').run()},
-              {label: 'Title Case', onClick: () => chain().setTextTransform('capitalize').run()},
-            ]}
-            menuWidth={180}
-            hasChevron={false}
-          />
-          {tool('Increase font size', AArrowUp, false, () => stepSize(1))}
-          {tool('Decrease font size', AArrowDown, false, () => stepSize(-1))}
-          {separator}
-          <Popover
-            label="Text colour"
-            content={
-              <VStack gap={4}>
-                <Swatches
-                  label="Text colour"
-                  kind="text"
-                  options={COLORS}
-                  current={state.color}
-                  onPick={value =>
-                    value ? chain().setColor(value).run() : chain().unsetColor().run()
-                  }
-                />
-                <Swatches
-                  label="Highlight"
-                  kind="highlight"
-                  options={HIGHLIGHTS}
-                  current={state.highlight}
-                  onPick={value =>
-                    value
-                      ? chain().setHighlight({color: value}).run()
-                      : chain().unsetHighlight().run()
-                  }
-                />
-              </VStack>
-            }>
-            <IconButton
-              label="Colour and highlight"
-              tooltip="Colour and highlight"
-              icon={
-                <Icon icon={state.highlight ? Highlighter : Baseline} size="sm" color="inherit" />
-              }
-              variant={state.color || state.highlight ? 'secondary' : 'ghost'}
-              size="sm"
-            />
-          </Popover>
-          {tool('Link', Link2, state.link, onLink, {shortcut: '⌘K'})}
-          {tool(
-            'Remove link',
-            Unlink,
-            false,
-            () => chain().extendMarkRange('link').unsetLink().run(),
-            {
-              isDisabled: !state.link,
-            },
-          )}
-          {separator}
-          {tool(
-            painter ? 'Format painter: select text to apply' : 'Format painter',
-            PaintbrushVertical,
-            Boolean(painter),
-            () => setPainter(current => (current ? null : editor.state.selection.$from.marks())),
-          )}
-          {tool(
-            'Clear formatting',
-            RemoveFormatting,
-            false,
-            () => chain().unsetAllMarks().clearNodes().unsetTextAlign().run(),
-            {
-              shortcut: '⌘\\',
-            },
-          )}
-        </ToolGroup>
-
-        <ToolGroup label="Paragraph">
-          {tool(
-            'Align left',
-            AlignLeft,
-            state.align === 'left',
-            () => chain().setTextAlign('left').run(),
-            {shortcut: '⇧⌘L'},
-          )}
-          {tool(
-            'Align centre',
-            AlignCenter,
-            state.align === 'center',
-            () => chain().setTextAlign('center').run(),
-            {shortcut: '⇧⌘E'},
-          )}
-          {tool(
-            'Align right',
-            AlignRight,
-            state.align === 'right',
-            () => chain().setTextAlign('right').run(),
-            {shortcut: '⇧⌘R'},
-          )}
-          {tool(
-            'Justify',
-            AlignJustify,
-            state.align === 'justify',
-            () => chain().setTextAlign('justify').run(),
-            {shortcut: '⇧⌘J'},
-          )}
-          {tool('Bulleted list', List, state.bullet, () => chain().toggleBulletList().run(), {
-            shortcut: '⇧⌘8',
-          })}
-          {tool(
-            'Numbered list',
-            ListOrdered,
-            state.ordered,
-            () => chain().toggleOrderedList().run(),
-            {shortcut: '⇧⌘7'},
-          )}
-          {tool('Checklist', ListChecks, state.task, () => chain().toggleTaskList().run(), {
-            shortcut: '⇧⌘9',
-          })}
-          {tool('Decrease indent', ListIndentDecrease, false, () => shiftListItem(editor, 'out'), {
-            shortcut: '⇧Tab',
-            isDisabled: !state.inList,
-          })}
-          {tool('Increase indent', ListIndentIncrease, false, () => shiftListItem(editor, 'in'), {
-            shortcut: 'Tab',
-            isDisabled: !state.inList,
-          })}
-        </ToolGroup>
-
-        <ToolGroup label="Structure">
-          {tool('New section', Heading2, false, () => runInsert('section'))}
-          <DropdownMenu
-            placement={popupPlacement}
-            renderTrigger={props => (
-              <IconButton
-                {...props}
-                label="Add a template section"
-                tooltip="Add a template section"
-                icon={<Icon icon={LayoutTemplate} size="sm" color="inherit" />}
-                variant="ghost"
-                size="sm"
-              />
-            )}
-            items={[
-              {
-                type: 'section',
-                title: 'Template sections',
-                items: caseStudySections.map(section => ({
-                  label: section.title,
-                  description: section.hint,
-                  onClick: () => chain().insertContent(caseStudySectionNodes(section)).run(),
-                })),
-              },
-            ]}
-            menuWidth={300}
-            menuMaxHeight={480}
-            hasChevron={false}
-          />
-          {separator}
-          {tool('Quote', Quote, state.quote, () => chain().toggleBlockquote().run(), {
-            shortcut: '⇧⌘B',
-          })}
-          {tool('Pull quote', TextQuote, false, () => runInsert('pull-quote'))}
-          {tool('Callout', Lightbulb, false, () => runInsert('callout'))}
-          {tool('Collapsible section', ListCollapse, state.details, () =>
-            state.details ? chain().unsetDetails().run() : chain().setDetails().run(),
-          )}
-          {tool('Code block', SquareCode, state.codeBlock, () => chain().toggleCodeBlock().run(), {
-            shortcut: '⌥⌘C',
-          })}
-          {separator}
-          {tool('Split layout', Columns2, false, () => runInsert('split'))}
-          {tool('Divider', SeparatorHorizontal, false, () => chain().setHorizontalRule().run())}
-          <DropdownMenu
-            placement={popupPlacement}
-            renderTrigger={props => (
-              <IconButton
-                {...props}
-                label="Add space"
-                tooltip="Add space"
-                icon={<Icon icon={MoveVertical} size="sm" color="inherit" />}
-                variant="ghost"
-                size="sm"
-              />
-            )}
-            items={[
-              {
-                type: 'section',
-                title: 'Add space',
-                items: (
-                  [
-                    ['sm', 'Small'],
-                    ['md', 'Medium'],
-                    ['lg', 'Large'],
-                    ['xl', 'Extra large'],
-                  ] as const
-                ).map(([size, label]) => ({
-                  label,
-                  onClick: () => chain().insertSpacer(size).run(),
-                })),
-              },
-            ]}
-            menuWidth={180}
-            hasChevron={false}
-          />
-          {tool('Line break', CornerDownLeft, false, () => chain().setHardBreak().run(), {
-            shortcut: '⇧↵',
-          })}
-          {separator}
-          {tool('Metrics', ChartColumn, false, () => runInsert('metrics'))}
-          <DropdownMenu
-            placement={popupPlacement}
-            renderTrigger={props => (
-              <IconButton
-                {...props}
-                label="Table"
-                tooltip="Table"
-                icon={<Icon icon={Table2} size="sm" color="inherit" />}
-                variant={state.table ? 'secondary' : 'ghost'}
-                size="sm"
-              />
-            )}
-            items={[
-              {
-                type: 'section',
-                title: 'Table',
-                items: [
-                  tableItem(
-                    'Insert a 3 × 3 table',
-                    Table2,
-                    () => chain().insertTable({rows: 3, cols: 3, withHeaderRow: true}).run(),
-                    false,
-                  ),
-                  tableItem('Header row on or off', PanelTop, () =>
-                    chain().toggleHeaderRow().run(),
-                  ),
-                ],
-              },
-              {
-                type: 'section',
-                title: 'Rows',
-                items: [
-                  tableItem('Add row above', BetweenHorizontalStart, () =>
-                    chain().addRowBefore().run(),
-                  ),
-                  tableItem('Add row below', BetweenHorizontalEnd, () =>
-                    chain().addRowAfter().run(),
-                  ),
-                  {
-                    ...tableItem('Delete row', Trash2, () => chain().deleteRow().run()),
-                    variant: 'destructive' as const,
-                  },
-                ],
-              },
-              {
-                type: 'section',
-                title: 'Columns',
-                items: [
-                  tableItem('Add column left', BetweenVerticalStart, () =>
-                    chain().addColumnBefore().run(),
-                  ),
-                  tableItem('Add column right', BetweenVerticalEnd, () =>
-                    chain().addColumnAfter().run(),
-                  ),
-                  {
-                    ...tableItem('Delete column', Trash2, () => chain().deleteColumn().run()),
-                    variant: 'destructive' as const,
-                  },
-                ],
-              },
-              {
-                type: 'section',
-                title: 'Cells',
-                items: [
-                  tableItem(
-                    'Merge cells',
-                    TableCellsMerge,
-                    () => chain().mergeCells().run(),
-                    !state.canMerge,
-                  ),
-                  tableItem(
-                    'Split cell',
-                    TableCellsSplit,
-                    () => chain().splitCell().run(),
-                    !state.canSplit,
-                  ),
-                  {
-                    ...tableItem('Delete table', Trash2, () => chain().deleteTable().run()),
-                    variant: 'destructive' as const,
-                  },
-                ],
-              },
-            ]}
-            menuWidth={240}
-            menuMaxHeight={520}
-            hasChevron={false}
-          />
-        </ToolGroup>
-        {/* Phones: expand the bottom bar to every tool group, or collapse it back to one row. */}
-        <span className="write-tool-toggle only-narrow">
-          <IconButton
-            label={isExpanded ? 'Close tools' : 'More tools'}
-            tooltip={isExpanded ? 'Close tools' : 'More tools'}
-            variant="ghost"
-            size="sm"
-            aria-expanded={isExpanded}
-            onClick={() => setIsExpanded(open => !open)}
-            icon={<Icon icon={isExpanded ? ChevronDown : ChevronUp} size="sm" color="inherit" />}
-          />
-        </span>
-      </VStack>
-      {/* Phones: Insert is a floating action button (bottom-right), opening the same menu upward. */}
-      <div className="write-fab only-narrow">
+    <HStack gap={1} vAlign="center" ref={rootRef} className="write-toolbar write-toolbar--row glass glass--panel" role="toolbar" aria-label="Formatting">
+      {history}
+      {separator('s1')}
+      {find}
+      {separator('s2')}
+      {styleSelect}
+      {separator('s3')}
+      {inline}
+      {!isCompact && [separator('s4'), alignMenu, listMenu]}
+      {separator('s5')}
+      {more}
+      <span className="write-tool-end">
         <DropdownMenu
-          renderTrigger={props => (
-            <IconButton {...props} label="Insert" tooltip="Insert" variant="primary" size="lg" icon={<Icon icon={Plus} size="md" color="inherit" />} />
-          )}
+          button={{label: 'Insert', size: 'sm', variant: 'primary', icon: <Icon icon={Plus} size="sm" color="inherit" />, isDisabled: !state.isEditable}}
           items={insertItems}
-          placement="above"
+          menuWidth={300}
+          menuMaxHeight={560}
           alignment="end"
-          menuWidth="75vw"
-          menuMaxHeight={480}
         />
-      </div>
-    </ActiveTab.Provider>
+      </span>
+    </HStack>
   );
 }
