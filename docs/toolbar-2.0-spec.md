@@ -1,6 +1,6 @@
 # Write Studio: editor toolbar specification (Toolbar 2.0)
 
-> Status: **Release 1 (A1–A10) implemented on 2026-11-11**, using the recommended answers to the open decisions (text style names as in A2, new tab by default for links, replace included). Inventory 3 is still future work.
+> Status: **Release 1 (A1–A10) implemented on 2026-11-11**, using the recommended answers to the open decisions (text style names as in A2, new tab by default for links, replace included). **Release 2 (Insert 2.0) implemented on 2026-11-11:** process timeline, screen sequence, annotated screenshot and flow diagram. Inventory 3's other items are still future work.
 > It turns the product owner's "Editor Toolbar Architecture & Feature Specification" into three
 > inventories (Keep and reorganise, Add, Future-ready), checked against the code as it is today.
 > It sits under `docs/write-studio-2.0-blueprint.md` and must respect its constraints, the design
@@ -169,7 +169,7 @@ The architecture must leave room for these without a rewrite. "Prepare now" is w
 ## Recommended order
 
 1. **Toolbar 2.0 (P0):** A1–A10 above.
-2. **Insertion 2.0 (P1):** six categories filled out; process timeline, screen sequence, annotated screenshot, flow diagram.
+2. **Insertion 2.0 (P1):** ✅ done: process timeline, screen sequence, annotated screenshot, flow diagram.
 3. **Inspector 2.0 (P1):** table inspector, device interactions, image crop, responsive block settings, presets.
 4. **Advanced authoring (P2):** sources and footnotes, charts, version history, private notes, AI (only after guidance).
 
