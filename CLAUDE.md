@@ -63,7 +63,9 @@ verifies the JWT with `jose`, refreshes via Django when expired, redirects signe
 All routes behind `requireUser` (jose verify, type access, role user, UUID sub); every query
 `.eq('owner_id', req.user.id)`; owner/workspace set server-side. Responses `private, no-store`.
 - `routes/app.ts`: `GET/PATCH /api/app/workspace` (+ `workspaceOf()`).
-- `routes/appCaseStudies.ts`: list (?status), create (template), get, PUT save (`studioDraftProblems`:
+- `routes/appCaseStudies.ts`: list (?status), create (`{setup, finish}` from the wizard, or legacy `{title}` = full
+  template), `PUT /:id/setup` (only while `setup_state` is set; finish builds the document), `POST /:id/duplicate`,
+  get, PUT save (409 while setup is unfinished) (`studioDraftProblems`:
   every media path must be `{owner}/{workspace}/…`; 2 MB cap; `expected_updated_at` → 409 conflict;
   archived → 409), archive, restore, delete. No publish endpoint.
 - `routes/appAssets.ts`: list, `POST /upload-url` (server picks `{owner}/{ws}/{case|library}/{uuid}.{ext}`
@@ -76,7 +78,8 @@ All routes behind `requireUser` (jose verify, type access, role user, UUID sub);
 ## 5. Frontend (`frontend/src`)
 
 - Routes: public `studio/{login,signup,forgot-password,update-password,confirm}`; `studio/(workspace)/`
-  {page (drafts dashboard), case-studies (?status=archived), case-studies/new (POST form), media, settings}
+  {page (drafts dashboard), case-studies (?status=archived), case-studies/new (project setup wizard),
+  case-studies/[id]/setup (resume an unfinished setup), media, settings}
   with layout (requireStudioUser + workspace header); `studio/(editor)/case-studies/[id]` (Editor) and
   `[id]/preview` (StudioPreview, ?embed=1); `studio/files/[...path]/route.ts` (owner-only file proxy);
   `app/page.tsx` → /studio; `app/layout.tsx` root.
@@ -129,7 +132,8 @@ All routes behind `requireUser` (jose verify, type access, role user, UUID sub);
 Now contains only: `public.studio_workspaces` (owner_id unique; trigger on `django.accounts_user`
 creates it), `public.studio_case_studies` (draft|archived, slug unique per workspace, composite FK
 (workspace_id, owner_id), immutable owner/workspace triggers, 2 MB content check),
-`public.studio_assets` (path pattern check, FK to own case study, `on delete set null (case_study_id)`),
+`0010_studio_projects.sql` adds project_type, role, team, timeline, platform, objective, challenge,
+framework_id + framework_version, setup_state (jsonb, unfinished wizard). `public.studio_assets` (path pattern check, FK to own case study, `on delete set null (case_study_id)`),
 bucket `studio-private-media` (private, 50 MB, no SVG, **no storage policies**), schema `django`.
 RLS on + zero policies + no anon/authenticated grants on studio tables. `public.touch_updated_at()`
 (from 0001) kept for triggers. Migration order in `supabase/README.md` (Django migrate between 0004 and 0005).
@@ -140,7 +144,7 @@ RLS on + zero policies + no anon/authenticated grants on studio tables. `public.
 
 `scripts/security-suite.sh [django-console-log]`: static "no owner/portfolio code" grep, typecheck, lint,
 Express build, Django check + 26 tests; with the log: schema 33, auth-live 23, storage-live 30,
-documents-live 55, lifecycle-live 27 (all passing 2026-11-10). Map of SEC-001..018 in
+documents-live 55, setup-live 35, lifecycle-live 27 (all passing 2026-11-11). Map of SEC-001..018 in
 `supabase/tests/README.md`. Live tests create/delete `@example.test` accounts (staging only).
 
 ## 8. Removed on 2026-11-10 (don't reintroduce)
@@ -175,4 +179,16 @@ Backup before removal: `/private/tmp/claude-501/-Users-visit--claude-spares-spar
 - **Toolbar 2.0 (Release 1, implemented; spec `docs/toolbar-2.0-spec.md`):** `Toolbar.tsx` is one row on desktop (Undo/Redo · Find · Text style · B/I/U, Link, Colour · Alignment, Lists · More ⋯ · Insert); below ~720px of column width Alignment/Lists fold into More; phones keep the bottom bar + ⌃ sheet (groups Text style / Format / Paragraph) + Insert FAB. Text styles = headings h1–h4 + paragraph `textRole` (display/lead/small/caption/label → `.cs-text-*` in typography.css). Find/replace: `search.ts` (ProseMirror decorations, never stored; replace all = one undo) + `FindReplace.tsx`, ⌘/Ctrl+F. Selection bubble: B/I/U/Link/Highlight/More, hidden in tables and while find is open. `TableBar.tsx`: anchored above the table. Link editor: address + text + new-tab switch; `safeHref()` allows only https/http/mailto/tel, `/`, `#`. Image node attrs: decorative, size, align, ratio, focus (Image inspector 2.0). Insert registry (`insertCommands.tsx`): six groups Text/Media/Visual/Data/Structure/Advanced + template sections via `insertMenuItems()`; `/` menu shows the same headings (name matches rank first).
 - **Insert 2.0 blocks (Release 2):** `timeline` (phases; across/down; line/cards), `screenSequence` (numbered screens with phone/browser/no frame, 2–4 columns, arrows), `annotatedImage` (click the screenshot in the editor to add a numbered marker; notes list is the accessible content; markers decorative), `flowDiagram` (start/step/decision/end shapes, labelled arrows). Configs/defaults in `packages/shared/src/caseStudies/blocks.ts`, nodes via `visualAtom` in schema.ts, renderers in `visualBlocks.tsx` (editor + preview), views in nodeViews.tsx, inspectors in BlockInspector.tsx, CSS `.vb-timeline/.vb-sequence/.vb-annotated/.vb-flow` in globals.css (list selectors are `.vb .vb-…-list` to beat `.cs-prose ol`). Horizontal layouts stack on phones; empty sequence steps are omitted in the preview. Media paths are covered by the generic `documentMediaPaths` walk.
 - **Inspector 2.0 (Release 3):** `findSelectedBlock` treats the table around the cursor as a block → `TableInspector` (borders grid/rows/minimal, striped, density, header row/column, cell alignment, rows/columns, phones scroll/fit; table attrs `tableStyle/striped/density/mobile` → `data-tablestyle…` via `TableAttributes`). Device mockups: drag on the canvas in the editor (`onMoveDevice`, window pointer listeners, keeps the grab offset, one update on drop; a drag suppresses the picker click), Duplicate device, `locked`. Images: `credit` (shown after the caption in the preview) and `radius`; the preview's image mapping now honours size/align/ratio/focus/decorative/radius. Comparison `display: 'slider'` (range-input divider, needs both pictures). Image grid `mobileColumns`.
-- Write Studio 2.0 blueprint: `docs/write-studio-2.0-blueprint.md`; Stage 0 audit done: `docs/stage-0-ux-audit.md` (Stage 1 = guided project creation, awaiting approval).
+- Write Studio 2.0 blueprint: `docs/write-studio-2.0-blueprint.md`; Stage 0 audit done: `docs/stage-0-ux-audit.md`; Stage 1 done (`docs/stage-1-report.md`); next is Stage 2 (story structure & guidance).
+- **Stage 1, guided project creation (done 2026-11-11; report `docs/stage-1-report.md`):** frameworks are versioned,
+  immutable data in `packages/shared/src/frameworks` (Product and UX design v1 = the 10 sections with purpose,
+  act, prompts, evidence, visuals; Blank v1); never edit a released version, add one. `caseStudySections` now comes
+  from it and `sectionOf()` resolves keys across all versions. `caseStudies/setup.ts`: `StudioSetup`, `cleanSetup()`
+  (server validation), `outlineDocument()` (unchanged framework section = empty tagged heading; renamed = text + key;
+  own section = text, no key). Wizard `components/studio/creation/ProjectSetup.tsx`: 6 steps (start/type/details/
+  framework/cover/outline), only the title is required, Back to any visited step, Save and finish later, Skip the
+  rest and start writing, Copy a case study. Nothing is created on GET. Cover comes from the library
+  (`MediaProvider caseStudyId={null}`) and is also the thumbnail. Dashboard: type + "Setup not finished" on cards,
+  empty state "Start your first case study", `AddNameForm` when the account has no name. The editor and preview
+  redirect to `/setup` while `setup_state` is set. Express runs `tsx` without watch here: restart it after
+  shared/Express changes.
