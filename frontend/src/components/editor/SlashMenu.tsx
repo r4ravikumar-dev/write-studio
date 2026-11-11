@@ -26,7 +26,10 @@ export function SlashMenu({editor, commands}: {editor: Editor; commands: InsertC
     const query = slash.query.toLowerCase();
     // Unfiltered: in category order (Text, Media, Visual, Data, Structure, Advanced).
     if (!query) return INSERT_GROUPS.flatMap(group => commands.filter(command => command.group === group));
-    return commands.filter(command => `${command.label} ${command.keywords} ${command.group}`.toLowerCase().includes(query));
+    // Names that match come first, then keyword and category matches ("/flow" → Flow diagram first).
+    const byName = commands.filter(command => command.label.toLowerCase().includes(query));
+    const byKeyword = commands.filter(command => !byName.includes(command) && `${command.keywords} ${command.group}`.toLowerCase().includes(query));
+    return [...byName, ...byKeyword];
   }, [commands, slash]);
 
   // Watch the text: "/" + up to 24 non-space characters, alone in a paragraph, cursor at its end.
