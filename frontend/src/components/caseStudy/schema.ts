@@ -15,6 +15,8 @@ import {
   defaultDeviceMockup,
   defaultImageGrid,
   defaultMetrics,
+  defaultResearchInsights,
+  defaultChart,
   defaultQuote,
   defaultShowcase,
   defaultSplit,
@@ -148,6 +150,9 @@ export const TimelineNode = visualAtom('timeline', defaultTimeline);
 export const ScreenSequenceNode = visualAtom('screenSequence', defaultScreenSequence);
 export const AnnotatedImageNode = visualAtom('annotatedImage', defaultAnnotatedImage);
 export const FlowDiagramNode = visualAtom('flowDiagram', defaultFlowDiagram);
+// T4 blocks
+export const ResearchInsightsNode = visualAtom('researchInsights', defaultResearchInsights);
+export const ChartNode = visualAtom('chart', defaultChart);
 
 /** Media beside editable text: the text is ordinary content inside the block. */
 export const SplitLayoutNode = Node.create({
@@ -523,4 +528,6 @@ export const caseStudyExtensions: Extensions = [
   ScreenSequenceNode,
   AnnotatedImageNode,
   FlowDiagramNode,
+  ResearchInsightsNode,
+  ChartNode,
 ];

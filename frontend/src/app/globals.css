@@ -5093,3 +5093,299 @@ dialog.astryx-dialog::backdrop {
   padding-block: var(--spacing-6);
   border-block: 3px solid var(--color-brand-text);
 }
+
+/* T3 (editor spec §9.3): tablet and phone column overrides from the inspector's "Tablet and phone"
+   group. The renderer sets --vb-columns-tablet / --vb-columns-phone and a data flag only when the
+   person changed them; otherwise the automatic rules above apply. */
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  .vb-grid[data-columns-tablet],
+  .vb-metrics-grid[data-columns-tablet],
+  .vb .vb-sequence-list[data-columns-tablet] {
+    grid-template-columns: repeat(var(--vb-columns-tablet), minmax(0, 1fr));
+  }
+  .vb-grid[data-arrangement='masonry'][data-columns-tablet] { columns: var(--vb-columns-tablet); }
+}
+@media (max-width: 767.98px) {
+  .vb-metrics-grid[data-columns-phone],
+  .vb .vb-sequence-list[data-columns-phone] {
+    grid-template-columns: repeat(var(--vb-columns-phone), minmax(0, 1fr));
+  }
+}
+
+/* ==== T4: content cards, Research insights, Chart (editor spec §8.5). DNA semantic tokens only. ==== */
+
+/* Placeholder text inside visual blocks in the editor (never in the preview). */
+
+
+/* ---- Research insights: a list of finding cards ---- */
+.vb .vb-insights-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--vb-columns, 3), minmax(0, 1fr));
+  gap: var(--space-16);
+}
+.vb .vb-insight {
+  margin: 0;
+  display: grid;
+  gap: var(--space-8);
+  align-content: start;
+  padding: var(--space-20);
+  border: 1px solid var(--border-gray-subtle);
+  border-radius: var(--radius-16);
+  background: var(--bg-gray-inverse);
+}
+.vb-insights[data-layout='list'] .vb-insight {
+  padding: 0 0 0 var(--space-16);
+  border: 0;
+  border-inline-start: 2px solid var(--border-brand-normal);
+  border-radius: 0;
+  background: none;
+}
+.vb .vb-insight p { margin: 0; }
+.vb .vb-insight-number {
+  font-size: var(--overline-sm-size);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-brand-primary);
+}
+.vb .vb-insight-finding {
+  font-size: var(--heading-sm-size);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-gray-primary);
+}
+.vb .vb-insight-evidence { font-size: var(--body-lg-size); line-height: 1.5; color: var(--text-gray-secondary); }
+.vb .vb-insight-source { font-size: var(--caption-md-size); color: var(--text-gray-tertiary); }
+@media (max-width: 767.98px) {
+  .vb .vb-insights-list { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- Chart ---- */
+.vb-chart {
+  --chart-1: var(--bg-brand-normal);
+  --chart-2: var(--bg-accent-mint-normal);
+  --chart-3: var(--bg-accent-orange-normal);
+  --chart-4: var(--bg-accent-slate-normal);
+  --chart-5: var(--bg-accent-pink-normal);
+  --chart-other: var(--icon-gray-normal);
+  --chart-track: var(--bg-gray-moderate);
+  display: grid;
+  gap: var(--space-12);
+}
+.vb .vb-chart p { margin: 0; }
+.vb .vb-chart-title { font-size: var(--heading-sm-size); font-weight: 600; color: var(--text-gray-primary); }
+.vb .vb-chart-empty {
+  padding: var(--space-24);
+  border: 1px dashed var(--border-gray-intense);
+  border-radius: var(--radius-12);
+  font-size: var(--body-lg-size);
+  color: var(--text-gray-secondary);
+  text-align: center;
+}
+.vb-chart-plot { position: relative; }
+.vb .vb-chart-source { font-size: var(--caption-md-size); color: var(--text-gray-tertiary); }
+
+/* Bars and progress: thin marks, rounded at the data end, from a zero baseline. */
+.vb-bars, .vb-progress { display: grid; gap: var(--space-12); }
+.vb-bar-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, 30%) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-12);
+}
+.vb-bar-label, .vb-progress-label { font-size: var(--body-lg-size); color: var(--text-gray-primary); overflow-wrap: anywhere; }
+.vb-bar-value, .vb-progress-value { font-size: var(--body-lg-size); font-weight: 600; color: var(--text-gray-primary); font-variant-numeric: tabular-nums; }
+.vb-bar-track { display: block; }
+.vb-bar {
+  display: block;
+  min-inline-size: 2px;
+  block-size: var(--space-14);
+  border-radius: 0 var(--radius-4) var(--radius-4) 0;
+  background: var(--chart-1);
+}
+.vb-progress-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-6) var(--space-12);
+}
+.vb-progress-track {
+  grid-column: 1 / -1;
+  display: block;
+  block-size: var(--space-10);
+  border-radius: var(--radius-round);
+  background: var(--chart-track);
+  overflow: hidden;
+}
+.vb-progress-fill { display: block; block-size: 100%; border-radius: var(--radius-round); background: var(--chart-1); }
+
+/* Line: a 2px line, 8px markers with a 2px surface ring, recessive grid and axes. */
+.vb-line { position: relative; }
+.vb-line-svg { display: block; inline-size: 100%; block-size: auto; overflow: visible; }
+.vb-chart-grid { stroke: var(--border-gray-subtle); stroke-width: 1; }
+.vb-chart-crosshair { stroke: var(--border-gray-intense); stroke-width: 1; stroke-dasharray: 4 4; }
+.vb-chart-axis { font-size: 12px; fill: var(--text-gray-tertiary); font-family: var(--font-family-primary); }
+.vb-chart-value { font-size: 13px; font-weight: 600; fill: var(--text-gray-primary); font-family: var(--font-family-primary); }
+.vb-line-path { fill: none; stroke: var(--chart-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.vb-line-point { fill: var(--chart-1); stroke: var(--bg-gray-inverse); stroke-width: 2; }
+.vb-chart-hit { fill: transparent; }
+.vb-chart-tip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - var(--space-12)));
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-10);
+  border: 1px solid var(--border-gray-normal);
+  border-radius: var(--radius-8);
+  background: var(--bg-gray-inverse);
+  box-shadow: 0 4px 6px -2px rgb(0 0 0 / 0.05), 0 8px 15px -3px rgb(0 0 0 / 0.1);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.vb-chart-tip-label { font-size: var(--caption-md-size); color: var(--text-gray-secondary); }
+.vb-chart-tip-value { font-size: var(--body-lg-size); font-weight: 600; color: var(--text-gray-primary); }
+
+/* Donut: parts with a 2px gap, a legend with each label, value and share. */
+.vb-donut { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-24); }
+.vb-donut-svg { inline-size: min(12rem, 100%); block-size: auto; flex: none; }
+.vb-donut-part { fill: none; stroke: var(--chart-1); transition: stroke-width 120ms ease, opacity 120ms ease; }
+.vb-donut-part[data-dim] { opacity: 0.35; }
+.vb-donut-centre { font-size: 22px; font-weight: 600; fill: var(--text-gray-primary); font-family: var(--font-family-primary); }
+.vb [data-slot='2'] { --slot: var(--chart-2); }
+.vb [data-slot='3'] { --slot: var(--chart-3); }
+.vb [data-slot='4'] { --slot: var(--chart-4); }
+.vb [data-slot='5'] { --slot: var(--chart-5); }
+.vb [data-slot='other'] { --slot: var(--chart-other); }
+.vb-donut-part[data-slot] { stroke: var(--slot, var(--chart-1)); }
+.vb .vb-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-8); flex: 1 1 12rem; }
+.vb .vb-legend-item { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-8); font-size: var(--body-lg-size); }
+.vb-legend-swatch { inline-size: var(--space-12); block-size: var(--space-12); border-radius: var(--radius-2); background: var(--slot, var(--chart-1)); }
+.vb-legend-label { color: var(--text-gray-primary); }
+.vb-legend-value { color: var(--text-gray-secondary); font-variant-numeric: tabular-nums; }
+.vb-legend-item[data-active] .vb-legend-label { font-weight: 600; }
+
+/* The figures as a table (also what screen readers use). */
+.vb-chart-table summary { cursor: pointer; font-size: var(--label-lg-size); color: var(--text-brand-primary); inline-size: fit-content; }
+.vb-chart-table table { margin-block-start: var(--space-8); }
+
+@media (forced-colors: active) {
+  .vb-bar, .vb-progress-fill, .vb-legend-swatch { forced-color-adjust: none; border: 1px solid CanvasText; }
+}
+@media print {
+  .vb-chart-table { display: none; }
+  .vb-chart-tip { display: none; }
+}
+
+/* Last, so it beats each block's own text colours. */
+.vb p[data-placeholder], .vb dt[data-placeholder], .vb dd[data-placeholder] { color: var(--text-gray-placeholder); }
+
+/* ==== T6: device composition tools (editor spec §11). Editor only: nothing here renders in the preview. ==== */
+.vb-guide {
+  position: absolute;
+  z-index: 1000;
+  pointer-events: none;
+  background: var(--border-brand-normal);
+}
+.vb-guide[data-axis='x'] { inset-block: 0; inline-size: 1px; transform: translateX(-0.5px); }
+.vb-guide[data-axis='y'] { inset-inline: 0; block-size: 1px; transform: translateY(-0.5px); }
+/* Grouped devices: a dashed outline instead of the solid one. */
+.vb-device-slot[data-selected][data-grouped] .vb-device { outline-style: dashed; }
+.vb-device-slot[data-locked] { cursor: default; }
+/* The rotate handle: a small round knob above the selected device, on a short stem. */
+.vb-rotate-handle {
+  position: absolute;
+  inset-block-start: calc(-1 * var(--space-32));
+  inset-inline-start: 50%;
+  inline-size: var(--space-14);
+  block-size: var(--space-14);
+  margin-inline-start: calc(-1 * var(--space-14) / 2);
+  border: 2px solid var(--border-brand-normal);
+  border-radius: var(--radius-round);
+  background: var(--bg-gray-inverse);
+  cursor: grab;
+  touch-action: none;
+}
+.vb-rotate-handle::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 50%;
+  inline-size: 1px;
+  block-size: var(--space-16);
+  background: var(--border-brand-normal);
+}
+@media (pointer: coarse) {
+  .vb-rotate-handle { inline-size: var(--space-24); block-size: var(--space-24); margin-inline-start: calc(-1 * var(--space-24) / 2); inset-block-start: calc(-1 * var(--space-48)); }
+}
+/* Locked devices show a small lock in the corner. */
+.vb-lock-badge {
+  position: absolute;
+  inset-block-start: calc(-1 * var(--space-8));
+  inset-inline-end: calc(-1 * var(--space-8));
+  inline-size: var(--space-20);
+  block-size: var(--space-20);
+  border-radius: var(--radius-round);
+  background: var(--bg-gray-inverse);
+  box-shadow: 0 0 0 1px var(--border-gray-normal);
+  pointer-events: none;
+}
+/* The lock icon as a mask, so its colour is a token. */
+.vb-lock-badge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--icon-gray-intense);
+  -webkit-mask: no-repeat center / var(--space-12) var(--lock-icon);
+  mask: no-repeat center / var(--space-12) var(--lock-icon);
+  --lock-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='11' x='3' y='11' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
+}
+
+/* ==== T7: version history dialog ==== */
+.history { display: grid; gap: var(--space-24); }
+.history[data-open] { grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); align-items: start; }
+.history-list { min-inline-size: 0; }
+.history-error { color: var(--text-error-normal); }
+.history-day { font-size: var(--label-md-size); font-weight: 600; }
+.history-items { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
+.history-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-12);
+  border-radius: var(--radius-12);
+}
+.history-item:hover { background: var(--bg-gray-normal); }
+.history-item[data-active] { background: var(--bg-brand-subtle); box-shadow: inset 0 0 0 1px var(--border-brand-light); }
+.history-open {
+  display: grid;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  padding: var(--space-4) 0;
+  border: 0;
+  background: none;
+  text-align: start;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.history-open:focus-visible { outline: 2px solid var(--border-brand-normal); outline-offset: 2px; border-radius: var(--radius-4); }
+.history-time { font-size: var(--label-lg-size); font-weight: 600; color: var(--text-gray-primary); }
+.history-label { font-size: var(--label-md-size); color: var(--text-brand-primary); }
+.history-title { font-size: var(--caption-md-size); color: var(--text-gray-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-preview { min-inline-size: 0; }
+.history-doc {
+  max-block-size: 62dvh;
+  overflow: auto;
+  padding: var(--space-24);
+  border: 1px solid var(--border-gray-subtle);
+  border-radius: var(--radius-16);
+  background: var(--bg-gray-inverse);
+}
+.history-doc-title { margin: 0 0 var(--space-8); font-family: var(--font-family-secondary); font-size: var(--heading-xxl-size); line-height: 1.2; }
+.history-doc-subtitle { margin: 0 0 var(--space-24); font-size: var(--body-xxl-size); color: var(--text-gray-secondary); }
+@media (max-width: 767.98px) {
+  .history[data-open] { grid-template-columns: minmax(0, 1fr); }
+}

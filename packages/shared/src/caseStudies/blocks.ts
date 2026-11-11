@@ -52,6 +52,15 @@ export const BLOCK_WIDTHS: {value: BlockWidth; label: string}[] = [
   {value: 'wide', label: 'Wide'},
 ];
 
+/**
+ * Responsive overrides (editor spec §9.3, T3): per breakpoint, only the whitelisted layout keys.
+ * Breakpoints match the preview: tablet 768–1023px, phone below 768px. Desktop is the block's own
+ * settings. Missing = same as desktop.
+ */
+export type Breakpoint = 'tablet' | 'phone';
+export type ColumnCount = 1 | 2 | 3 | 4;
+export type ResponsiveColumns = Partial<Record<Breakpoint, {columns?: ColumnCount}>>;
+
 export const ratioValue = (ratio: Ratio | undefined) => (ratio && ratio !== 'auto' ? ratio.replace(':', ' / ') : undefined);
 
 // ----------------------------------------------------------------------------
@@ -70,6 +79,8 @@ export type ImageGridConfig = {
   /** Stage 4 (optional; older grids are 'content' and 'none'). */
   width?: BlockWidth;
   surface?: Surface;
+  /** T3: tablet columns (phones use `mobileColumns`). */
+  responsive?: ResponsiveColumns;
 };
 export const defaultImageGrid = (): ImageGridConfig => ({
   columns: 2,
@@ -159,6 +170,8 @@ export type Device = {
   z: number;
   /** Locked devices can't be dragged on the canvas (Inspector 2.0). */
   locked?: boolean;
+  /** Devices with the same group id are selected and moved together (T6). */
+  groupId?: string;
 };
 export type DevicePreset = 'single' | 'dual-overlap' | 'triple-stack' | 'multi-device' | 'custom';
 export type DeviceMockupConfig = {
@@ -282,6 +295,8 @@ export type MetricsConfig = {
   size?: 'regular' | 'large';
   align?: 'start' | 'center';
   surface?: Surface;
+  /** T3: tablet and phone columns. */
+  responsive?: ResponsiveColumns;
 };
 export const defaultMetrics = (): MetricsConfig => ({
   items: [
@@ -331,6 +346,8 @@ export type ScreenSequenceConfig = {
   arrows: boolean;
   ratio: Ratio;
   caption: string;
+  /** T3: tablet and phone columns. */
+  responsive?: ResponsiveColumns;
 };
 export const newStep = (): SequenceStep => ({id: blockItemId('s'), media: null, title: '', text: ''});
 export const defaultScreenSequence = (): ScreenSequenceConfig => ({
@@ -403,6 +420,72 @@ export const defaultFlowDiagram = (): FlowDiagramConfig => ({
 // ----------------------------------------------------------------------------
 // Node names and validation
 // ----------------------------------------------------------------------------
+// 10. Research insights (T4): 2–6 findings, each with its evidence and source
+// ----------------------------------------------------------------------------
+export type ResearchInsight = {id: string; finding: string; evidence: string; source: string};
+export type ResearchInsightsConfig = {
+  insights: ResearchInsight[];
+  layout: 'cards' | 'list';
+  columns: 2 | 3;
+  /** Small label above each finding: "Insight 1". */
+  numbered: boolean;
+  caption: string;
+};
+export const INSIGHTS_MIN = 2;
+export const INSIGHTS_MAX = 6;
+export const newInsight = (): ResearchInsight => ({id: blockItemId('i'), finding: '', evidence: '', source: ''});
+export const defaultResearchInsights = (): ResearchInsightsConfig => ({
+  insights: [newInsight(), newInsight(), newInsight()],
+  layout: 'cards',
+  columns: 3,
+  numbered: true,
+  caption: '',
+});
+
+// ----------------------------------------------------------------------------
+// 11. Chart (T4): the author's own figures as bars, a line, a donut or progress bars.
+//     Values start empty: the studio never invents numbers.
+// ----------------------------------------------------------------------------
+export type ChartKind = 'bar' | 'line' | 'donut' | 'progress';
+export type ChartPoint = {id: string; label: string; value: number | null};
+export type ChartConfig = {
+  kind: ChartKind;
+  title: string;
+  /** Shown after each value: "%", " ms", " users". */
+  unit: string;
+  points: ChartPoint[];
+  /** Progress bars: the value that counts as complete (100 for percentages). */
+  target: number;
+  /** One sentence for people who can't see the chart: what it shows. */
+  summary: string;
+  caption: string;
+  /** Where the figures come from: "Analytics, March 2026". */
+  source: string;
+};
+export const CHART_KINDS: {value: ChartKind; label: string; description: string}[] = [
+  {value: 'bar', label: 'Bars', description: 'Compare amounts'},
+  {value: 'line', label: 'Line', description: 'Change over time'},
+  {value: 'donut', label: 'Donut', description: 'Parts of a whole (up to 5)'},
+  {value: 'progress', label: 'Progress', description: 'How far towards a target'},
+];
+/** Donut slices beyond this are grouped as "Other" (5 colours pass the colour-blindness checks). */
+export const DONUT_MAX = 5;
+export const newChartPoint = (label = ''): ChartPoint => ({id: blockItemId('c'), label, value: null});
+export const defaultChart = (): ChartConfig => ({
+  kind: 'bar',
+  title: '',
+  unit: '',
+  points: [newChartPoint(), newChartPoint(), newChartPoint()],
+  target: 100,
+  summary: '',
+  caption: '',
+  source: '',
+});
+/** The rows with a label and a number: the only ones a chart draws. */
+export const chartRows = (config: Pick<ChartConfig, 'points'>) =>
+  (config.points ?? []).filter((point): point is ChartPoint & {value: number} => Boolean(point.label?.trim()) && typeof point.value === 'number' && Number.isFinite(point.value));
+
+// ----------------------------------------------------------------------------
 export const VISUAL_BLOCKS = {
   imageGrid: 'Image grid',
   comparison: 'Comparison',
@@ -416,5 +499,7 @@ export const VISUAL_BLOCKS = {
   screenSequence: 'Screen sequence',
   annotatedImage: 'Annotated screenshot',
   flowDiagram: 'Flow diagram',
+  researchInsights: 'Research insights',
+  chart: 'Chart',
 } as const;
 export type VisualBlockName = keyof typeof VISUAL_BLOCKS;

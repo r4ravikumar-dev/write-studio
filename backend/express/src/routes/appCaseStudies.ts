@@ -1,6 +1,7 @@
 import {Router} from 'express';
 import {
   CONTENT_SCHEMA_VERSION,
+  DEFAULT_FRAMEWORK,
   caseStudyTemplate,
   cleanSetup,
   isSectionId,
@@ -183,7 +184,7 @@ appCaseStudiesRouter.post(
     const body = (req.body ?? {}) as {title?: unknown; setup?: unknown; finish?: unknown};
     const row = body.setup
       ? setupRow(body.setup, req.user!.id, workspace.id, body.finish !== false)
-      : {title: text(body.title, 300) || 'Untitled case study', content: caseStudyTemplate(), framework_id: 'product-ux', framework_version: 1};
+      : {title: text(body.title, 300) || 'Untitled case study', content: caseStudyTemplate(), framework_id: DEFAULT_FRAMEWORK.id, framework_version: DEFAULT_FRAMEWORK.version};
     (row as Record<string, unknown>).content_schema_version = CONTENT_SCHEMA_VERSION;
     const id = await insertCaseStudy(req.user!.id, workspace.id, row);
     noStore(res);
@@ -257,6 +258,8 @@ appCaseStudiesRouter.put(
     const body = (req.body ?? {}) as Partial<StudioCaseStudyDraft> & {expected_updated_at?: string};
     const row = toRow(body, req.user!.id, current.workspace_id);
 
+    // Version history: keep the state this save replaces, at most every 10 minutes.
+    await snapshotIfDue(id, req.user!.id);
     let query = supabase.from('studio_case_studies').update(row).eq('id', id).eq('owner_id', req.user!.id);
     if (body.expected_updated_at) query = query.eq('updated_at', body.expected_updated_at);
     const {data, error} = await query.select('updated_at, slug').maybeSingle();
@@ -269,6 +272,132 @@ appCaseStudiesRouter.put(
     res.json({updatedAt: data.updated_at, slug: data.slug});
   }),
 );
+
+// ---- Version history (editor roadmap T7) -------------------------------------------------------
+const AUTO_EVERY_MS = 10 * 60 * 1000;
+const AUTO_KEEP = 50;
+const NAMED_MAX = 100;
+const REVISIONS = 'studio_case_study_revisions';
+type RevisionKind = 'auto' | 'named' | 'before_restore';
+
+/** Copies the case study's document as it is now into its history. */
+async function snapshot(id: string, ownerId: string, kind: RevisionKind, name: string | null = null) {
+  const study = await ownCaseStudy(id, ownerId, 'id, title, subtitle, content, content_schema_version');
+  const {data, error} = await supabase
+    .from(REVISIONS)
+    .insert({case_study_id: id, owner_id: ownerId, kind, name, title: study.title ?? '', subtitle: study.subtitle ?? '', content: study.content, content_schema_version: study.content_schema_version})
+    .select('id, kind, name, title, created_at')
+    .single();
+  if (error) throw new HttpError(502, error.message);
+  if (kind === 'auto') {
+    // Keep the newest automatic versions only; named ones stay until the owner deletes them.
+    const {data: old} = await supabase.from(REVISIONS).select('id').eq('case_study_id', id).eq('owner_id', ownerId).eq('kind', 'auto').order('created_at', {ascending: false}).range(AUTO_KEEP, AUTO_KEEP + 100);
+    if (old?.length) await supabase.from(REVISIONS).delete().eq('owner_id', ownerId).in('id', old.map(row => row.id));
+  }
+  return data;
+}
+
+/** An automatic version before a save, when the newest version is over 10 minutes old (or there's none). */
+async function snapshotIfDue(id: string, ownerId: string) {
+  const {data, error} = await supabase.from(REVISIONS).select('created_at').eq('case_study_id', id).eq('owner_id', ownerId).order('created_at', {ascending: false}).limit(1).maybeSingle();
+  if (error) throw new HttpError(502, error.message);
+  if (data && Date.now() - new Date(data.created_at).getTime() < AUTO_EVERY_MS) return;
+  await snapshot(id, ownerId, 'auto');
+}
+
+/** The case study's versions, newest first (no documents: open one to see it). */
+appCaseStudiesRouter.get(
+  '/:id/revisions',
+  handle(async (req, res) => {
+    const id = requireUuid(param(req, 'id'));
+    await ownCaseStudy(id, req.user!.id, 'id');
+    const {data, error} = await supabase.from(REVISIONS).select('id, kind, name, title, created_at').eq('case_study_id', id).eq('owner_id', req.user!.id).order('created_at', {ascending: false}).limit(200);
+    if (error) throw new HttpError(502, error.message);
+    noStore(res);
+    res.json({revisions: data ?? []});
+  }),
+);
+
+/** One version with its document (migrated to the current schema for display; stored as it was). */
+appCaseStudiesRouter.get(
+  '/:id/revisions/:revisionId',
+  handle(async (req, res) => {
+    const id = requireUuid(param(req, 'id'));
+    const revision = await ownRevision(id, requireUuid(param(req, 'revisionId')), req.user!.id);
+    const content = revision.content_schema_version < CONTENT_SCHEMA_VERSION ? migrateContent(revision.content, revision.content_schema_version).content : revision.content;
+    noStore(res);
+    res.json({revision: {...revision, content, content_schema_version: CONTENT_SCHEMA_VERSION}});
+  }),
+);
+
+/** Saves the document as it is now as a named version. */
+appCaseStudiesRouter.post(
+  '/:id/revisions',
+  handle(async (req, res) => {
+    const id = requireUuid(param(req, 'id'));
+    const current = await ownCaseStudy(id, req.user!.id, 'id, setup_state');
+    if (current.setup_state) throw new HttpError(409, 'Finish setting up this case study first.');
+    const name = text((req.body ?? {}).name, 100);
+    if (!name) throw new HttpError(422, 'Enter a name for this version, for example: Sent to the hiring manager.');
+    const {count} = await supabase.from(REVISIONS).select('id', {count: 'exact', head: true}).eq('case_study_id', id).eq('owner_id', req.user!.id).eq('kind', 'named');
+    if ((count ?? 0) >= NAMED_MAX) throw new HttpError(409, `A case study can keep up to ${NAMED_MAX} named versions. Delete one you no longer need, then try again.`);
+    const revision = await snapshot(id, req.user!.id, 'named', name);
+    noStore(res);
+    res.status(201).json({revision});
+  }),
+);
+
+/**
+ * Restores a version: the document as it is now is kept first (kind before_restore), so a restore
+ * can be undone from the same list. Only the document, title and subtitle change.
+ */
+appCaseStudiesRouter.post(
+  '/:id/revisions/:revisionId/restore',
+  handle(async (req, res) => {
+    const id = requireUuid(param(req, 'id'));
+    const ownerId = req.user!.id;
+    const revision = await ownRevision(id, requireUuid(param(req, 'revisionId')), ownerId);
+    const current = await ownCaseStudy(id, ownerId, 'id, workspace_id, status, setup_state');
+    if (current.setup_state) throw new HttpError(409, 'Finish setting up this case study first.');
+    if (current.status === 'archived') throw new HttpError(409, 'This case study is archived. Restore it from the archive before restoring a version.');
+    await snapshot(id, ownerId, 'before_restore');
+    const migrated = revision.content_schema_version < CONTENT_SCHEMA_VERSION ? migrateContent(revision.content, revision.content_schema_version).content : revision.content;
+    const content = normaliseSections(migrated);
+    const problems = studioDraftProblems({content} as StudioCaseStudyDraft, ownerId, current.workspace_id);
+    if (problems.length) throw new HttpError(422, problems.join(' '));
+    const {data, error} = await supabase
+      .from('studio_case_studies')
+      .update({content, content_schema_version: CONTENT_SCHEMA_VERSION, title: revision.title || 'Untitled case study', subtitle: revision.subtitle ?? ''})
+      .eq('id', id)
+      .eq('owner_id', ownerId)
+      .select('updated_at')
+      .single();
+    if (error) throw new HttpError(502, error.message);
+    noStore(res);
+    res.json({updatedAt: data.updated_at});
+  }),
+);
+
+/** Deletes a named version (automatic ones come and go by themselves). */
+appCaseStudiesRouter.delete(
+  '/:id/revisions/:revisionId',
+  handle(async (req, res) => {
+    const id = requireUuid(param(req, 'id'));
+    const revisionId = requireUuid(param(req, 'revisionId'));
+    const {data, error} = await supabase.from(REVISIONS).delete().eq('id', revisionId).eq('case_study_id', id).eq('owner_id', req.user!.id).select('id').maybeSingle();
+    if (error) throw new HttpError(502, error.message);
+    if (!data) throw new HttpError(404, 'Version not found.');
+    noStore(res);
+    res.json({ok: true});
+  }),
+);
+
+async function ownRevision(id: string, revisionId: string, ownerId: string) {
+  const {data, error} = await supabase.from(REVISIONS).select('id, kind, name, title, subtitle, content, content_schema_version, created_at').eq('id', revisionId).eq('case_study_id', id).eq('owner_id', ownerId).maybeSingle();
+  if (error) throw new HttpError(502, error.message);
+  if (!data) throw new HttpError(404, 'Version not found.');
+  return data as {id: string; kind: RevisionKind; name: string | null; title: string; subtitle: string; content: object; content_schema_version: number; created_at: string};
+}
 
 /** Private section notes: never part of the document, its preview or exports. */
 appCaseStudiesRouter.get(

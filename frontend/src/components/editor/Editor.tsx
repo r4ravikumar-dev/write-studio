@@ -12,7 +12,7 @@ import {Banner} from '@astryxdesign/core/Banner';
 import {Dialog, DialogHeader} from '@astryxdesign/core/Dialog';
 import {TextInput} from '@astryxdesign/core/TextInput';
 import {Icon} from '@astryxdesign/core/Icon';
-import {Archive, ArchiveRestore, ArrowLeft, ClipboardCheck, Redo2, Undo2, Bold, Code, Eye, Highlighter, Italic, Link2, ListTree, Monitor, MoreHorizontal, PanelRight, RemoveFormatting, Smartphone, Strikethrough, Tablet, Underline} from 'lucide-react';
+import {Archive, ArchiveRestore, ArrowLeft, ClipboardCheck, History, Redo2, Undo2, Bold, Code, Eye, Highlighter, Italic, Link2, ListTree, Monitor, MoreHorizontal, PanelRight, RemoveFormatting, Smartphone, Strikethrough, Tablet, Underline} from 'lucide-react';
 import {TextSelection} from '@tiptap/pm/state';
 import {Switch} from '@astryxdesign/core/Switch';
 import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
@@ -30,6 +30,7 @@ import {turnIntoTargets} from './blocks/registry';
 import {ExportMenu} from '@/components/studio/ExportMenu';
 import {ASSET_DRAG_TYPE, MediaPanel} from './MediaPanel';
 import {ReviewDialog} from './ReviewDialog';
+import {HistoryDialog} from './HistoryDialog';
 import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/SegmentedControl';
 import {caseStudyExtensions} from '@/components/caseStudy/schema';
 import {parseEmbed} from '@/lib/caseStudies/embeds';
@@ -203,6 +204,14 @@ export function Editor({study}: {study: StudioCaseStudy}) {
   );
 }
 
+/** The placeholder in an empty callout: the problem, the takeaway, or a plain note. */
+function calloutHint({tone, icon}: {tone: string; icon: string}) {
+  if (tone === 'warning') return 'The problem in one sentence';
+  if (icon === 'star') return 'The one thing to remember';
+  if (tone === 'success') return 'The result, and what it changed';
+  return 'Write the note';
+}
+
 function EditorInner({study}: {study: StudioCaseStudy}) {
   const media = useMedia();
   const [panelTab, setPanelTab] = useState<PanelTab>('guide');
@@ -234,6 +243,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
   /** The review, worked out when the Review dialog opens (from the document as it is then). */
   const [review, setReview] = useState<StoryReview | null>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [embedDialog, setEmbedDialog] = useState<{kind: 'figma' | 'video'; url: string; error?: string} | null>(null);
   const [uploading, setUploading] = useState(0);
 
@@ -308,6 +318,8 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
         // Every empty section shows its hint (not only the one with the cursor); the hint is
         // never stored, so typing replaces it and the text takes the normal body style.
         showOnlyCurrent: false,
+        // Children too, for the callout cards' hints (other nested paragraphs return nothing).
+        includeChildren: true,
         placeholder: ({editor: e, node, pos, hasAnchor}) => {
           // An empty framework heading shows its title; the paragraph under it shows the hint.
           if (node.type.name === 'heading') return sectionOf(node)?.title ?? (hasAnchor ? 'Section heading' : '');
@@ -318,6 +330,10 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
           const $pos = doc.resolve(pos);
           const before = $pos.index() > 0 ? $pos.parent.child($pos.index() - 1) : null;
           const hint = before?.type.name === 'heading' ? sectionOf(before)?.hint : undefined;
+          // Content cards (T4): an empty callout says what goes in it, by its look.
+          if ($pos.parent.type.name === 'callout') return $pos.parent.childCount === 1 ? calloutHint($pos.parent.attrs as {tone: string; icon: string}) : '';
+          // Other nested paragraphs (lists, tables, split layouts) stay as they were: no placeholder.
+          if ($pos.parent.type.name !== 'doc') return '';
           return hint ?? (hasAnchor ? 'Start writing, or type / to add a picture, video, file or Figma design' : '');
         },
       }),
@@ -532,9 +548,10 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
               if (asset) editor.chain().focus().insertContent(nodeFor(asset)).run();
             },
             askEmbed: kind => setEmbedDialog({kind, url: ''}),
+            framework,
           })
         : [],
-    [editor, media],
+    [editor, media, framework],
   );
 
   // The selected block (if any) and switching the side panel to it.
@@ -644,6 +661,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
         cover_path: meta.cover_path,
         thumbnail_path: meta.thumbnail_path,
         thumbnail_alt: meta.thumbnail_alt,
+        framework,
       }),
     );
     setIsReviewOpen(true);
@@ -746,6 +764,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
               {isHeaderCompact ? (
                 <>
                   <IconButton label="Review" tooltip="Review" variant="ghost" size="sm" onClick={openReview} icon={<Icon icon={ClipboardCheck} size="sm" color="inherit" />} />
+                  <IconButton label="Version history" tooltip="Version history" variant="ghost" size="sm" onClick={() => setIsHistoryOpen(true)} icon={<Icon icon={History} size="sm" color="inherit" />} />
                   <IconButton label="Preview" tooltip="Preview" variant="ghost" size="sm" onClick={openPreview} icon={<Icon icon={Eye} size="sm" color="inherit" />} />
                   <ExportMenu isIconOnly title={meta.title.replace(/\*/g, '').trim() || 'Untitled case study'} previewHref={`/studio/case-studies/${study.id}/preview`} beforeOpen={saveNow} />
                   <IconButton
@@ -761,6 +780,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
               ) : (
                 <>
                   <Button label="Review" variant="ghost" size="sm" onClick={openReview} icon={<Icon icon={ClipboardCheck} size="sm" color="inherit" />} />
+                  <Button label="History" aria-label="Version history" variant="ghost" size="sm" onClick={() => setIsHistoryOpen(true)} icon={<Icon icon={History} size="sm" color="inherit" />} />
                   <Button label="Preview" variant="ghost" size="sm" onClick={openPreview} icon={<Icon icon={Eye} size="sm" color="inherit" />} />
                   <ExportMenu title={meta.title.replace(/\*/g, '').trim() || 'Untitled case study'} previewHref={`/studio/case-studies/${study.id}/preview`} beforeOpen={saveNow} />
                   <Button
@@ -1028,6 +1048,16 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
           </VStack>
         )}
       </Dialog>
+
+      <HistoryDialog
+        caseStudyId={study.id}
+        isOpen={isHistoryOpen}
+        isArchived={status === 'archived'}
+        onClose={() => setIsHistoryOpen(false)}
+        beforeChange={async () => {
+          if (status !== 'archived') await saveNow();
+        }}
+      />
 
       {editor && (
         <ReviewDialog

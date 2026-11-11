@@ -176,7 +176,13 @@ export function ProjectSetup({id, initial, copySources}: {id?: string; initial: 
             <ChoiceGroup
               label="Project type"
               value={setup.project_type ?? ''}
-              onChange={value => update({project_type: value as ProjectType})}
+              onChange={value => {
+                const type = value as ProjectType;
+                // Until the framework step has been seen, the framework follows the type's recommendation.
+                const next = recommendedFramework(type);
+                const follow = setup.start === 'framework' && !visited.has('framework') && !visited.has('outline');
+                update({project_type: type, ...(follow ? {framework_id: next.id, framework_version: next.version, outline: outlineFor(next)} : {})});
+              }}
               options={Object.entries(PROJECT_TYPES).map(([value, type]) => ({value, label: type.label, description: type.description}))}
             />
           )}
@@ -324,7 +330,8 @@ function Details({setup, update, titleError}: {setup: StudioSetup; update: (patc
 function FrameworkStep({setup, chosen, onChoose}: {setup: StudioSetup; chosen: Framework | undefined; onChoose: (framework: Framework) => void}) {
   const frameworks = setupFrameworks();
   const recommended = recommendedFramework(setup.project_type);
-  const typeLabel = setup.project_type ? PROJECT_TYPES[setup.project_type].label.toLowerCase() : null;
+  // Lower-case the first letter only, keeping acronyms ("UX research", "product redesign").
+  const typeLabel = setup.project_type ? PROJECT_TYPES[setup.project_type].label.replace(/^([A-Z])(?=[a-z])/, letter => letter.toLowerCase()) : null;
   const acts = (Object.keys(FRAMEWORK_ACTS) as FrameworkAct[]).filter(act => chosen?.sections.some(section => section.act === act));
   return (
     <VStack gap={6}>

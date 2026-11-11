@@ -6,33 +6,10 @@ import {Heading} from '@astryxdesign/core/Heading';
 import {Text} from '@astryxdesign/core/Text';
 import {caseStudyExtensions} from './schema';
 import {EmbedBlock, FileBlock, VideoBlock} from './blocks';
-import {
-  Callout,
-  Comparison,
-  DeviceMockup,
-  ImageGrid,
-  Metrics,
-  PullQuote,
-  Showcase,
-  SplitLayout,
-  Timeline,
-  ScreenSequence,
-  AnnotatedImage,
-  FlowDiagram,
-} from './visualBlocks';
+import {Callout} from './visualBlocks';
+import {visualNodeMapping} from './blockRenderers';
 import {frameworkSection, hasContent, isSectionHeading, studioMediaUrl} from '@studio/shared';
 import {
-  defaultComparison,
-  defaultDeviceMockup,
-  defaultImageGrid,
-  defaultMetrics,
-  defaultQuote,
-  defaultShowcase,
-  defaultSplit,
-  defaultTimeline,
-  defaultScreenSequence,
-  defaultAnnotatedImage,
-  defaultFlowDiagram,
   type CalloutIcon,
   type CalloutTone,
 } from '@/lib/caseStudies/blocks';
@@ -53,11 +30,6 @@ const safeHref = (href: unknown) =>
 /** Stored uploads (by path) and older https URLs; anything else shows nothing. */
 const safeSrc = (src: unknown) => (typeof src === 'string' ? studioMediaUrl(src) : '');
 
-/** A block's configuration merged over its defaults, so older documents still render. */
-function configOf<T extends object>(attrs: Attrs | undefined, defaults: () => T): T {
-  const config = attrs?.config;
-  return {...defaults(), ...(config && typeof config === 'object' ? (config as Partial<T>) : {})};
-}
 
 /**
  * A case study's body, rendered on the server from its saved document into
@@ -69,7 +41,9 @@ export function CaseStudyArticle({content}: {content: JSONContent}) {
   // Each story section (a top-level section heading and what follows it) becomes a <section>;
   // anything before the first one is rendered on its own. Section metadata isn't rendered.
   const chunks: {key: string; isSection: boolean; nodes: JSONContent[]}[] = [];
-  for (const node of content.content ?? []) {
+  // Callouts with no text (an unfilled Problem callout or Key takeaway card) are left out.
+  const nodes = (content.content ?? []).filter(node => node.type !== 'callout' || hasContent(node));
+  for (const node of nodes) {
     if (isSectionHeading(node)) chunks.push({key: String(node.attrs?.sectionId ?? chunks.length), isSection: true, nodes: [node]});
     else if (chunks.length) chunks[chunks.length - 1].nodes.push(node);
     else chunks.push({key: 'intro', isSection: false, nodes: [node]});
@@ -230,29 +204,7 @@ function renderNodes(content: JSONContent) {
             {children}
           </Callout>
         ),
-        imageGrid: ({node}: RenderProps) => (
-          <ImageGrid config={configOf(node.attrs, defaultImageGrid)} />
-        ),
-        comparison: ({node}: RenderProps) => (
-          <Comparison config={configOf(node.attrs, defaultComparison)} />
-        ),
-        showcase: ({node}: RenderProps) => (
-          <Showcase config={configOf(node.attrs, defaultShowcase)} />
-        ),
-        deviceMockup: ({node}: RenderProps) => (
-          <DeviceMockup config={configOf(node.attrs, defaultDeviceMockup)} />
-        ),
-        metrics: ({node}: RenderProps) => <Metrics config={configOf(node.attrs, defaultMetrics)} />,
-        timeline: ({node}: RenderProps) => <Timeline config={configOf(node.attrs, defaultTimeline)} />,
-        screenSequence: ({node}: RenderProps) => <ScreenSequence config={configOf(node.attrs, defaultScreenSequence)} />,
-        annotatedImage: ({node}: RenderProps) => <AnnotatedImage config={configOf(node.attrs, defaultAnnotatedImage)} />,
-        flowDiagram: ({node}: RenderProps) => <FlowDiagram config={configOf(node.attrs, defaultFlowDiagram)} />,
-        splitLayout: ({node, children}: RenderProps) => (
-          <SplitLayout config={configOf(node.attrs, defaultSplit)}>{children}</SplitLayout>
-        ),
-        pullQuote: ({node, children}: RenderProps) => (
-          <PullQuote config={configOf(node.attrs, defaultQuote)}>{children}</PullQuote>
-        ),
+        ...visualNodeMapping(),
       },
       markMapping: {
         link: ({mark, children}: {mark: {attrs?: Attrs}; children?: React.ReactNode}) => {

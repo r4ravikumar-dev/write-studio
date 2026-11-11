@@ -1,5 +1,6 @@
+import type {Framework} from '../frameworks';
 import type {JSONContent} from './json';
-import {parseEmbed} from './embeds';
+import {BLOCK_SCHEMAS, blockProblems, isEvidenceBlock} from './blockSchemas';
 import {frameworkSection} from '../frameworks';
 import {documentSections, hasContent, isSectionHeading, type SectionState} from './sections';
 
@@ -49,6 +50,8 @@ export type ReviewInput = {
   cover_path?: string | null;
   thumbnail_path?: string | null;
   thumbnail_alt?: string;
+  /** The case study's framework version: its sections say which story element they cover. */
+  framework?: Framework;
 };
 
 export const REVIEW_CATEGORIES: Record<ReviewCategory, string> = {
@@ -57,95 +60,6 @@ export const REVIEW_CATEGORIES: Record<ReviewCategory, string> = {
   visual: 'Visuals',
   technical: 'Technical',
 };
-
-/** Blocks that count as evidence: pictures, video, figures, quotes and visual blocks with media. */
-const EVIDENCE = new Set(['image', 'videoFile', 'embed', 'imageGrid', 'comparison', 'showcase', 'deviceMockup', 'splitLayout', 'metrics', 'pullQuote', 'screenSequence', 'annotatedImage', 'fileAttachment']);
-
-const BLOCK_NAMES: Record<string, string> = {
-  image: 'An image',
-  imageGrid: 'An image grid',
-  comparison: 'A comparison',
-  showcase: 'A showcase',
-  deviceMockup: 'A device mockup',
-  splitLayout: 'A split layout',
-  metrics: 'A metrics block',
-  pullQuote: 'A quote',
-  screenSequence: 'A screen sequence',
-  annotatedImage: 'An annotated screenshot',
-  timeline: 'A timeline',
-  flowDiagram: 'A flow diagram',
-  embed: 'An embedded video or design',
-  videoFile: 'A video',
-};
-
-type Media = {path?: string; kind?: string; alt?: string} | null | undefined;
-const config = (node: JSONContent) => ((node.attrs?.config ?? {}) as Record<string, unknown>);
-const textOf = (node: JSONContent): string => node.text ?? (node.content ?? []).map(textOf).join('');
-const missingAlt = (media: Media) => Boolean(media?.path && media.kind !== 'video' && !media.alt?.trim());
-
-/** Problems inside one top-level block (media missing, alt text missing, empty figures). */
-function blockProblems(node: JSONContent): {kind: 'empty' | 'alt' | 'embed' | 'figures'; count?: number}[] {
-  const c = config(node);
-  const problems: ReturnType<typeof blockProblems> = [];
-  const alt = (media: Media) => missingAlt(media) && problems.push({kind: 'alt'});
-  switch (node.type) {
-    case 'image':
-      if (!node.attrs?.decorative && !String(node.attrs?.alt ?? '').trim()) problems.push({kind: 'alt'});
-      break;
-    case 'imageGrid': {
-      const items = (c.items as Media[]) ?? [];
-      if (!items.length) problems.push({kind: 'empty'});
-      const without = items.filter(missingAlt).length;
-      if (without) problems.push({kind: 'alt', count: without});
-      break;
-    }
-    case 'comparison': {
-      const sides = [c.left, c.right] as {media?: Media}[];
-      if (sides.some(side => !side?.media)) problems.push({kind: 'empty'});
-      sides.forEach(side => alt(side?.media));
-      break;
-    }
-    case 'showcase':
-    case 'splitLayout':
-    case 'annotatedImage':
-      if (!c.media) problems.push({kind: 'empty'});
-      alt(c.media as Media);
-      break;
-    case 'deviceMockup': {
-      const devices = (c.devices as {media?: Media}[]) ?? [];
-      if (!devices.length || devices.some(device => !device.media)) problems.push({kind: 'empty'});
-      devices.forEach(device => alt(device.media));
-      break;
-    }
-    case 'screenSequence': {
-      const steps = (c.steps as {media?: Media}[]) ?? [];
-      if (!steps.some(step => step.media)) problems.push({kind: 'empty'});
-      steps.forEach(step => alt(step.media));
-      break;
-    }
-    case 'metrics': {
-      const items = (c.items as {value?: string; label?: string}[]) ?? [];
-      if (!items.length || items.some(item => !item.value?.trim() || !item.label?.trim())) problems.push({kind: 'figures'});
-      break;
-    }
-    case 'pullQuote':
-      if (!textOf(node).trim()) problems.push({kind: 'empty'});
-      break;
-    case 'embed':
-      if (!parseEmbed(String(node.attrs?.src ?? ''))) problems.push({kind: 'embed'});
-      break;
-    case 'videoFile':
-      if (!node.attrs?.src) problems.push({kind: 'empty'});
-      break;
-  }
-  return problems;
-}
-
-/** Whether a block is evidence (a picture, figure or quote with something in it). */
-function isEvidence(node: JSONContent) {
-  if (!node.type || !EVIDENCE.has(node.type)) return false;
-  return !blockProblems(node).some(problem => problem.kind === 'empty' || problem.kind === 'figures');
-}
 
 const CHECKLIST: {key: ChecklistItem['key']; label: string; description: string; sections: string[]}[] = [
   {key: 'context', label: 'Context', description: 'The product, the people and the situation.', sections: ['context', 'overview']},
@@ -196,15 +110,21 @@ export function reviewCaseStudy(study: ReviewInput): StoryReview {
 
   // Visuals and technical, block by block
   nodes.forEach((node, index) => {
-    const name = BLOCK_NAMES[node.type ?? ''] ?? 'A block';
+    const name = BLOCK_SCHEMAS[node.type ?? '']?.phrase ?? 'A block';
     for (const problem of blockProblems(node)) {
       const at = {sectionId: sectionAt[index], nodeIndex: index};
       if (problem.kind === 'alt') {
         add({category: 'visual', severity: 'fix', message: problem.count && problem.count > 1 ? `${name} has ${problem.count} pictures without alt text.` : `${name} has a picture without alt text.`, fix: 'Describe what each picture shows, or mark it as decorative.', ...at});
+      } else if (problem.kind === 'empty' && node.type === 'researchInsights') {
+        add({category: 'content', severity: 'fix', message: `${name} has no findings yet.`, fix: 'Write at least one finding, or delete the block.', ...at});
       } else if (problem.kind === 'empty') {
         add({category: 'visual', severity: 'fix', message: `${name} is missing its pictures or text.`, fix: 'Choose the media, or delete the block.', ...at});
+      } else if (problem.kind === 'evidence') {
+        add({category: 'content', severity: 'consider', message: `${name} has findings without evidence.`, fix: 'Add what each finding is based on: a quote, a number or an observation.', ...at});
+      } else if (problem.kind === 'summary') {
+        add({category: 'visual', severity: 'fix', message: `${name} has no summary for people who can’t see it.`, fix: 'Describe what the chart shows in one sentence, in the chart’s properties.', ...at});
       } else if (problem.kind === 'figures') {
-        add({category: 'content', severity: 'fix', message: `${name} has figures without a value or label.`, fix: 'Fill in every figure, using real, verified results.', ...at});
+        add({category: 'content', severity: 'fix', message: node.type === 'chart' ? `${name} has no values yet.` : `${name} has figures without a value or label.`, fix: node.type === 'chart' ? 'Add each label and its value, using real, verified figures.' : 'Fill in every figure, using real, verified results.', ...at});
       } else if (problem.kind === 'embed') {
         add({category: 'technical', severity: 'fix', message: `${name} has a link that can’t be shown.`, fix: 'Paste a YouTube, Vimeo, Loom or Figma link again.', ...at});
       }
@@ -218,12 +138,15 @@ export function reviewCaseStudy(study: ReviewInput): StoryReview {
   }
 
   // Story completeness checklist
-  const evidenceAt = nodes.findIndex(isEvidence);
+  const evidenceAt = nodes.findIndex(isEvidenceBlock);
   const checklist: ChecklistItem[] = CHECKLIST.map(item => {
     if (item.key === 'evidence') {
       return {key: item.key, label: item.label, description: item.description, done: evidenceAt !== -1, sectionId: evidenceAt === -1 ? null : sectionAt[evidenceAt], addKey: null};
     }
-    const matching = sections.filter(section => section.key && item.sections.includes(section.key));
+    const counts = (key: string | null) => Boolean(key && (item.sections.includes(key) || frameworkSection(key, study.framework)?.covers === item.key));
+    const matching = sections.filter(section => counts(section.key));
+    // "Add section" offers the case study's own framework's section for this part of the story.
+    const own = study.framework?.sections.find(section => section.covers === item.key || item.sections.includes(section.key));
     const written = matching.find(section => section.body.some(hasContent));
     return {
       key: item.key,
@@ -231,7 +154,7 @@ export function reviewCaseStudy(study: ReviewInput): StoryReview {
       description: item.description,
       done: Boolean(written),
       sectionId: (written ?? matching[0])?.id ?? null,
-      addKey: matching.length ? null : item.sections[0],
+      addKey: matching.length ? null : own?.key ?? item.sections[0],
     };
   });
 

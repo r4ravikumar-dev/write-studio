@@ -1,5 +1,6 @@
 'use client';
 
+import {useEffect} from 'react';
 import {NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, type ReactNodeViewProps} from '@tiptap/react';
 import {Switch} from '@astryxdesign/core/Switch';
 import {TextInput} from '@astryxdesign/core/TextInput';
@@ -19,6 +20,8 @@ import {
   ScreenSequenceNode,
   AnnotatedImageNode,
   FlowDiagramNode,
+  ResearchInsightsNode,
+  ChartNode,
 } from '@/components/caseStudy/schema';
 import {EmbedBlock, FileBlock, VideoBlock} from '@/components/caseStudy/blocks';
 import {
@@ -34,6 +37,8 @@ import {
   ScreenSequence,
   AnnotatedImage,
   FlowDiagram,
+  ResearchInsights,
+  Chart,
   type EditHooks,
 } from '@/components/caseStudy/visualBlocks';
 import type {
@@ -50,6 +55,8 @@ import {fileKind} from '@/lib/caseStudies/embeds';
 import type {StudioAsset as Asset} from '@studio/shared';
 import {studioMediaUrl} from '@studio/shared';
 import {mediaFromAsset, selectBlock} from './blockOps';
+import {setSelectedDevices, useDeviceSelection} from './devices/selection';
+import {duplicateDevices, groupDevices, lockDevices, nudgeDevices, removeDevices, reorderDevices, ungroupDevices, withGroups} from './devices/arrange';
 import {useMedia} from './MediaLibrary';
 
 /**
@@ -141,23 +148,89 @@ function DeviceMockupView(props: ReactNodeViewProps) {
       devices: current.devices.map(d => (d.id === id ? {...d, media: mediaFromAsset(asset, d.media)} : d)),
     };
   });
+  const {ids: allSelected, snap} = useDeviceSelection();
+  const selected = allSelected.filter(id => config.devices.some(device => device.id === id));
+  useDeviceKeys(props, config, selected);
   return (
     <BlockFrame props={props}>
       <DeviceMockup
         config={config}
         edit={edit}
-        onMoveDevice={(id, x, y) =>
-          props.updateAttributes({config: {...config, preset: 'custom', devices: config.devices.map(d => (d.id === id ? {...d, x, y} : d))}})
+        selectedIds={selected}
+        snap={snap}
+        onSelectDevice={(id, additive) => {
+          const group = withGroups(config, [id]);
+          const next = additive
+            ? selected.includes(id)
+              ? selected.filter(item => !group.includes(item))
+              : [...selected, ...group.filter(item => !selected.includes(item))]
+            : selected.includes(id)
+              ? selected
+              : group;
+          setSelectedDevices(next);
+          // Selecting a device selects the block, so its properties show in the side panel.
+          const pos = props.getPos();
+          if (typeof pos === 'number' && (!props.selected || !props.editor.view.hasFocus())) selectBlock(props.editor, pos);
+          return next;
+        }}
+        onMoveDevices={moves =>
+          props.updateAttributes({config: {...config, preset: 'custom', devices: config.devices.map(d => (moves[d.id] ? {...d, ...moves[d.id]} : d))}})
         }
+        onRotateDevice={(id, rotate) => props.updateAttributes({config: {...config, preset: 'custom', devices: config.devices.map(d => (d.id === id ? {...d, rotate} : d))}})}
       />
     </BlockFrame>
   );
 }
 
+/**
+ * Composition shortcuts (editor spec §11.2, §13) while this block is selected and has devices
+ * selected: arrows nudge (Shift: 5 %), ⌘] / ⌘[ forward / backward, ⌥⌘] / ⌥⌘[ front / back,
+ * ⌘G / ⇧⌘G group / ungroup, ⇧⌘L lock, ⌘D duplicate, Delete removes, Esc deselects.
+ */
+function useDeviceKeys(props: ReactNodeViewProps, config: DeviceMockupConfig, selected: readonly string[]) {
+  const {selected: isBlockSelected, updateAttributes, editor} = props;
+  useEffect(() => {
+    if (!isBlockSelected || !selected.length || !editor.isEditable) return;
+    const onKey = (event: KeyboardEvent) => {
+      // Only when the document has focus (not a field in the side panel).
+      if (!editor.view.hasFocus()) return;
+      const mod = event.metaKey || event.ctrlKey;
+      const key = event.key;
+      const step = event.shiftKey ? 5 : 1;
+      let next: DeviceMockupConfig | null = null;
+      let selection: readonly string[] = selected;
+      if (!mod && key === 'ArrowLeft') next = nudgeDevices(config, selected, -step, 0);
+      else if (!mod && key === 'ArrowRight') next = nudgeDevices(config, selected, step, 0);
+      else if (!mod && key === 'ArrowUp') next = nudgeDevices(config, selected, 0, -step);
+      else if (!mod && key === 'ArrowDown') next = nudgeDevices(config, selected, 0, step);
+      else if (mod && (event.code === 'BracketRight' || key === ']')) next = reorderDevices(config, selected, event.altKey ? 'front' : 'forward');
+      else if (mod && (event.code === 'BracketLeft' || key === '[')) next = reorderDevices(config, selected, event.altKey ? 'back' : 'backward');
+      else if (mod && event.code === 'KeyG') next = event.shiftKey ? ungroupDevices(config, selected) : groupDevices(config, selected);
+      else if (mod && event.shiftKey && event.code === 'KeyL') next = lockDevices(config, selected, !config.devices.filter(d => selected.includes(d.id)).every(d => d.locked));
+      else if (mod && event.code === 'KeyD') {
+        const copy = duplicateDevices(config, selected);
+        next = copy.config;
+        selection = copy.ids;
+      } else if (!mod && (key === 'Delete' || key === 'Backspace') && selected.length < config.devices.length) {
+        next = removeDevices(config, selected);
+        selection = [];
+      } else if (key === 'Escape') selection = [];
+      else return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (next && next !== config) updateAttributes({config: next});
+      setSelectedDevices(selection);
+    };
+    // Capture: before the editor's own shortcuts (⌘D duplicates the block, arrows move the cursor).
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [isBlockSelected, selected, config, updateAttributes, editor]);
+}
+
 function MetricsView(props: ReactNodeViewProps) {
   return (
     <BlockFrame props={props}>
-      <Metrics config={props.node.attrs.config} />
+      <Metrics config={props.node.attrs.config} isEditing />
     </BlockFrame>
   );
 }
@@ -248,6 +321,22 @@ function FlowDiagramView(props: ReactNodeViewProps) {
   );
 }
 
+function ResearchInsightsView(props: ReactNodeViewProps) {
+  return (
+    <BlockFrame props={props}>
+      <ResearchInsights config={props.node.attrs.config} isEditing />
+    </BlockFrame>
+  );
+}
+
+function ChartView(props: ReactNodeViewProps) {
+  return (
+    <BlockFrame props={props}>
+      <Chart config={props.node.attrs.config} isEditing />
+    </BlockFrame>
+  );
+}
+
 // ----------------------------------------------------------------------------
 // Files, uploaded video and embeds
 // ----------------------------------------------------------------------------
@@ -305,4 +394,6 @@ export const editorNodes = [
   ScreenSequenceNode.extend({addNodeView: () => ReactNodeViewRenderer(ScreenSequenceView)}),
   AnnotatedImageNode.extend({addNodeView: () => ReactNodeViewRenderer(AnnotatedImageView)}),
   FlowDiagramNode.extend({addNodeView: () => ReactNodeViewRenderer(FlowDiagramView)}),
+  ResearchInsightsNode.extend({addNodeView: () => ReactNodeViewRenderer(ResearchInsightsView)}),
+  ChartNode.extend({addNodeView: () => ReactNodeViewRenderer(ChartView)}),
 ];

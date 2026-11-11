@@ -29,8 +29,14 @@ import {
   type BlockWidth,
   type Surface,
   type FlowDiagramConfig,
+  type ResponsiveColumns,
+  type ResearchInsightsConfig,
+  type ChartConfig,
+  DONUT_MAX,
+  chartRows,
 } from '@/lib/caseStudies/blocks';
 import {EYEBROW_STYLE} from '@/theme/eyebrow';
+import {displayX, measureDevices, roundPosition, snapAxis, spreadOf, storedX} from './deviceGeometry';
 
 /**
  * The visual blocks, drawn once and used twice: as the live preview inside
@@ -112,6 +118,24 @@ function Caption({children}: {children?: string}) {
  * the page's frame lines (like a wide showcase) and `data-block-surface` puts it on a background.
  * Nothing is added for the defaults, so older documents render exactly as before.
  */
+/**
+ * Columns, with the tablet and phone overrides (editor spec §9.3, T3) as CSS variables plus data
+ * flags that switch them on in globals.css (tablet 768–1023px, phone below 768px).
+ */
+function columnAttrs(columns: number, responsive?: ResponsiveColumns) {
+  const tablet = responsive?.tablet?.columns;
+  const phone = responsive?.phone?.columns;
+  return {
+    'data-columns-tablet': tablet ? '' : undefined,
+    'data-columns-phone': phone ? '' : undefined,
+    style: {
+      ['--vb-columns' as string]: columns,
+      ...(tablet ? {['--vb-columns-tablet' as string]: tablet} : {}),
+      ...(phone ? {['--vb-columns-phone' as string]: phone} : {}),
+    } as CSSProperties,
+  };
+}
+
 function layoutAttrs(width?: BlockWidth, surface?: Surface) {
   return {
     'data-block-width': width === 'wide' ? 'wide' : undefined,
@@ -130,7 +154,7 @@ export function ImageGrid({config, edit}: {config: ImageGridConfig; edit?: EditH
         data-arrangement={config.arrangement}
         data-gap={config.gap}
         data-mobile-columns={config.mobileColumns ?? 2}
-        style={{['--vb-columns' as string]: config.columns}}>
+        {...columnAttrs(config.columns, config.responsive?.tablet ? {tablet: config.responsive.tablet} : undefined)}>
         {config.items.map((item, index) => (
           <MediaView
             key={`${item.path}-${index}`}
@@ -265,7 +289,6 @@ export function Showcase({config, edit}: {config: ShowcaseConfig; edit?: EditHoo
 // ----------------------------------------------------------------------------
 // 4. Device mockups
 // ----------------------------------------------------------------------------
-const SPACING = {tight: 0.8, normal: 1, loose: 1.2} as const;
 
 function DeviceFrame({device, onPick}: {device: Device; onPick?: () => void}) {
   return (
@@ -288,56 +311,114 @@ function DeviceFrame({device, onPick}: {device: Device; onPick?: () => void}) {
 export function DeviceMockup({
   config,
   edit,
-  selectedId,
-  onMoveDevice,
+  selectedIds,
+  snap = true,
+  onSelectDevice,
+  onMoveDevices,
+  onRotateDevice,
 }: {
   config: DeviceMockupConfig;
   edit?: EditHooks;
-  selectedId?: string;
-  /** Editor only: drag a device on the stage; called once when it's dropped (x, y in %). */
-  onMoveDevice?: (id: string, x: number, y: number) => void;
+  /** Editor only (T6): the selected devices, outlined, with a rotate handle when there's one. */
+  selectedIds?: readonly string[];
+  /** Editor only: snap to guides while dragging (hold Alt to drag freely). */
+  snap?: boolean;
+  /** Editor only: a press on a device selects it (Shift: adds or removes); returns the new selection. */
+  onSelectDevice?: (id: string, additive: boolean) => readonly string[];
+  /** Editor only: devices dragged on the stage; called once when they're dropped (stored x, y in %). */
+  onMoveDevices?: (moves: Record<string, {x: number; y: number}>) => void;
+  /** Editor only: the rotate handle was dragged (degrees, −30 to 30). */
+  onRotateDevice?: (id: string, rotate: number) => void;
 }) {
-  const spread = SPACING[config.spacing] ?? 1;
+  const spread = spreadOf(config);
   const stageRef = useRef<HTMLDivElement | null>(null);
-  // The device being dragged and where it is now (local until dropped: one change, one undo).
-  const [drag, setDrag] = useState<{id: string; x: number; y: number} | null>(null);
-  // Set when a press turned into a drag, so the click that ends it doesn't open the picker.
-  const dragged = useRef(false);
+  // Devices being dragged and where they are now (local until dropped: one change, one undo).
+  const [drag, setDrag] = useState<{moves: Record<string, {x: number; y: number}>; guides: {x: number | null; y: number | null}} | null>(null);
+  const [turning, setTurning] = useState<{id: string; rotate: number} | null>(null);
+  // Set when a press turned into a drag or selected a device, so its click doesn't open the picker.
+  const swallowClick = useRef(false);
+  const isEditor = Boolean(onSelectDevice);
+  const selected = selectedIds ?? [];
 
   const startDrag = (event: React.PointerEvent, id: string) => {
-    if (!onMoveDevice || event.button !== 0) return;
+    if (!onSelectDevice || event.button !== 0) return;
     // Keeps the editor from treating the press as text selection or a block drag.
     event.preventDefault();
     event.stopPropagation();
-    dragged.current = false;
+    const wasSelected = selected.includes(id);
+    const ids = onSelectDevice(id, event.shiftKey);
+    // First press selects; pressing a selected device again (and not dragging) opens its picker.
+    swallowClick.current = !wasSelected || event.shiftKey;
+    const stage = stageRef.current;
+    const moving = config.devices.filter(device => ids.includes(device.id) && !device.locked);
+    if (!stage || !onMoveDevices || !moving.length) return;
+    const frame = stage.getBoundingClientRect();
+    const toStage = (clientX: number, clientY: number) => ({x: ((clientX - frame.left) / frame.width) * 100, y: ((clientY - frame.top) / frame.height) * 100});
+    const start = toStage(event.clientX, event.clientY);
     const startX = event.clientX;
     const startY = event.clientY;
-    const device = config.devices.find(d => d.id === id);
-    const stageAtStart = stageRef.current?.getBoundingClientRect();
-    if (!device || !stageAtStart) return;
-    // Where the pointer is in stage %, so the device keeps the point you grabbed under the pointer.
-    const toStage = (clientX: number, clientY: number, stage: DOMRect) => ({
-      x: 50 + (((clientX - stage.left) / stage.width) * 100 - 50) / spread,
-      y: ((clientY - stage.top) / stage.height) * 100,
-    });
-    const grab = toStage(startX, startY, stageAtStart);
-    const offset = {x: grab.x - device.x, y: grab.y - device.y};
-    let last: {x: number; y: number} | null = null;
+    // Guides (§11.3): the stage's 0 / 50 / 100 % lines and the other devices' edges and centres.
+    const boxes = measureDevices(stage);
+    const movingIds = moving.map(device => device.id);
+    const own = movingIds.map(movingId => boxes[movingId]).filter(Boolean);
+    const union = own.length
+      ? {left: Math.min(...own.map(b => b.left)), right: Math.max(...own.map(b => b.right)), top: Math.min(...own.map(b => b.top)), bottom: Math.max(...own.map(b => b.bottom))}
+      : null;
+    const others = Object.entries(boxes).filter(([boxId]) => !movingIds.includes(boxId)).map(([, box]) => box);
+    const targetsX = [0, 50, 100, ...others.flatMap(box => [box.left, box.cx, box.right])];
+    const targetsY = [0, 50, 100, ...others.flatMap(box => [box.top, box.cy, box.bottom])];
+    let last: Record<string, {x: number; y: number}> | null = null;
+    let moved = false;
     const move = (e: PointerEvent) => {
-      const stage = stageRef.current?.getBoundingClientRect();
-      if (!stage) return;
-      if (!dragged.current && Math.hypot(e.clientX - startX, e.clientY - startY) < 4) return;
-      dragged.current = true;
-      const clamp = (value: number) => Math.round(Math.min(100, Math.max(0, value)));
-      const point = toStage(e.clientX, e.clientY, stage);
-      last = {x: clamp(point.x - offset.x), y: clamp(point.y - offset.y)};
-      setDrag({id, ...last});
+      if (!moved && Math.hypot(e.clientX - startX, e.clientY - startY) < 4) return;
+      moved = true;
+      swallowClick.current = true;
+      const point = toStage(e.clientX, e.clientY);
+      let dx = point.x - start.x;
+      let dy = point.y - start.y;
+      const guides = {x: null as number | null, y: null as number | null};
+      if (snap && !e.altKey && union) {
+        const sx = snapAxis([union.left, (union.left + union.right) / 2, union.right], targetsX, dx);
+        const sy = snapAxis([union.top, (union.top + union.bottom) / 2, union.bottom], targetsY, dy);
+        dx = sx.delta;
+        dy = sy.delta;
+        guides.x = sx.guide;
+        guides.y = sy.guide;
+      }
+      last = Object.fromEntries(moving.map(device => [device.id, {x: roundPosition(storedX(displayX(device.x, spread) + dx, spread)), y: roundPosition(device.y + dy)}]));
+      setDrag({moves: last, guides});
     };
     const up = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      if (last) onMoveDevice(id, last.x, last.y);
+      if (last) onMoveDevices(last);
       setDrag(null);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  /** The rotate handle: turn around the device's centre; Shift snaps to 15°. */
+  const startTurn = (event: React.PointerEvent, id: string) => {
+    if (!onRotateDevice || event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const slot = (event.currentTarget as HTMLElement).closest('[data-device-id]');
+    if (!slot) return;
+    const rect = slot.getBoundingClientRect();
+    const centre = {x: rect.left + rect.width / 2, y: rect.top + rect.height / 2};
+    let last: number | null = null;
+    const move = (e: PointerEvent) => {
+      const degrees = (Math.atan2(e.clientY - centre.y, e.clientX - centre.x) * 180) / Math.PI + 90;
+      const snapped = e.shiftKey ? Math.round(degrees / 15) * 15 : Math.round(degrees);
+      last = Math.max(-30, Math.min(30, snapped));
+      setTurning({id, rotate: last});
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      if (last !== null) onRotateDevice(id, last);
+      setTurning(null);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -347,33 +428,45 @@ export function DeviceMockup({
     <figure className="vb vb-devices" data-surface={config.surface} data-shadow={config.shadow || undefined} data-mobile={config.mobile}>
       <div ref={stageRef} className="vb-stage" style={{aspectRatio: ratioValue(config.stageRatio) ?? '16 / 9'}}>
         {config.devices.map(device => {
-          const d = drag?.id === device.id ? {...device, x: drag.x, y: drag.y} : device;
-          const canDrag = Boolean(onMoveDevice) && !device.locked;
+          const at = drag?.moves[device.id];
+          const d = {...device, ...(at ?? {}), ...(turning?.id === device.id ? {rotate: turning.rotate} : {})};
+          const isSelected = selected.includes(d.id);
+          const canDrag = isEditor && !device.locked;
           return (
-          <div
-            key={d.id}
-            className="vb-device-slot"
-            data-selected={selectedId === d.id || undefined}
-            data-draggable={canDrag || undefined}
-            data-dragging={drag?.id === d.id || undefined}
-            onPointerDown={canDrag ? event => startDrag(event, d.id) : undefined}
-            onClickCapture={event => {
-              if (!dragged.current) return;
-              dragged.current = false;
-              event.stopPropagation();
-              event.preventDefault();
-            }}
-            style={{
-              left: `${50 + (d.x - 50) * spread}%`,
-              top: `${d.y}%`,
-              width: `${DEVICE_WIDTH[d.type] * d.scale}%`,
-              zIndex: d.z,
-              transform: `translate(-50%, -50%) rotate(${d.rotate}deg)`,
-            }}>
-            <DeviceFrame device={d} onPick={edit ? () => edit.pickMedia(`device:${d.id}`, 'any') : undefined} />
-          </div>
+            <div
+              key={d.id}
+              className="vb-device-slot"
+              data-device-id={isEditor ? d.id : undefined}
+              data-selected={isSelected || undefined}
+              data-locked={(isEditor && device.locked) || undefined}
+              data-grouped={(isEditor && isSelected && device.groupId) || undefined}
+              data-draggable={canDrag || undefined}
+              data-dragging={at ? '' : undefined}
+              onPointerDown={isEditor ? event => startDrag(event, d.id) : undefined}
+              onClickCapture={event => {
+                // An empty screen's "Choose screen" button always works.
+                if (!swallowClick.current || (event.target as HTMLElement).closest('.vb-empty')) return;
+                swallowClick.current = false;
+                event.stopPropagation();
+                event.preventDefault();
+              }}
+              style={{
+                left: `${displayX(d.x, spread)}%`,
+                top: `${d.y}%`,
+                width: `${DEVICE_WIDTH[d.type] * d.scale}%`,
+                zIndex: d.z,
+                transform: `translate(-50%, -50%) rotate(${d.rotate}deg)`,
+              }}>
+              <DeviceFrame device={d} onPick={edit ? () => edit.pickMedia(`device:${d.id}`, 'any') : undefined} />
+              {isEditor && isSelected && selected.length === 1 && !device.locked && onRotateDevice && (
+                <span className="vb-rotate-handle" title="Drag to rotate (Shift: 15° steps)" aria-hidden="true" onPointerDown={event => startTurn(event, d.id)} />
+              )}
+              {isEditor && device.locked && <span className="vb-lock-badge" aria-hidden="true" />}
+            </div>
           );
         })}
+        {drag?.guides.x !== null && drag?.guides.x !== undefined && <span className="vb-guide" data-axis="x" style={{left: `${drag.guides.x}%`}} aria-hidden="true" />}
+        {drag?.guides.y !== null && drag?.guides.y !== undefined && <span className="vb-guide" data-axis="y" style={{top: `${drag.guides.y}%`}} aria-hidden="true" />}
       </div>
       <Caption>{config.caption}</Caption>
     </figure>
@@ -428,7 +521,10 @@ export function Callout({tone, icon, children}: {tone: CalloutTone; icon: Callou
   );
 }
 
-export function Metrics({config}: {config: MetricsConfig}) {
+export function Metrics({config, isEditing}: {config: MetricsConfig; isEditing?: boolean}) {
+  // In the preview, empty figures are left out (Results highlights start empty: no invented numbers).
+  const items = config.items.filter(item => isEditing || item.value.trim() || item.label.trim());
+  if (!items.length && !isEditing) return null;
   return (
     <figure
       className="vb vb-metrics"
@@ -436,11 +532,15 @@ export function Metrics({config}: {config: MetricsConfig}) {
       data-size={config.size === 'large' ? 'large' : undefined}
       data-text-align={config.align === 'center' ? 'center' : undefined}
       {...layoutAttrs(undefined, config.surface)}>
-      <dl className="vb-metrics-grid" style={{['--vb-columns' as string]: config.columns}}>
-        {config.items.map((item, index) => (
+      <dl className="vb-metrics-grid" {...columnAttrs(config.columns, config.responsive)}>
+        {items.map((item, index) => (
           <div key={index} className="vb-metric">
-            <dt className="vb-metric-label">{item.label}</dt>
-            <dd className="vb-metric-value">{item.value}</dd>
+            <dt className="vb-metric-label" data-placeholder={(isEditing && !item.label.trim()) || undefined}>
+              {item.label || (isEditing ? 'What it measures' : '')}
+            </dt>
+            <dd className="vb-metric-value" data-placeholder={(isEditing && !item.value.trim()) || undefined}>
+              {item.value || (isEditing ? 'Figure' : '')}
+            </dd>
             {item.detail && <dd className="vb-metric-detail">{item.detail}</dd>}
           </div>
         ))}
@@ -483,7 +583,7 @@ export function Timeline({config, isEditing}: {config: TimelineConfig; isEditing
 export function ScreenSequence({config, edit}: {config: ScreenSequenceConfig; edit?: EditHooks}) {
   return (
     <figure className="vb vb-sequence" data-frame={config.frame} data-arrows={config.arrows || undefined}>
-      <ol className="vb-sequence-list" style={{['--vb-columns' as string]: config.columns}}>
+      <ol className="vb-sequence-list" {...columnAttrs(config.columns, config.responsive)}>
         {/* In the preview, steps with nothing in them are left out (no empty frames). */}
         {config.steps.filter(step => edit || step.media || step.title || step.text).map((step, index) => (
           <li key={step.id} className="vb-step">
@@ -609,5 +709,254 @@ export function FlowDiagram({config}: {config: FlowDiagramConfig}) {
       </ol>
       <Caption>{config.caption}</Caption>
     </figure>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// 10. Research insights (T4)
+// ----------------------------------------------------------------------------
+/** Findings as a list of cards: the finding, what it's based on, and where it came from. */
+export function ResearchInsights({config, isEditing}: {config: ResearchInsightsConfig; isEditing?: boolean}) {
+  // In the preview, insights without a finding are left out.
+  const insights = config.insights.filter(insight => isEditing || insight.finding.trim());
+  if (!insights.length) return null;
+  return (
+    <figure className="vb vb-insights" data-layout={config.layout}>
+      <ul className="vb-insights-list" style={{['--vb-columns' as string]: config.layout === 'list' ? 1 : config.columns}}>
+        {insights.map((insight, index) => (
+          <li key={insight.id} className="vb-insight">
+            {config.numbered && <p className="vb-insight-number">Insight {index + 1}</p>}
+            <p className="vb-insight-finding" data-placeholder={!insight.finding.trim() || undefined}>
+              {insight.finding.trim() || 'What you found'}
+            </p>
+            {(insight.evidence.trim() || isEditing) && (
+              <p className="vb-insight-evidence" data-placeholder={!insight.evidence.trim() || undefined}>
+                {insight.evidence.trim() || 'What it’s based on: a quote, a number or an observation'}
+              </p>
+            )}
+            {insight.source.trim() && <p className="vb-insight-source">Source: {insight.source}</p>}
+          </li>
+        ))}
+      </ul>
+      <Caption>{config.caption}</Caption>
+    </figure>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// 11. Chart (T4): bars, a line, a donut or progress bars, from the author's own figures.
+//     Follows the data-viz method: thin marks with rounded ends from the baseline, one series in
+//     brand purple, a validated five-colour order for donut parts (purple, mint, orange, slate,
+//     pink; parts beyond five are grouped as Other), text in text colours, a legend for parts,
+//     a hover layer, and the figures as a table for screen readers and anyone who wants them.
+// ----------------------------------------------------------------------------
+type Row = {label: string; value: number};
+const NUMBER = new Intl.NumberFormat('en-GB', {maximumFractionDigits: 2});
+const formatValue = (value: number, unit: string) => `${NUMBER.format(value)}${unit}`;
+/** A round number at or above `max` for the axis (1, 2, 2.5, 5 × 10ⁿ). */
+function niceMax(max: number) {
+  if (max <= 0) return 1;
+  const power = 10 ** Math.floor(Math.log10(max));
+  const step = [1, 2, 2.5, 5, 10].find(candidate => candidate * power >= max) ?? 10;
+  return step * power;
+}
+
+export function Chart({config, isEditing}: {config: ChartConfig; isEditing?: boolean}) {
+  const rows: Row[] = chartRows(config);
+  if (!rows.length) {
+    return isEditing ? (
+      <figure className="vb vb-chart" data-empty="">
+        <p className="vb-chart-empty">Add each label and its value in the Block panel. A chart shows only the figures you enter.</p>
+      </figure>
+    ) : null;
+  }
+  const label = config.summary.trim() || config.title.trim() || 'Chart';
+  return (
+    <figure className="vb vb-chart" data-kind={config.kind}>
+      {config.title.trim() && <p className="vb-chart-title">{config.title}</p>}
+      <div className="vb-chart-plot" role="img" aria-label={label}>
+        {config.kind === 'bar' && <BarChart rows={rows} unit={config.unit} />}
+        {config.kind === 'progress' && <ProgressChart rows={rows} unit={config.unit} target={config.target} />}
+        {config.kind === 'line' && <LineChart rows={rows} unit={config.unit} />}
+        {config.kind === 'donut' && <DonutChart rows={rows} unit={config.unit} />}
+      </div>
+      <details className="vb-chart-table">
+        <summary>Show the figures as a table</summary>
+        <table className="cs-table">
+          <thead>
+            <tr>
+              <th scope="col">Label</th>
+              <th scope="col">Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={index}>
+                <th scope="row">{row.label}</th>
+                <td>{formatValue(row.value, config.unit)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
+      {config.source.trim() && <p className="vb-chart-source">Source: {config.source}</p>}
+      <Caption>{config.caption}</Caption>
+    </figure>
+  );
+}
+
+/** Horizontal bars from a zero baseline, with each value at the end of its bar. */
+function BarChart({rows, unit}: {rows: Row[]; unit: string}) {
+  const max = Math.max(...rows.map(row => row.value), 0) || 1;
+  return (
+    <div className="vb-bars" aria-hidden="true">
+      {rows.map((row, index) => (
+        <div key={index} className="vb-bar-row" title={`${row.label}: ${formatValue(row.value, unit)}`}>
+          <span className="vb-bar-label">{row.label}</span>
+          <span className="vb-bar-track">
+            <span className="vb-bar" style={{inlineSize: `${(Math.max(row.value, 0) / max) * 100}%`}} />
+          </span>
+          <span className="vb-bar-value">{formatValue(row.value, unit)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Progress towards a target: a track for the whole, a fill for the value. */
+function ProgressChart({rows, unit, target}: {rows: Row[]; unit: string; target: number}) {
+  const whole = target > 0 ? target : 100;
+  return (
+    <div className="vb-progress" aria-hidden="true">
+      {rows.map((row, index) => (
+        <div key={index} className="vb-progress-row" title={`${row.label}: ${formatValue(row.value, unit)} of ${formatValue(whole, unit)}`}>
+          <span className="vb-progress-label">{row.label}</span>
+          <span className="vb-progress-value">{formatValue(row.value, unit)}</span>
+          <span className="vb-progress-track">
+            <span className="vb-progress-fill" style={{inlineSize: `${Math.min(Math.max(row.value / whole, 0), 1) * 100}%`}} />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** One line over the labels in order, a 2px line with 8px markers; hover shows each point. */
+function LineChart({rows, unit}: {rows: Row[]; unit: string}) {
+  const [active, setActive] = useState<number | null>(null);
+  const width = 640;
+  const height = 260;
+  const pad = {top: 16, right: 24, bottom: 32, left: 56};
+  const low = Math.min(0, ...rows.map(row => row.value));
+  const high = niceMax(Math.max(...rows.map(row => row.value), 0));
+  const x = (index: number) => pad.left + (rows.length === 1 ? (width - pad.left - pad.right) / 2 : (index / (rows.length - 1)) * (width - pad.left - pad.right));
+  const y = (value: number) => pad.top + (1 - (value - low) / (high - low || 1)) * (height - pad.top - pad.bottom);
+  const ticks = [0, 0.5, 1].map(step => low + (high - low) * step);
+  const every = Math.ceil(rows.length / 8);
+  const last = rows.length - 1;
+  const step = rows.length > 1 ? (width - pad.left - pad.right) / (rows.length - 1) : width;
+  return (
+    <div className="vb-line" onPointerLeave={() => setActive(null)}>
+      <svg viewBox={`0 0 ${width} ${height}`} className="vb-line-svg" aria-hidden="true">
+        {ticks.map(tick => (
+          <g key={tick}>
+            <line className="vb-chart-grid" x1={pad.left} x2={width - pad.right} y1={y(tick)} y2={y(tick)} />
+            <text className="vb-chart-axis" x={pad.left - 8} y={y(tick)} textAnchor="end" dominantBaseline="middle">
+              {formatValue(tick, unit)}
+            </text>
+          </g>
+        ))}
+        {rows.map((row, index) =>
+          index % every === 0 || index === last ? (
+            <text key={`x${index}`} className="vb-chart-axis" x={x(index)} y={height - 8} textAnchor={index === 0 && rows.length > 1 ? 'start' : index === last && rows.length > 1 ? 'end' : 'middle'}>
+              {row.label}
+            </text>
+          ) : null,
+        )}
+        {active !== null && <line className="vb-chart-crosshair" x1={x(active)} x2={x(active)} y1={pad.top} y2={height - pad.bottom} />}
+        <polyline className="vb-line-path" points={rows.map((row, index) => `${x(index)},${y(row.value)}`).join(' ')} />
+        {rows.map((row, index) => (
+          <circle key={`p${index}`} className="vb-line-point" data-active={active === index || undefined} cx={x(index)} cy={y(row.value)} r={active === index ? 6 : 4} />
+        ))}
+        {/* The latest value, labelled directly (one label, not one per point). */}
+        <text className="vb-chart-value" x={x(last)} y={y(rows[last].value) - 12} textAnchor={rows.length > 1 ? 'end' : 'middle'}>
+          {formatValue(rows[last].value, unit)}
+        </text>
+        {/* Hit targets wider than the marks. */}
+        {rows.map((_, index) => (
+          <rect key={`h${index}`} className="vb-chart-hit" x={x(index) - step / 2} y={pad.top} width={step} height={height - pad.top - pad.bottom} onPointerEnter={() => setActive(index)} />
+        ))}
+      </svg>
+      {active !== null && (
+        <div className="vb-chart-tip" style={{insetInlineStart: `${(x(active) / width) * 100}%`, insetBlockStart: `${(y(rows[active].value) / height) * 100}%`}}>
+          <span className="vb-chart-tip-label">{rows[active].label}</span>
+          <span className="vb-chart-tip-value">{formatValue(rows[active].value, unit)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Parts of a whole: up to five coloured parts (the rest grouped as Other) and a legend. */
+function DonutChart({rows, unit}: {rows: Row[]; unit: string}) {
+  const [active, setActive] = useState<number | null>(null);
+  const positive = rows.filter(row => row.value > 0);
+  const parts = positive.length > DONUT_MAX ? [...positive.slice(0, DONUT_MAX - 1), {label: 'Other', value: positive.slice(DONUT_MAX - 1).reduce((sum, row) => sum + row.value, 0)}] : positive;
+  const total = parts.reduce((sum, row) => sum + row.value, 0) || 1;
+  const radius = 80;
+  const thickness = 28;
+  const centre = 100;
+  // Each part starts where the parts before it end, from 12 o'clock, clockwise.
+  const arcs = parts.map((part, index) => {
+    const before = parts.slice(0, index).reduce((sum, row) => sum + row.value, 0);
+    const start = -Math.PI / 2 + (before / total) * Math.PI * 2;
+    return {part, start, end: start + (part.value / total) * Math.PI * 2};
+  });
+  const point = (theta: number) => [centre + radius * Math.cos(theta), centre + radius * Math.sin(theta)];
+  const percent = (value: number) => `${NUMBER.format(Math.round((value / total) * 1000) / 10)}%`;
+  return (
+    <div className="vb-donut" onPointerLeave={() => setActive(null)}>
+      <svg viewBox="0 0 200 200" className="vb-donut-svg" aria-hidden="true">
+        {arcs.length === 1 ? (
+          <circle cx={centre} cy={centre} r={radius} className="vb-donut-part" data-slot={1} style={{strokeWidth: thickness}} />
+        ) : (
+          arcs.map(({part, start, end}, index) => {
+            // A 2px gap between parts: trim each arc by about 1px at either end.
+            const trim = 1 / radius;
+            const [x1, y1] = point(start + trim);
+            const [x2, y2] = point(end - trim);
+            const large = end - start > Math.PI ? 1 : 0;
+            return (
+              <path
+                key={index}
+                d={`M ${x1} ${y1} A ${radius} ${radius} 0 ${large} 1 ${x2} ${y2}`}
+                className="vb-donut-part"
+                data-slot={part.label === 'Other' && index === DONUT_MAX - 1 && positive.length > DONUT_MAX ? 'other' : index + 1}
+                data-dim={active !== null && active !== index ? '' : undefined}
+                style={{strokeWidth: active === index ? thickness + 4 : thickness}}
+                onPointerEnter={() => setActive(index)}
+              />
+            );
+          })
+        )}
+        {active !== null && (
+          <text x={centre} y={centre} textAnchor="middle" dominantBaseline="middle" className="vb-donut-centre">
+            {percent(parts[active].value)}
+          </text>
+        )}
+      </svg>
+      <ul className="vb-legend">
+        {parts.map((part, index) => (
+          <li key={index} className="vb-legend-item" data-active={active === index || undefined} onPointerEnter={() => setActive(index)}>
+            <span className="vb-legend-swatch" data-slot={part.label === 'Other' && index === DONUT_MAX - 1 && positive.length > DONUT_MAX ? 'other' : index + 1} />
+            <span className="vb-legend-label">{part.label}</span>
+            <span className="vb-legend-value">
+              {/* Values already in per cent don't need their share repeated. */}
+              {unit.trim() === '%' ? formatValue(part.value, unit) : `${formatValue(part.value, unit)} · ${percent(part.value)}`}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

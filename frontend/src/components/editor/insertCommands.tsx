@@ -3,7 +3,7 @@
 import type {Editor} from '@tiptap/react';
 import type {JSONContent} from '@tiptap/core';
 import {Icon} from '@astryxdesign/core/Icon';
-import {caseStudySectionNodes, caseStudySections, frameworkSection} from '@studio/shared';
+import {caseStudySectionNodes, caseStudySections, frameworkSection, type Framework} from '@studio/shared';
 import {
   defaultComparison,
   defaultDeviceMockup,
@@ -16,6 +16,8 @@ import {
   defaultScreenSequence,
   defaultAnnotatedImage,
   defaultFlowDiagram,
+  defaultResearchInsights,
+  defaultChart,
 } from '@/lib/caseStudies/blocks';
 import {
   BarChart3,
@@ -48,6 +50,11 @@ import {
   Pilcrow,
   Heading3,
   TextQuote,
+  TriangleAlert,
+  Sparkles,
+  Trophy,
+  ScanSearch,
+  ChartColumnBig,
   type LucideIcon,
 } from 'lucide-react';
 import {frequentInserts, recentInserts, recordInsert} from './insertUsage';
@@ -76,7 +83,13 @@ export type InsertHandlers = {
   upload: (kind: 'image' | 'video' | 'file') => void;
   /** Ask for a URL (Figma, YouTube, Vimeo, Loom), then insert the embed. */
   askEmbed: (kind: 'figma' | 'video') => void;
+  /** The case study's framework version: recommendations come from its sections. */
+  framework?: Framework;
 };
+
+/** The framework each command list was built for (read by Smart Insert and the section guide). */
+const FRAMEWORKS = new WeakMap<InsertCommand[], Framework>();
+export const frameworkOf = (commands: InsertCommand[]) => FRAMEWORKS.get(commands);
 
 export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): InsertCommand[] {
   const chain = () => editor.chain().focus();
@@ -170,6 +183,41 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
       keywords: 'numbers results stats kpi outcome figures',
       run: block('metrics', defaultMetrics()),
     },
+    // Content cards (editor spec §8.5): story-shaped starting points built on existing blocks.
+    {
+      id: 'results-highlights',
+      group: 'Data',
+      label: 'Results highlights',
+      description: 'Your key results as big numbers',
+      icon: Trophy,
+      keywords: 'results outcome impact numbers kpi big figures highlights card',
+      run: block('metrics', {
+        ...defaultMetrics(),
+        items: [0, 1, 2].map(() => ({value: '', label: '', detail: ''})),
+        style: 'plain',
+        size: 'large',
+        align: 'center',
+        surface: 'none',
+      }),
+    },
+    {
+      id: 'research-insights',
+      group: 'Data',
+      label: 'Research insights',
+      description: 'Findings with their evidence and source',
+      icon: ScanSearch,
+      keywords: 'research findings insights evidence interviews study user research card',
+      run: block('researchInsights', defaultResearchInsights()),
+    },
+    {
+      id: 'chart',
+      group: 'Data',
+      label: 'Chart',
+      description: 'Bars, a line, a donut or progress, from your figures',
+      icon: ChartColumnBig,
+      keywords: 'chart graph bar line donut pie progress data numbers',
+      run: block('chart', defaultChart()),
+    },
     {
       id: 'pull-quote',
       group: 'Text',
@@ -246,6 +294,30 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
       run: () =>
         chain()
           .insertContent({type: 'callout', attrs: {tone: 'brand', icon: 'lightbulb'}, content: [{type: 'paragraph'}]})
+          .run(),
+    },
+    {
+      id: 'problem-callout',
+      group: 'Text',
+      label: 'Problem callout',
+      description: 'The problem in one sentence',
+      icon: TriangleAlert,
+      keywords: 'problem challenge pain point issue callout card',
+      run: () =>
+        chain()
+          .insertContent({type: 'callout', attrs: {tone: 'warning', icon: 'alert'}, content: [{type: 'paragraph'}]})
+          .run(),
+    },
+    {
+      id: 'key-takeaway',
+      group: 'Text',
+      label: 'Key takeaway',
+      description: 'The one thing to remember',
+      icon: Sparkles,
+      keywords: 'takeaway lesson learning insight reflection summary callout card',
+      run: () =>
+        chain()
+          .insertContent({type: 'callout', attrs: {tone: 'brand', icon: 'star'}, content: [{type: 'paragraph'}]})
           .run(),
     },
     {
@@ -367,7 +439,9 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
     },
   ];
   // Every insert is counted for Recently / Frequently used (ids only, this browser only).
-  return commands.map(command => ({...command, run: () => (recordInsert(command.id), command.run())}));
+  const recorded = commands.map(command => ({...command, run: () => (recordInsert(command.id), command.run())}));
+  if (handlers.framework) FRAMEWORKS.set(recorded, handlers.framework);
+  return recorded;
 }
 
 /** A titled group of insert commands (the top sections, then the categories). */
@@ -384,7 +458,7 @@ export function smartSections(commands: InsertCommand[], editor: Editor): Insert
   const sections: InsertSection[] = [];
   const outline = outlineOf(editor.state.doc);
   const current = outline[activeSectionIndex(outline, editor.state.selection.from)];
-  const framework = current ? frameworkSection(current.key) : undefined;
+  const framework = current ? frameworkSection(current.key, frameworkOf(commands)) : undefined;
   const recommended = framework ? pick(framework.suggestedVisuals.map(insertIdFor)).slice(0, 4) : [];
   if (recommended.length) sections.push({title: `Recommended for “${current!.name}”`, commands: recommended});
   const recent = pick(recentInserts(5));

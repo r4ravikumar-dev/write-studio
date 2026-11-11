@@ -105,3 +105,44 @@ export async function saveSectionNote(id: string, sectionId: string, body: strin
     'We couldn’t save your note. Check your connection and try again.',
   );
 }
+
+// ---- Version history (editor roadmap T7) ------------------------------------------------------
+export type StudioRevision = {id: string; kind: 'auto' | 'named' | 'before_restore'; name: string | null; title: string; created_at: string};
+export type StudioRevisionWithContent = StudioRevision & {subtitle: string; content: StudioCaseStudyDraft['content']};
+
+export async function listRevisions(id: string): Promise<{ok: true; revisions: StudioRevision[]} | {ok: false; error: string}> {
+  await requireStudioUser();
+  try {
+    const {revisions} = await api<{revisions: StudioRevision[]}>(`/api/app/case-studies/${id}/revisions`, {auth: true});
+    return {ok: true, revisions};
+  } catch (error) {
+    return {ok: false, error: errorMessage(error, 'We couldn’t load the version history. Check your connection and try again.')};
+  }
+}
+
+export async function getRevision(id: string, revisionId: string): Promise<{ok: true; revision: StudioRevisionWithContent} | {ok: false; error: string}> {
+  await requireStudioUser();
+  try {
+    const {revision} = await api<{revision: StudioRevisionWithContent}>(`/api/app/case-studies/${id}/revisions/${revisionId}`, {auth: true});
+    return {ok: true, revision};
+  } catch (error) {
+    return {ok: false, error: errorMessage(error, 'We couldn’t open that version. Try again.')};
+  }
+}
+
+export async function saveRevision(id: string, name: string) {
+  return attempt(() => api(`/api/app/case-studies/${id}/revisions`, {method: 'POST', body: {name}, auth: true}), 'We couldn’t save this version. Try again.');
+}
+
+export async function restoreRevision(id: string, revisionId: string) {
+  const result = await attempt(
+    () => api<{updatedAt: string}>(`/api/app/case-studies/${id}/revisions/${revisionId}/restore`, {method: 'POST', auth: true}),
+    'We couldn’t restore that version. Try again.',
+  );
+  revalidatePath('/studio', 'layout');
+  return result;
+}
+
+export async function deleteRevision(id: string, revisionId: string) {
+  return attempt(() => api(`/api/app/case-studies/${id}/revisions/${revisionId}`, {method: 'DELETE', auth: true}), 'We couldn’t delete that version. Try again.');
+}

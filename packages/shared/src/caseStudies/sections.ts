@@ -49,7 +49,7 @@ export const isSectionId = (value: unknown): value is string => typeof value ===
 /** Whether a node holds anything: text, or any block other than an empty paragraph. */
 export function hasContent(node: JSONContent): boolean {
   if (node.type === 'text') return Boolean(node.text?.trim());
-  if (node.type === 'paragraph' || node.type === 'heading') return (node.content ?? []).some(hasContent);
+  if (node.type === 'paragraph' || node.type === 'heading' || node.type === 'callout') return (node.content ?? []).some(hasContent);
   if (node.type === 'hardBreak') return false;
   return true;
 }

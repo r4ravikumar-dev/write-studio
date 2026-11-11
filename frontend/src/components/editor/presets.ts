@@ -76,7 +76,8 @@ export const BLOCK_PRESETS: Record<string, BlockPreset[]> = {
     {id: 'insight', label: 'Insight', description: 'Brand tint with a light bulb', values: {tone: 'brand', icon: 'lightbulb'}, sketch: [['p', 2, 8, 60, 24], ['a', 6, 13, 5, 5], ['t', 14, 14, 40, 2], ['t', 14, 20, 30, 2]]},
     {id: 'note', label: 'Note', description: 'Neutral, for context', values: {tone: 'neutral', icon: 'info'}, sketch: [['p', 2, 8, 60, 24], ['t', 6, 13, 5, 5], ['t', 14, 14, 40, 2], ['t', 14, 20, 30, 2]]},
     {id: 'result', label: 'Result', description: 'Positive, for outcomes', values: {tone: 'success', icon: 'check'}, sketch: [['p', 2, 8, 60, 24], ['a', 6, 13, 5, 5], ['t', 14, 14, 40, 2], ['t', 14, 20, 30, 2]]},
-    {id: 'caution', label: 'Caution', description: 'For risks and constraints', values: {tone: 'warning', icon: 'alert'}, sketch: [['p', 2, 8, 60, 24], ['a', 6, 13, 5, 5], ['t', 14, 14, 40, 2], ['t', 14, 20, 30, 2]]},
+    {id: 'caution', label: 'Problem', description: 'The problem, a risk or a constraint', values: {tone: 'warning', icon: 'alert'}, sketch: [['p', 2, 8, 60, 24], ['a', 6, 13, 5, 5], ['t', 14, 14, 40, 2], ['t', 14, 20, 30, 2]]},
+    {id: 'takeaway', label: 'Key takeaway', description: 'The one thing to remember', values: {tone: 'brand', icon: 'star'}, sketch: [['p', 2, 8, 60, 24], ['a', 6, 13, 5, 5], ['t', 14, 14, 40, 2], ['t', 14, 20, 30, 2]]},
   ],
   timeline: [
     {id: 'line', label: 'Process line', description: 'Phases along a line', values: {layout: 'horizontal', style: 'line'}, sketch: [['t', 4, 19, 56, 1], ['a', 6, 17, 4, 4], ['a', 22, 17, 4, 4], ['a', 38, 17, 4, 4], ['a', 54, 17, 4, 4], ['t', 4, 25, 10, 2], ['t', 20, 25, 10, 2], ['t', 36, 25, 10, 2], ['t', 52, 25, 8, 2]]},
@@ -92,6 +93,17 @@ export const BLOCK_PRESETS: Record<string, BlockPreset[]> = {
   annotatedImage: [
     {id: 'below', label: 'Notes below', description: 'Numbered notes under the picture', values: {notes: 'below', ratio: '16:9'}, sketch: [['m', 8, 2, 48, 24], ['a', 16, 8, 4, 4], ['a', 40, 16, 4, 4], ['t', 8, 30, 30, 2], ['t', 8, 35, 24, 2]]},
     {id: 'side', label: 'Notes beside', description: 'Picture with notes at the side', values: {notes: 'side', ratio: 'auto'}, sketch: [['m', 2, 4, 38, 32], ['a', 10, 10, 4, 4], ['a', 28, 22, 4, 4], ['t', 44, 10, 18, 2], ['t', 44, 16, 14, 2], ['t', 44, 24, 18, 2]]},
+  ],
+  researchInsights: [
+    {id: 'cards', label: 'Insight cards', description: 'Three findings side by side', values: {layout: 'cards', columns: 3, numbered: true}, sketch: [['p', 2, 6, 18, 28], ['p', 23, 6, 18, 28], ['p', 44, 6, 18, 28], ['a', 5, 10, 8, 2], ['a', 26, 10, 8, 2], ['a', 47, 10, 8, 2], ['t', 5, 16, 12, 2], ['t', 26, 16, 12, 2], ['t', 47, 16, 12, 2]]},
+    {id: 'pairs', label: 'Two by two', description: 'Findings in two columns', values: {layout: 'cards', columns: 2, numbered: true}, sketch: [['p', 4, 3, 27, 16], ['p', 33, 3, 27, 16], ['p', 4, 21, 27, 16], ['p', 33, 21, 27, 16]]},
+    {id: 'list', label: 'Findings list', description: 'One finding after another', values: {layout: 'list', numbered: true}, sketch: [['a', 6, 6, 8, 2], ['t', 6, 10, 46, 2], ['a', 6, 17, 8, 2], ['t', 6, 21, 40, 2], ['a', 6, 28, 8, 2], ['t', 6, 32, 44, 2]]},
+  ],
+  chart: [
+    {id: 'bars', label: 'Bars', description: 'Compare amounts', values: {kind: 'bar'}, sketch: [['t', 4, 8, 10, 2], ['a', 16, 7, 40, 4], ['t', 4, 18, 10, 2], ['a', 16, 17, 28, 4], ['t', 4, 28, 10, 2], ['a', 16, 27, 18, 4]]},
+    {id: 'line', label: 'Line', description: 'Change over time', values: {kind: 'line'}, sketch: [['t', 4, 34, 56, 1], ['a', 6, 26, 12, 2], ['a', 18, 20, 14, 2], ['a', 32, 14, 14, 2], ['a', 46, 8, 14, 2]]},
+    {id: 'donut', label: 'Donut', description: 'Parts of a whole', values: {kind: 'donut'}, sketch: [['a', 6, 6, 28, 28], ['t', 40, 10, 18, 2], ['t', 40, 18, 14, 2], ['t', 40, 26, 16, 2]]},
+    {id: 'progress', label: 'Progress', description: 'How far towards a target', values: {kind: 'progress'}, sketch: [['t', 4, 6, 20, 2], ['p', 4, 11, 56, 4], ['a', 4, 11, 40, 4], ['t', 4, 22, 20, 2], ['p', 4, 27, 56, 4], ['a', 4, 27, 22, 4]]},
   ],
   flowDiagram: [
     {id: 'across', label: 'Left to right', description: 'Steps across the page', values: {direction: 'horizontal'}, sketch: [['p', 2, 14, 12, 10], ['a', 15, 18, 3, 2], ['p', 19, 14, 12, 10], ['a', 32, 18, 3, 2], ['p', 36, 14, 12, 10], ['a', 49, 18, 3, 2], ['p', 53, 14, 9, 10]]},

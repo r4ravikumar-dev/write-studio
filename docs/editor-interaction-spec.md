@@ -105,7 +105,7 @@ Order, left to right. Height 56 px, edge-to-edge Liquid Glass bar (`CLAUDE.md` �
 | Save status ("Saved · 5:24 pm", "Saving…", "Not saved") | | ⌘S saves now | Not a live region; failures show as an alert | ✅ |
 | **Undo** | `Undo2` | ⌘Z | Disabled "Nothing to undo" | ✅ T1 (2026-11-11) |
 | **Redo** | `Redo2` | ⇧⌘Z | Disabled "Nothing to redo" | ✅ T1 |
-| **History** | `History` | | Opens the version list (T7) | ✚ T7 (needs a revisions table) |
+| **History** | `History` | | Opens Version history (T7): save a named version, open any version read-only, restore, delete | ✅ T7 (`HistoryDialog.tsx`) |
 | Review | `ClipboardCheck` | | Opens the Review dialog | ✅ Stage 5 |
 | Preview | `Eye` | | Saves first, then opens | ✅ |
 | **Export** | `Download` | | Menu: Save as PDF, Download HTML. From the editor it saves, opens the preview in a new tab with `?export=pdf|html`, and the export runs there once fonts and images have loaded | ✅ T1 |
@@ -224,10 +224,10 @@ One registry feeds the Insert button, the `/` menu and the block handle's `+` (�
 
 | Category | Items | Status |
 |---|---|---|
-| **Text** | Paragraph, Heading, Lead paragraph, Quote, Pull quote, Callout, Bulleted list, Numbered list, Checklist, Code block, Table, Divider, Collapsible section | ✅ T2 |
+| **Text** | Paragraph, Heading, Lead paragraph, Quote, Pull quote, Callout, Problem callout, Key takeaway (T4), Bulleted list, Numbered list, Checklist, Code block, Table, Divider, Collapsible section | ✅ T2 |
 | **Media** | Image, Video file, File | ✅ |
 | **Visual** | Image grid, Comparison, Showcase, Device mockups, Split layout, Screen sequence, Annotated screenshot | ✅ |
-| **Data** | Metrics, **Chart** (bar, line, donut, progress), **Results highlights** (metrics preset) | ◐ Metrics ✅; Chart ✚ T4; Results highlights ✚ T4 (preset, §8.5) |
+| **Data** | Metrics, Results highlights, Research insights, Chart (bar, line, donut, progress) | ✅ T4 (2026-11-12) |
 | **Structure** | New section, framework sections, Process timeline, Flow diagram, Space | ✅ |
 | **Embeds** | Video link (YouTube, Vimeo, Loom), Figma | ✅ T2 |
 
@@ -267,6 +267,8 @@ Driven by data, not code: each framework section's `suggestedVisuals` (✅ alrea
 
 **As built (T2):** recommendations come straight from each framework section's `suggestedVisuals` in Product and UX design v1 (e.g. Overview recommends Metrics only; The experience: Screen sequence, Device mockups, Showcase). The extra items in this table (Showcase for Overview, Results highlights, Key takeaway…) arrive with the T4 cards and a v2 of the framework.
 
+**As built (T4):** *Product and UX design v2* (same sections, words and prompts as v1) carries the table above as `suggestedVisuals`, which may now name content cards (`problemCallout`, `keyTakeaway`, `resultsHighlights`) as well as blocks; Research insights is also recommended for The context and Exploration. New case studies get v2; existing ones keep v1 and its recommendations, because Smart Insert and the section guide read the case study's own framework version (`frameworkSection(key, framework)`, framework passed through `buildInsertCommands`).
+
 Recommendations are suggestions: everything stays available everywhere. Changing these lists needs a **new framework version** (frameworks are immutable, `CLAUDE.md` §9).
 
 ### 8.5 Content cards (T4)
@@ -275,11 +277,13 @@ Named starting points, so writers think in story terms. Most are **presets of ex
 
 | Card | Built on | Status |
 |---|---|---|
-| Problem callout | Callout, "Caution" preset, with the hint "The problem in one sentence" | ✚ T4 (preset) |
-| Key takeaway | Callout, "Insight" preset | ✚ T4 (preset) |
-| Results highlights | Metrics, "Big numbers" preset | ✚ T4 (preset) |
-| Research insights | **New block**: 2–6 insight cards (finding, evidence, source), list semantics | ✚ T4 (new block, §10) |
-| Chart | **New block**: bar, line, donut, progress; small editable table of values; follows the `dataviz` skill and DNA tokens; never invents numbers | ✚ T4 (new block) |
+| Problem callout | Callout, warning tone + alert icon; empty, it shows the placeholder "The problem in one sentence" (never stored) | ✅ T4 |
+| Key takeaway | Callout, brand tone + star icon ("Key takeaway" preset); placeholder "The one thing to remember" | ✅ T4 |
+| Results highlights | Metrics, "Big numbers" values, three **empty** figures (editor placeholders "Figure" / "What it measures"; empty figures are left out of the preview) | ✅ T4 |
+| Research insights | **New block** `researchInsights`: up to 6 findings (finding, evidence, source) as a `<ul>` of cards or a list, 2–3 columns, numbered; review: no findings = fix, findings without evidence = consider | ✅ T4 |
+| Chart | **New block** `chart`: bars (horizontal, value at each end), line (2px, 8px markers, crosshair + tooltip, last value labelled), donut (5 parts max, then Other; legend with value and share), progress (towards a target). Values start empty and only rows with a label and a number are drawn; summary (the accessible name), source, unit, and a "Show the figures as a table" table. Donut colours (purple, mint, orange, slate, pink, in that order) passed the dataviz palette validator on white; DNA has no dark mode. Review: no values = fix, no summary = fix | ✅ T4 |
+
+Unfilled cards stay out of the preview: empty callouts, empty figures and empty insights are left out, and an empty chart renders nothing (in the editor it says what to add).
 
 ### 8.6 Keyboard
 
@@ -308,21 +312,24 @@ Property rules (Framer standard): every control has a visible label, a sensible 
 | Block | Content | Layout | Dimensions | Spacing | Alignment | Appearance | Responsive |
 |---|---|---|---|---|---|---|---|
 | Image | Replace, decorative, alt, caption, credit ✅ | | Size ✅ | | Align, focus ✅ | Shape, corners ✅ | ✚ phone size |
-| Image grid | Images, order ✅ | Columns, arrangement, ratio ✅ | Width ✅ | Gap ✅ | | Background ✅ | Columns on phones ✅ |
-| Comparison | Both sides, labels ✅ | Kind, split, ratio ✅ | Width ✅ | | | Display (side by side / slider) ✅ | ✚ stack order on phones |
+| Image grid | Images, order ✅ | Columns, arrangement, ratio ✅ | Width ✅ | Gap ✅ | | Background ✅ | Columns on tablets ✅ T3, on phones ✅ |
+| Comparison | Both sides, labels ✅ | Kind, split, ratio ✅ | Width ✅ | | | Display (side by side / slider) ✅ | Stacks on phones ✅ (fixed) |
 | Showcase | Media, caption ✅ | Ratio ✅ | Width ✅ | Space around ✅ | Keep in view ✅ | Background ✅ | |
 | Device mockups | Devices + media ✅ | Preset, stage ratio ✅ | Per device size ✅ | Spacing ✅ | ✚ Arrange (§11) | Background, shadows ✅ | On phones ✅; ✚ tablet override |
 | Split layout | Media ✅ (text in the block) | Order, proportion, ratio ✅ | Width ✅ | | Text alignment ✅ | Background ✅ | Picture first on phones ✅ (fixed) |
 | Quote | Who, role ✅ | | | | Alignment ✅ | Style ✅ | |
-| Metrics | Figures ✅ | Columns ✅ | Number size ✅ | | Alignment ✅ | Style, background ✅ | ✚ columns on phones |
+| Metrics | Figures, order ✅ | Columns ✅ | Number size ✅ | | Alignment ✅ | Style, background ✅ | Columns on tablets and phones ✅ T3 |
 | Callout | (text in the block) | | | | | Tone, icon ✅ | |
 | Timeline | Phases ✅ | Layout ✅ | | | | Style ✅ | Stacks on phones ✅ (fixed) |
-| Screen sequence | Screens ✅ | Columns, frame, ratio, arrows ✅ | | | | | Stacks on phones ✅ |
+| Screen sequence | Screens ✅ | Columns, frame, ratio, arrows ✅ | | | | | Columns on tablets and phones ✅ T3 |
 | Annotated screenshot | Image, notes ✅ | Notes beside / below, ratio ✅ | | | | | Notes below on phones ✅ |
 | Flow diagram | Steps, kinds, labels ✅ | Direction ✅ | | | | | Top to bottom on phones ✅ |
 | Table | (cells in the block) | Rows, columns ✅ | | Density ✅ | Cell alignment ✅ | Borders, striped ✅ | Scroll / fit on phones ✅ |
 
-### 9.3 Responsive overrides (✚ T3)
+### 9.3 Responsive overrides (✅ T3, 2026-11-12, columns)
+
+**As built (T3):** every inspector lists its groups through `<Groups>` (`components/editor/blocks/inspectorKit.tsx`), which sorts them into the §9.1 order whatever order they're written in (headings: Content, Layout, Size, Spacing, Alignment, Appearance, Tablet and phone). The Tablet and phone group has a **Desktop · Tablet · Phone** switch (`BreakpointSwitch`) where the block has overrides, and holds the fixed phone settings too (device "On phones", table "Wide tables on phones", grid "Columns on phones", the stacking notes). Overrides so far are **columns** for image grid (tablet; phones keep `mobileColumns`), metrics and screen sequence (tablet 1–4, phone 1–2), stored as `config.responsive = {tablet?: {columns}, phone?: {columns}}` (`ResponsiveColumns` in shared `blocks.ts`; whitelisted by `responsiveKeys` in `blockSchemas.ts`). The control says "Same as desktop" / "Automatic" until changed, then "Changed for this screen size" with **Reset**. Renderers emit `--vb-columns-tablet` / `--vb-columns-phone` plus `data-columns-tablet|phone` only when set (`columnAttrs()` in `visualBlocks.tsx`); the media rules are at the end of `globals.css`. Device x/y/scale per breakpoint is left for T6 (§11.4). The rest of this section is the original design.
+
 
 Breakpoints match the preview: **desktop** ≥ 1024 px, **tablet** 768–1023 px, **phone** < 768 px.
 
@@ -399,28 +406,30 @@ Stored JSON doesn't change; `schemaVersion` starts at 1 for every block.
 
 ## 11. Composition tools (T6): device mockups only
 
+**As built (T6, ✅ 2026-11-12).** Selection lives in a small store (`editor/devices/selection.ts`, `useSyncExternalStore`) shared by the canvas (the block's node view) and the inspector. The tools are pure functions in `editor/devices/arrange.ts` (one tool = one change = one undo); geometry and snapping are in `caseStudy/deviceGeometry.ts` (boxes measured from the page, so rotated devices use their bounding box; stored x stays the pre-spacing centre). Pressing a device selects it (and the block); pressing a selected device again without dragging opens its picker; an empty screen's "Choose screen" works at once. Dragging moves every selected unlocked device as one, with guides; the inspector's **Arrange** group (new group between Alignment and Appearance) holds align, distribute, layer order, group, lock, duplicate, remove and the Snap switch (per browser tab). Shortcuts work while the block is selected and the document has focus, in the capture phase so ⌘D and arrows act on devices, not the block or cursor. Delete/Backspace removes the selected devices (never the last one). Not done: per-breakpoint device positions (§11.4).
+
 Everything here acts **inside a selected device composition**, never on the page. Positions stay normalised (x, y in %, scale, rotate, z) (✅ today), so compositions keep scaling as one.
 
 ### 11.1 Selection model
 
-- Click a device: select it (✅ picker). **⇧-click**: add or remove from the selection (✚). Esc: back to the whole composition.
+- Click a device: select it (a second click opens its picker). **⇧-click**: add or remove from the selection (✅ T6). Clicking a grouped device selects its group. Esc: back to the whole composition.
 - Selected devices show a brand outline and handles; locked devices show a lock and can't be dragged (✅ lock).
 
 ### 11.2 Tools (inspector → **Arrange** group, and keyboard)
 
 | Tool | Icons | Shortcut | Needs | Status |
 |---|---|---|---|---|
-| Align left / centre / right | `AlignStartVertical`, `AlignCenterVertical`, `AlignEndVertical` | | 2+ devices (1: aligns to the stage) | ✚ |
-| Align top / middle / bottom | `AlignStartHorizontal`, `AlignCenterHorizontal`, `AlignEndHorizontal` | | same | ✚ |
-| Distribute horizontally / vertically | `AlignHorizontalDistributeCenter`, `AlignVerticalDistributeCenter` | | 3+ devices | ✚ |
-| Bring to front / Send to back | `BringToFront`, `SendToBack` | ⌥⌘] / ⌥⌘[ | 1+ | ✅ (✚ shortcuts) |
-| Bring forward / Send backward | `ChevronUp`, `ChevronDown` | ⌘] / ⌘[ | 1+ | ✚ |
-| Group / Ungroup | `Group`, `Ungroup` | ⌘G / ⇧⌘G | 2+ / a group | ✚ (data: optional `groupId` on `Device`) |
-| Rotate | `RotateCw` | slider; ⇧ while dragging the handle snaps to 15° | 1 | ◐ slider ✅, handle ✚ |
-| Duplicate | `Copy` | ⌘D | 1+ | ✅ (one at a time) |
-| Lock / Unlock | `Lock` / `LockOpen` | ⇧⌘L | 1+ | ✅ |
-| Nudge | | ←↑→↓ 1 %, ⇧ + arrow 5 % | 1+ unlocked | ✚ |
-| Snap | `Magnet` toggle | hold ⌥ while dragging to turn it off | | ✚ |
+| Align left / centre / right | `AlignStartVertical`, `AlignCenterVertical`, `AlignEndVertical` | | 2+ devices (1: aligns to the stage) | ✅ T6 |
+| Align top / middle / bottom | `AlignStartHorizontal`, `AlignCenterHorizontal`, `AlignEndHorizontal` | | same | ✅ T6 |
+| Distribute horizontally / vertically | `AlignHorizontalDistributeCenter`, `AlignVerticalDistributeCenter` | | 3+ devices | ✅ T6 |
+| Bring to front / Send to back | `BringToFront`, `SendToBack` | ⌥⌘] / ⌥⌘[ | 1+ | ✅ (shortcuts T6) |
+| Bring forward / Send backward | `ChevronUp`, `ChevronDown` | ⌘] / ⌘[ | 1+ | ✅ T6 |
+| Group / Ungroup | `Group`, `Ungroup` | ⌘G / ⇧⌘G | 2+ / a group | ✅ T6 (data: optional `groupId` on `Device`) |
+| Rotate | `RotateCw` | slider; ⇧ while dragging the handle snaps to 15° | 1 | ✅ slider and handle (T6) |
+| Duplicate | `Copy` | ⌘D | 1+ | ✅ (several at once, T6) |
+| Lock / Unlock | `Lock` / `LockOpen` | ⇧⌘L | 1+ | ✅ (shortcut and lock badge T6) |
+| Nudge | | ←↑→↓ 1 %, ⇧ + arrow 5 % | 1+ unlocked | ✅ T6 |
+| Snap | `Magnet` toggle | hold ⌥ while dragging to turn it off | | ✅ T6 |
 
 ### 11.3 Snapping
 
@@ -438,11 +447,11 @@ The existing phone behaviour (`mobile`: composition / stack / first device) stay
 |---|---|---|---|---|
 | **T1** | Compact formatting toolbar, selection toolbar; Undo/Redo + Export in the header; toolbar roving focus | Medium | ✅ done 2026-11-11 | Header and toolbar match §4–§5; one tab stop per toolbar; no regressions at 375 / 768 / 1280 px |
 | **T2** | Universal block handle (drag, `+`, menu), Turn into, copy/cut, insert before/after, block keyboard moves; Smart Insert top sections (recommended, recent, frequent); category changes (Embeds, Advanced retired) | Notion, Gutenberg | ✅ done 2026-11-12 | Every top-level block can be moved, duplicated, deleted and (where §7.3 allows) converted with mouse, touch and keyboard; recommendations change with the section; usage data holds item ids only |
-| **T3** | Inspector groups in the §9.1 order; responsive overrides (§9.3) | Framer, Webflow | ◐ inspectors and presets exist | Every inspector follows the order; overrides save, render at the right breakpoint, and reset |
-| **T4** | Content cards: Problem callout, Key takeaway, Results highlights (presets); Research insights and Chart (new blocks) | Ghost, UXfolio | ✚ | Cards appear in Smart Insert and recommendations; new blocks render in editor, preview, PDF and HTML export and pass review rules |
-| **T5** | Block registry (§10) | Sanity, Tiptap | ◐ started: `components/editor/blocks/registry.ts` (labels, icons, families, configurable, insert ids, Turn into conversions) feeds the handle, Turn into and recommendations; inspector, presets, renderers and review still to move | All 12 visual blocks registered; no shared switch statements left; T4 blocks added through it only |
-| **T6** | Composition tools (§11) | Google Slides | ◐ drag, duplicate, lock, front/back exist | Multi-select, align, distribute, group, nudge, snap work inside a composition with keyboard equivalents |
-| **T7** | History (versions), future storytelling blocks, new frameworks (UX research etc.) | UXfolio | ✚ | Owner-only revisions table + restore; recommendations for new framework sections |
+| **T3** | Inspector groups in the §9.1 order; responsive overrides (§9.3) | Framer, Webflow | ✅ done 2026-11-12 (column overrides; device per-breakpoint layout moves to T6) | Every inspector follows the order; overrides save, render at the right breakpoint, and reset |
+| **T4** | Content cards: Problem callout, Key takeaway, Results highlights (presets); Research insights and Chart (new blocks) | Ghost, UXfolio | ✅ done 2026-11-12 (§8.4–8.5; framework Product and UX design v2) | Cards appear in Smart Insert and recommendations; new blocks render in editor, preview, PDF and HTML export and pass review rules |
+| **T5** | Block registry (§10) | Sanity, Tiptap | ◐ most done 2026-11-12: data half `packages/shared/src/caseStudies/blockSchemas.ts` (`BLOCK_SCHEMAS`: phrase, defaults, evidence, review problems, responsive keys) feeds `review.ts`; editor half `blocks/registry.ts` (names, icons, Turn into, insert ids) + `blocks/inspectors.tsx` (`INSPECTORS`, read by `BlockInspector`) + `caseStudy/blockRenderers.tsx` (`VISUAL_RENDERERS`, preview mapping with schema defaults). Still separate lists: insert commands, presets, node views | All 12 visual blocks registered; no shared switch statements left; T4 blocks added through it only |
+| **T6** | Composition tools (§11) | Google Slides | ✅ done 2026-11-12 (per-breakpoint device positions not done) | Multi-select, align, distribute, group, nudge, snap work inside a composition with keyboard equivalents |
+| **T7** | History (versions), future storytelling blocks, new frameworks (UX research etc.) | UXfolio | ✅ done 2026-11-12: migration 0013 `studio_case_study_revisions` (owner-only, deny-all); automatic version before an autosave when the newest is over 10 min old (newest 50 kept), named versions (up to 100), restore keeps a "before a restore" version and reloads the editor; frameworks UX research v1, Product redesign v1, Feature development v1 (own section keys, `covers` for the review checklist, recommended per project type). Future storytelling blocks: not started | Owner-only revisions table + restore; recommendations for new framework sections |
 
 **Recommended order:** finish T1 (small), then **T2**, with **T5 started at the same time** (build the block handle and Smart Insert top sections against the registry from day one), then T3, T4, T6, T7.
 

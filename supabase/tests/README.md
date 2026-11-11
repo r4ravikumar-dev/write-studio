@@ -15,6 +15,7 @@ throwaway `@example.test` accounts.
 | `test_studio_sections_live.py` | all services | 30 checks (Stage 2): new documents are schema v2 with unique section ids; a v1 document is migrated on read with a backup (once); saves normalise section ids/status; private notes (owner-only, not in the document or preview, not copied, deleted with the case study); lockdown of the new tables |
 | `packages/shared/test/review.test.ts` | nothing | 8 checks: the story review engine (progress, checklist, alt text, empty blocks, figures, embeds, cover, actions point at their block/section) |
 | `test_studio_review_live.py` | all services | 16 checks (Stage 5): card progress from database-generated columns (can't be written directly), the restyled preview (one h1, facts, framework titles for written sections, empty sections omitted, anchored `<section>`s, no metadata), owner-only |
+| `test_studio_history_live.py` | all services | 23 checks (T7): automatic version at most every 10 minutes, named versions, restore keeps a "before a restore" version, archived refuses restore, B can't list/open/restore/delete A's versions, deny-all on `studio_case_study_revisions`, owner trigger, UX research framework through setup, cascade on account deletion |
 | `test_studio_lifecycle_live.py` | all services | 27 checks: account deletion incl. orphan files, B unaffected, dead tokens, no-store caching |
 
 ## Acceptance matrix (from the master plan) → where it's tested

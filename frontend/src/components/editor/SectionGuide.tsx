@@ -11,34 +11,21 @@ import {TextArea} from '@astryxdesign/core/TextArea';
 import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/SegmentedControl';
 import {Icon} from '@astryxdesign/core/Icon';
 import {ArrowDown, ArrowUp, Plus} from 'lucide-react';
-import {SECTION_STATES, VISUAL_BLOCKS, frameworkSection, type VisualBlockName} from '@studio/shared';
+import {SECTION_STATES, frameworkSection, type SuggestedVisual} from '@studio/shared';
+import {insertIdFor, suggestionLabel} from './blocks/registry';
 import {saveSectionNote} from '@/app/studio/case-study-actions';
 import {EYEBROW_STYLE} from '@/theme/eyebrow';
 import {goToSection, setSectionStatus, type OutlineSection} from './sections';
-import type {InsertCommand} from './insertCommands';
+import {frameworkOf, type InsertCommand} from './insertCommands';
 
 /** Which Insert command adds each visual block. */
-const INSERT_ID: Record<VisualBlockName, string> = {
-  imageGrid: 'image-grid',
-  comparison: 'comparison',
-  showcase: 'showcase',
-  deviceMockup: 'devices',
-  splitLayout: 'split',
-  pullQuote: 'pull-quote',
-  callout: 'callout',
-  metrics: 'metrics',
-  timeline: 'timeline',
-  screenSequence: 'screen-sequence',
-  annotatedImage: 'annotated-image',
-  flowDiagram: 'flow-diagram',
-};
 
 /** Guidance for the user's own sections (no framework entry). */
 const OWN_SECTION = {
   purpose: 'Your own section. Say in a sentence what the reader should take from it, then show the evidence.',
   prompts: ['What should the reader learn here?', 'Why does it matter to the story?', 'What shows it: a picture, a quote or a result?'],
   suggestedEvidence: [] as string[],
-  suggestedVisuals: [] as VisualBlockName[],
+  suggestedVisuals: [] as SuggestedVisual[],
 };
 
 const OPEN_KEY = 'studio.guide.closed';
@@ -109,7 +96,7 @@ function Guide({
   onNoteSaved: (sectionId: string, body: string) => void;
   isEditable: boolean;
 }) {
-  const guide = frameworkSection(section.key) ?? OWN_SECTION;
+  const guide = frameworkSection(section.key, frameworkOf(inserts)) ?? OWN_SECTION;
   const [closed, setClosed] = useState<string[]>(() => (typeof window === 'undefined' ? [] : readClosed()));
   const [note, setNote] = useState(notes[section.id] ?? '');
   const [noteState, setNoteState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -161,8 +148,8 @@ function Guide({
   );
 
   /** Adds a visual block at the end of this section. */
-  const addVisual = (name: VisualBlockName) => {
-    const command = inserts.find(item => item.id === INSERT_ID[name]);
+  const addVisual = (name: SuggestedVisual) => {
+    const command = inserts.find(item => item.id === insertIdFor(name));
     if (!command) return;
     const {state} = editor;
     const end = Math.max(section.pos + 1, section.end - 1);
@@ -224,7 +211,7 @@ function Guide({
             {guide.suggestedVisuals.map(name => (
               <Button
                 key={name}
-                label={`Add ${VISUAL_BLOCKS[name].toLowerCase()}`}
+                label={`Add ${suggestionLabel(name).toLowerCase()}`}
                 variant="ghost"
                 size="sm"
                 isDisabled={!isEditable}

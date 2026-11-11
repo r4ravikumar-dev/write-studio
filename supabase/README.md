@@ -19,6 +19,7 @@ Django auth service). **Use a staging project first; never migrate production wi
 | SQL `0010_studio_projects.sql` | Project details from setup, framework id + version, unfinished-setup state (additive) | Stage 1, guided project creation |
 | SQL `0011_studio_sections.sql` | `studio_content_backups` (documents before a schema migration) and `studio_section_notes` (private notes per section) | Stage 2, story structure & guidance |
 | SQL `0012_studio_section_progress.sql` | Generated columns `sections_total`, `sections_complete` (from the document) for the dashboard cards | Stage 5; doesn't change `updated_at` |
+| SQL `0013_studio_revisions.sql` | `studio_case_study_revisions`: private version history (automatic, named, before a restore) | Editor T7; additive |
 
 Run SQL files in Supabase → SQL Editor → New query → paste → Run. Afterwards check with:
 

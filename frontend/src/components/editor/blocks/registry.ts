@@ -30,10 +30,12 @@ import {
   Video,
   Workflow,
   BarChart3,
+  ChartColumnBig,
   FileText,
+  ScanSearch,
   type LucideIcon,
 } from 'lucide-react';
-import {SECTION_LEVEL, defaultImageGrid, defaultShowcase, type MediaRef, type VisualBlockName} from '@studio/shared';
+import {CONTENT_CARDS, SECTION_LEVEL, VISUAL_BLOCKS, defaultImageGrid, defaultShowcase, type ContentCardName, type MediaRef, type SuggestedVisual} from '@studio/shared';
 
 /**
  * The block registry (editor spec §10, T5, started with T2). One description per block type that
@@ -92,6 +94,8 @@ export const BLOCKS: Record<string, BlockDefinition> = Object.fromEntries(
     def('screenSequence', 'Screen sequence', GalleryVerticalEnd, 'visual', true, 'screen-sequence'),
     def('annotatedImage', 'Annotated screenshot', MessageSquareDot, 'visual', true, 'annotated-image'),
     def('flowDiagram', 'Flow diagram', Workflow, 'visual', true, 'flow-diagram'),
+    def('researchInsights', 'Research insights', ScanSearch, 'visual', true, 'research-insights'),
+    def('chart', 'Chart', ChartColumnBig, 'visual', true, 'chart'),
   ].map(block => [block.type, block]),
 );
 
@@ -105,9 +109,21 @@ export function blockName(node: PMNode | {type: {name: string}; attrs: Record<st
   return BLOCKS[type]?.label ?? 'Block';
 }
 
-/** Which Insert command adds each visual block (framework recommendations use block names). */
-export function insertIdFor(block: VisualBlockName): string | undefined {
-  return BLOCKS[block]?.insertId;
+/** Content cards (editor spec §8.5): presets of existing blocks, with their Insert commands. */
+const CARD_INSERT_IDS: Record<ContentCardName, string> = {
+  problemCallout: 'problem-callout',
+  keyTakeaway: 'key-takeaway',
+  resultsHighlights: 'results-highlights',
+};
+
+/** Which Insert command adds a recommended block or card (framework recommendations use names). */
+export function insertIdFor(name: SuggestedVisual): string | undefined {
+  return BLOCKS[name]?.insertId ?? CARD_INSERT_IDS[name as ContentCardName];
+}
+
+/** A recommended block's or card's name, as people read it. */
+export function suggestionLabel(name: SuggestedVisual): string {
+  return (VISUAL_BLOCKS as Record<string, string>)[name] ?? (CONTENT_CARDS as Record<string, string>)[name] ?? name;
 }
 
 // ---- Turn into (editor spec §7.3: compatible conversions only) --------------------------------

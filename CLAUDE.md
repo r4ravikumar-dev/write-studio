@@ -146,7 +146,7 @@ RLS on + zero policies + no anon/authenticated grants on studio tables. `public.
 
 `scripts/security-suite.sh [django-console-log]`: static "no owner/portfolio code" grep, typecheck, lint,
 Express build, Django check + 26 tests; with the log: schema 33, auth-live 23, storage-live 30,
-documents-live 55, setup-live 35, sections-live 30, review-live 16, lifecycle-live 27, review engine 8 (offline, tsx) (all passing 2026-11-11). Map of SEC-001..018 in
+documents-live 55, setup-live 35, sections-live 30, review-live 16, history-live 23, lifecycle-live 27, review engine 15 (offline, tsx) (all passing 2026-11-12). Map of SEC-001..018 in
 `supabase/tests/README.md`. Live tests create/delete `@example.test` accounts (staging only).
 
 ## 8. Removed on 2026-11-10 (don't reintroduce)
@@ -249,6 +249,29 @@ Backup before removal: `/private/tmp/claude-501/-Users-visit--claude-spares-spar
   (T5 start: block names, families, conversions, insert ids), `insertUsage.ts` (localStorage ids only),
   `smartSections()` in insertCommands (Recommended for the cursor's section from framework `suggestedVisuals`,
   Recently / Frequently used), categories Text/Media/Visual/Data/Structure/Embeds. Visual blocks' own bars removed.
-  Phone header shows "Saved" without the time so it fits 375px. Next: T3, continuing T5. Decisions D1–D6 taken as proposed (spec §15): Undo/Redo in the
+  Phone header shows "Saved" without the time so it fits 375px. T3 + most of T5 done 2026-11-12: inspectors live in
+  `editor/blocks/inspectors.tsx` (`INSPECTORS` registry; `BlockInspector.tsx` is a lookup) built from `blocks/inspectorKit.tsx`
+  (`<Groups>` sorts `<Group name>` into Content/Layout/Size/Spacing/Alignment/Appearance/Tablet and phone; `BreakpointSwitch`,
+  `ResponsiveColumnsControl`); `config.responsive.{tablet,phone}.columns` on image grid (tablet only), metrics, screen sequence →
+  `columnAttrs()` CSS vars + data flags, rules at the end of globals.css. Shared `caseStudies/blockSchemas.ts` (`BLOCK_SCHEMAS`,
+  `blockProblems`, `isEvidenceBlock`) drives review.ts; `caseStudy/blockRenderers.tsx` drives the preview's visual mapping.
+  T4 done 2026-11-12: cards Problem callout / Key takeaway (callouts; placeholder from tone/icon via `calloutHint` in
+  Editor.tsx, Placeholder `includeChildren` but nested paragraphs other than callouts return '') and Results highlights
+  (metrics, empty figures); new atoms `researchInsights` and `chart` (shared types + `chartRows()` in blocks.ts, schemas in
+  blockSchemas.ts, renderers in visualBlocks.tsx, inspectors, presets). Charts never invent numbers. Framework **Product and UX
+  design v2** (same sections, T4 recommendations) is now DEFAULT/CURRENT; v1 stays for existing studies; recommendations read
+  the study's own version (`frameworkSection(key, framework)`, `frameworkOf(inserts)`). Empty callouts are hidden in the
+  preview and don't count as content. T6 done 2026-11-12: device composition tools (spec §11 "As built"): shared selection
+  store `editor/devices/selection.ts`, pure tools `editor/devices/arrange.ts`, geometry/snap `caseStudy/deviceGeometry.ts`,
+  `Device.groupId`, inspector Arrange group, rotate handle, guides; shortcuts in `useDeviceKeys` (nodeViews.tsx, capture
+  phase, only while the block is selected and the document has focus). T7 done 2026-11-12: version history
+  (migration `0013_studio_revisions.sql`, applied on staging: `studio_case_study_revisions`, kinds auto/named/before_restore,
+  owner trigger, deny-all). Express: `snapshotIfDue()` before every PUT save (auto when newest > 10 min, newest 50 kept),
+  `GET/POST /:id/revisions`, `GET/DELETE /:id/revisions/:rid`, `POST /:id/revisions/:rid/restore` (keeps before_restore first,
+  migrates old schemas, refuses archived/unfinished setup). Editor `HistoryDialog.tsx` (header "History"; restore reloads the
+  page). Frameworks `ux-research`, `redesign`, `feature` v1 with their own section keys (a key must mean one section across
+  frameworks: tested) and `covers` (StoryElement) so the review checklist works for any framework (`reviewCaseStudy({…,
+  framework})`); `recommendedFramework(type)` maps each project type; the wizard follows the type until the framework step
+  is visited. All seven roadmap phases (T1–T7) are done; storytelling blocks beyond T4 not started. Decisions D1–D6 taken as proposed (spec §15): Undo/Redo in the
   header, an Embeds category, Table under Text, recents per browser, the universal handle replaces block bars,
   Research insights + Chart first.
