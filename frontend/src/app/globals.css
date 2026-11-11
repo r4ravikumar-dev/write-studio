@@ -5038,3 +5038,58 @@ dialog.astryx-dialog::backdrop {
     overscroll-behavior: contain;
   }
 }
+
+/* =====================================================================
+   Stage 4: shared layout options (width, background) and new block options
+   ===================================================================== */
+/* Wide: wider than the text column (up to --block-wide-max), centred on it, never past the
+   window's gutters. The text column itself is --content-max (720px), so "wide" needs its own
+   limit; the frame-wide showcase uses the same one. */
+:root { --block-wide-max: 64rem; }
+.vb[data-block-width='wide'],
+.cs-article .vb-showcase[data-width='frame'] {
+  inline-size: min(100vw - 2 * var(--space-gutter), var(--block-wide-max));
+  margin-inline: calc(50% - min(50vw - var(--space-gutter), var(--block-wide-max) / 2));
+}
+/* In the editor the sheet is the container: wide blocks reach into its margins, so the
+   difference is visible while writing (a frame-wide showcase does the same). */
+.write-document { container-type: inline-size; }
+.write-block .vb[data-block-width='wide'],
+.write-block .vb-showcase[data-width='frame'] {
+  inline-size: min(100cqi - 2 * var(--space-24), 56rem);
+  margin-inline: calc((100% - min(100cqi - 2 * var(--space-24), 56rem)) / 2);
+}
+/* Background: a padded, rounded panel behind the block. */
+.vb[data-block-surface] {
+  padding: var(--space-block);
+  border-radius: var(--radius-container);
+}
+.vb[data-block-surface='muted'] { background: var(--color-background-muted); }
+.vb[data-block-surface='brand'] { background: color-mix(in srgb, var(--color-brand-text) 12%, var(--color-background-surface)); }
+.vb[data-block-surface='inverse'] {
+  background: var(--color-background-inverted);
+  color: var(--text-gray-inverse);
+}
+.vb[data-block-surface='inverse'] :is(.vb-metric-value, .vb-metric-label, .vb-metric-detail, .cs-caption, p, h2, h3, h4) {
+  color: inherit;
+}
+.vb[data-block-surface='inverse'] .vb-metric { border-color: color-mix(in srgb, var(--text-gray-inverse) 30%, transparent); }
+
+/* Metrics: large figures, centred. */
+.vb-metrics[data-size='large'] .vb-metric-value {
+  font-family: var(--font-display);
+  font-size: var(--type-display-m-size);
+  line-height: 1;
+}
+.vb-metrics[data-text-align='center'] .vb-metric { text-align: center; justify-items: center; }
+.vb-metrics[data-text-align='center'] .cs-caption { text-align: center; }
+
+/* Quote: centred. */
+.vb-quote[data-text-align='center'] { text-align: center; justify-items: center; }
+.vb-quote[data-text-align='center'] .vb-quote-by { justify-items: center; }
+.vb-quote[data-text-align='center'][data-style='bordered'] {
+  padding-inline-start: 0;
+  border-inline-start: 0;
+  padding-block: var(--spacing-6);
+  border-block: 3px solid var(--color-brand-text);
+}

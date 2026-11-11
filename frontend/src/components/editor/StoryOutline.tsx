@@ -82,7 +82,7 @@ export function StoryOutline({
   };
 
   return (
-    <VStack gap={0} className="write-outline" aria-label="Story outline">
+    <VStack gap={0} className="write-outline" role="navigation" aria-label="Story outline">
       <HStack justify="between" vAlign="center" gap={2} className="write-outline-head">
         <VStack gap={0}>
           <Text weight="semibold">Outline</Text>

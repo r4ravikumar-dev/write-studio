@@ -20,7 +20,7 @@ import {
   AnnotatedImage,
   FlowDiagram,
 } from './visualBlocks';
-import {isSectionHeading, studioMediaUrl} from '@studio/shared';
+import {frameworkSection, hasContent, isSectionHeading, studioMediaUrl} from '@studio/shared';
 import {
   defaultComparison,
   defaultDeviceMockup,
@@ -74,9 +74,21 @@ export function CaseStudyArticle({content}: {content: JSONContent}) {
     else if (chunks.length) chunks[chunks.length - 1].nodes.push(node);
     else chunks.push({key: 'intro', isSection: false, nodes: [node]});
   }
+  // A framework section left on its placeholder title but written in reads under that title;
+  // a section with nothing in it at all is left out.
+  const shown = chunks
+    .map(chunk => {
+      if (!chunk.isSection) return chunk;
+      const [heading, ...body] = chunk.nodes;
+      if (hasContent(heading)) return chunk;
+      if (!body.some(hasContent)) return null;
+      const title = frameworkSection(heading.attrs?.section)?.title;
+      return title ? {...chunk, nodes: [{...heading, content: [{type: 'text', text: title}]}, ...body]} : chunk;
+    })
+    .filter((chunk): chunk is (typeof chunks)[number] => chunk !== null);
   return (
     <VStack gap={0} className="cs-prose cs-article">
-      {chunks.map(chunk =>
+      {shown.map(chunk =>
         chunk.isSection ? (
           <section key={chunk.key} className="cs-section">
             {renderNodes({type: 'doc', content: chunk.nodes})}
@@ -131,6 +143,7 @@ function renderNodes(content: JSONContent) {
           const role = level <= 2 ? 'section-title' : level === 3 ? 'headline-l' : 'headline-s';
           return (
             <Heading
+              id={typeof node.attrs?.sectionId === 'string' ? `section-${node.attrs.sectionId}` : undefined}
               level={(level <= 2 ? 2 : level) as 2 | 3 | 4}
               textWrap="balance"
               className={level <= 2 ? 'cs-section-heading' : 'cs-heading'}

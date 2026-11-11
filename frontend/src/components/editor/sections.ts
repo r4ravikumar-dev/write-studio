@@ -1,6 +1,7 @@
 import {Extension, type Editor} from '@tiptap/core';
 import {Fragment, type Node as PMNode} from '@tiptap/pm/model';
 import {Plugin, PluginKey, TextSelection} from '@tiptap/pm/state';
+import {Decoration, DecorationSet} from '@tiptap/pm/view';
 import {
   SECTION_LEVEL,
   frameworkSection,
@@ -224,6 +225,33 @@ export const LatestDoc = Extension.create<object, {doc: PMNode | null}>({
           apply: tr => {
             storage.doc = tr.doc;
             return null;
+          },
+        },
+      }),
+    ];
+  },
+});
+
+/**
+ * Screen readers: an empty framework section heading shows its title only as a placeholder
+ * (CSS), which isn't read out. This gives such a heading an aria-label with that title, so it's
+ * announced as "Opening, heading level 2" instead of a blank heading. Never stored.
+ */
+export const SectionLabels = Extension.create({
+  name: 'sectionLabels',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('sectionLabels'),
+        props: {
+          decorations(state) {
+            const decorations: Decoration[] = [];
+            state.doc.forEach((node, offset) => {
+              if (!isSection(node) || node.content.size) return;
+              const title = sectionOf(node)?.title;
+              if (title) decorations.push(Decoration.node(offset, offset + node.nodeSize, {'aria-label': title}));
+            });
+            return DecorationSet.create(state.doc, decorations);
           },
         },
       }),

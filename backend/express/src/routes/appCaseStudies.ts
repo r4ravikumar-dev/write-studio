@@ -31,7 +31,7 @@ import {workspaceOf} from './app';
 export const appCaseStudiesRouter = Router();
 
 const CARD_FIELDS =
-  'id, workspace_id, owner_id, slug, title, subtitle, label, area, tags, summary, focus, thumbnail_path, thumbnail_alt, thumbnail_focus, cover_path, layout, project_type, role, team, timeline, platform, objective, challenge, framework_id, framework_version, setup_state, content_schema_version, status, created_at, updated_at';
+  'id, workspace_id, owner_id, slug, title, subtitle, label, area, tags, summary, focus, thumbnail_path, thumbnail_alt, thumbnail_focus, cover_path, layout, project_type, role, team, timeline, platform, objective, challenge, framework_id, framework_version, setup_state, sections_total, sections_complete, content_schema_version, status, created_at, updated_at';
 const LAYOUTS: CaseStudyLayout[] = ['wide', 'split', 'split-reverse'];
 const text = (value: unknown, max: number) => String(value ?? '').trim().slice(0, max);
 const noStore = (res: import('express').Response) => res.set('Cache-Control', 'private, no-store');

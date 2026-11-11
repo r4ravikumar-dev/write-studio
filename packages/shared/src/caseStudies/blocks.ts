@@ -45,6 +45,13 @@ export const FOCUS_POINTS = [
   {value: 'right center', label: 'Right'},
 ];
 
+/** Block width (Stage 4): the text column, or wider up to the page's frame lines. */
+export type BlockWidth = 'content' | 'wide';
+export const BLOCK_WIDTHS: {value: BlockWidth; label: string}[] = [
+  {value: 'content', label: 'Text width'},
+  {value: 'wide', label: 'Wide'},
+];
+
 export const ratioValue = (ratio: Ratio | undefined) => (ratio && ratio !== 'auto' ? ratio.replace(':', ' / ') : undefined);
 
 // ----------------------------------------------------------------------------
@@ -60,6 +67,9 @@ export type ImageGridConfig = {
   caption: string;
   /** Columns on phones (below 768px): 2 (default; 1 below 480px) or always 1. */
   mobileColumns?: 1 | 2;
+  /** Stage 4 (optional; older grids are 'content' and 'none'). */
+  width?: BlockWidth;
+  surface?: Surface;
 };
 export const defaultImageGrid = (): ImageGridConfig => ({
   columns: 2,
@@ -78,6 +88,8 @@ export type ComparisonConfig = {
   mode: 'before-after' | 'old-new' | 'custom';
   /** side-by-side (default) or slider: one picture over the other with a draggable divider. */
   display?: 'side-by-side' | 'slider';
+  /** Stage 4 (optional; older comparisons are 'content'). */
+  width?: BlockWidth;
   split: '50-50' | '60-40' | '40-60';
   ratio: Ratio;
   left: ComparisonSide;
@@ -233,6 +245,9 @@ export type SplitConfig = {
   proportion: '50-50' | '40-60' | '60-40' | '33-67' | '67-33';
   align: 'start' | 'center' | 'end';
   ratio: Ratio;
+  /** Stage 4 (optional; older split layouts are 'content' and 'none'). */
+  width?: BlockWidth;
+  surface?: Surface;
 };
 export const defaultSplit = (): SplitConfig => ({
   media: null,
@@ -249,6 +264,8 @@ export type QuoteConfig = {
   style: 'serif' | 'large' | 'bordered';
   attribution: string;
   role: string;
+  /** Stage 4 (optional; older quotes are 'start'). */
+  align?: 'start' | 'center';
 };
 export const defaultQuote = (): QuoteConfig => ({style: 'serif', attribution: '', role: ''});
 
@@ -261,6 +278,10 @@ export type MetricsConfig = {
   style: 'plain' | 'cards' | 'brand';
   columns: 2 | 3 | 4;
   caption: string;
+  /** Stage 4 (optional; older metrics are 'regular', 'start', 'none'). */
+  size?: 'regular' | 'large';
+  align?: 'start' | 'center';
+  surface?: Surface;
 };
 export const defaultMetrics = (): MetricsConfig => ({
   items: [

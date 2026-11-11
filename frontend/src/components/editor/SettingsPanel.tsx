@@ -106,7 +106,6 @@ export function SettingsPanel({
   onChange: (patch: Partial<StudioMeta>) => void;
 }) {
   const [tags, setTags] = useState(meta.tags.join(', '));
-  const [isSlugEdited, setIsSlugEdited] = useState(!meta.slug.startsWith('untitled-'));
 
   return (
     <VStack gap={8} className="write-settings">
@@ -140,17 +139,7 @@ export function SettingsPanel({
 
       <Divider />
 
-      <Group title="Headline">
-        <TextInput
-          label="Headline"
-          description="To show one word in the accent font, put *asterisks* around it."
-          value={meta.title}
-          onChange={value => {
-            onChange(isSlugEdited ? {title: value} : {title: value, slug: slugify(value)});
-          }}
-          width="100%"
-        />
-        <TextInput label="Subheadline" value={meta.subtitle} onChange={value => onChange({subtitle: value})} width="100%" />
+      <Group title="Summary" hint="The title and subtitle are on the page, above the story.">
         <TextArea
           label="Summary"
           description="Two or three sentences about the project."
@@ -210,7 +199,6 @@ export function SettingsPanel({
           description="Used in this case study’s private web address. Use lowercase letters, numbers and dashes, and a different name for each case study."
           value={meta.slug}
           onChange={value => {
-            setIsSlugEdited(true);
             onChange({slug: slugify(value)});
           }}
           width="100%"

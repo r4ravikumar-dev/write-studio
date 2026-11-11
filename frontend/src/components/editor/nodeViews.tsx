@@ -75,6 +75,8 @@ function BlockFrame({
   isContent?: boolean;
 }) {
   const {editor, getPos, node, selected} = props;
+  /** The block's name for its buttons ("Move image grid up"), so each says what it acts on. */
+  const name = blockLabel(node.type.name).toLowerCase();
   const at = (run: (pos: number) => void) => () => {
     const pos = getPos();
     if (typeof pos === 'number') run(pos);
@@ -88,11 +90,11 @@ function BlockFrame({
         <Text type="supporting" style={{...EYEBROW_STYLE, color: 'var(--color-text-secondary)', flex: 1}}>
           {blockLabel(node.type.name)}
         </Text>
-        <IconButton label="Properties" tooltip="Properties" size="sm" variant="ghost" onClick={at(pos => selectBlock(editor, pos))} icon={<Icon icon={SlidersHorizontal} size="sm" color="inherit" />} />
-        <IconButton label="Move up" tooltip="Move up" size="sm" variant="ghost" onClick={at(pos => moveBlock(editor, pos, -1))} icon={<Icon icon={ArrowUp} size="sm" color="inherit" />} />
-        <IconButton label="Move down" tooltip="Move down" size="sm" variant="ghost" onClick={at(pos => moveBlock(editor, pos, 1))} icon={<Icon icon={ArrowDown} size="sm" color="inherit" />} />
-        <IconButton label="Duplicate" tooltip="Duplicate" size="sm" variant="ghost" onClick={at(pos => duplicateBlock(editor, pos))} icon={<Icon icon={Copy} size="sm" color="inherit" />} />
-        <IconButton label="Delete block" tooltip="Delete" size="sm" variant="destructive" onClick={at(pos => deleteBlock(editor, pos))} icon={<Icon icon={Trash2} size="sm" color="inherit" />} />
+        <IconButton label={`Properties of ${name}`} tooltip="Properties" size="sm" variant="ghost" onClick={at(pos => selectBlock(editor, pos))} icon={<Icon icon={SlidersHorizontal} size="sm" color="inherit" />} />
+        <IconButton label={`Move ${name} up`} tooltip="Move up" size="sm" variant="ghost" onClick={at(pos => moveBlock(editor, pos, -1))} icon={<Icon icon={ArrowUp} size="sm" color="inherit" />} />
+        <IconButton label={`Move ${name} down`} tooltip="Move down" size="sm" variant="ghost" onClick={at(pos => moveBlock(editor, pos, 1))} icon={<Icon icon={ArrowDown} size="sm" color="inherit" />} />
+        <IconButton label={`Duplicate ${name}`} tooltip="Duplicate" size="sm" variant="ghost" onClick={at(pos => duplicateBlock(editor, pos))} icon={<Icon icon={Copy} size="sm" color="inherit" />} />
+        <IconButton label={`Delete ${name}`} tooltip="Delete" size="sm" variant="destructive" onClick={at(pos => deleteBlock(editor, pos))} icon={<Icon icon={Trash2} size="sm" color="inherit" />} />
       </HStack>
       {children}
     </NodeViewWrapper>

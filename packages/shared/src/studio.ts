@@ -48,8 +48,8 @@ export type StudioCaseStudy = {
   updated_at: string;
 };
 
-/** A row for lists (no body). */
-export type StudioCaseStudyCard = Omit<StudioCaseStudy, 'content'>;
+/** A row for lists (no body), with section progress worked out by the database. */
+export type StudioCaseStudyCard = Omit<StudioCaseStudy, 'content'> & {sections_total?: number | null; sections_complete?: number | null};
 
 /** What the Studio editor saves. */
 export type StudioCaseStudyDraft = Pick<

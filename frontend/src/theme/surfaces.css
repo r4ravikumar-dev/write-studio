@@ -690,3 +690,457 @@
   margin-block-start: var(--space-8);
   align-items: flex-start;
 }
+
+/* ── Title and subtitle on the page (Stage 3) ─────────────────────────────────────────────────
+   Plain text fields in the story's column, styled like the preview's opening: the display face
+   for the title, the lead size for the subtitle. Placeholders only differ in colour. */
+.write-titles {
+  inline-size: min(100%, 44rem);
+  margin-inline: auto;
+  padding-block: var(--space-8) var(--space-24);
+  display: grid;
+  gap: var(--space-8);
+}
+.write-title,
+.write-subtitle {
+  display: block;
+  inline-size: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-gray-primary);
+  resize: none;
+  overflow: hidden;
+  field-sizing: content;
+  outline: none;
+}
+.write-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--display-sm-size);
+  line-height: var(--display-leading);
+  letter-spacing: var(--display-tracking);
+  text-wrap: balance;
+}
+.write-subtitle {
+  font-family: var(--font-family-primary);
+  font-size: var(--heading-lg-size);
+  line-height: 1.4;
+  color: var(--text-gray-secondary);
+}
+.write-title::placeholder,
+.write-subtitle::placeholder {
+  color: var(--text-gray-placeholder);
+  opacity: 1;
+}
+/* Keyboard focus shows where you are without boxing the title like a form field. */
+.write-title:focus-visible,
+.write-subtitle:focus-visible {
+  box-shadow: inset var(--border-width-200) 0 0 0 var(--border-brand-normal);
+  padding-inline-start: var(--space-12);
+  margin-inline-start: calc(-1 * var(--space-12));
+  inline-size: calc(100% + var(--space-12));
+}
+@media (max-width: 767px) {
+  .write-title {
+    font-size: var(--heading-xxl-size);
+  }
+  .write-subtitle {
+    font-size: var(--heading-md-size);
+  }
+}
+
+/* ── Media tab (Stage 3, Region C "Media") ─────────────────────────────────────────────────── */
+.write-media-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+.write-media-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-6);
+  border-radius: var(--radius-8);
+  cursor: grab;
+}
+.write-media-item:hover,
+.write-media-item:focus-within {
+  background: var(--bg-gray-subtle);
+}
+.write-media-thumb {
+  display: grid;
+  place-items: center;
+  inline-size: 48px;
+  block-size: 48px;
+  overflow: hidden;
+  border-radius: var(--radius-6);
+  background: var(--surface-container-high);
+  color: var(--icon-gray-intense);
+}
+.write-media-thumb img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+.write-media-text {
+  min-inline-size: 0;
+}
+
+/* Text style picker: never squeezed below its longest label. */
+.write-style-select {
+  display: inline-flex;
+  flex: none;
+  min-inline-size: 8.5rem;
+}
+.write-style-select > * {
+  inline-size: 100%;
+}
+
+/* Skip links (editor): off screen until focused with the keyboard, then a pill at the top left. */
+.skip-links {
+  position: fixed;
+  z-index: 100;
+  inset-block-start: var(--space-8);
+  inset-inline-start: var(--space-8);
+  display: flex;
+  gap: var(--space-8);
+  pointer-events: none;
+}
+.skip-link {
+  position: absolute;
+  inset-inline-start: -200vw;
+  pointer-events: auto;
+  padding: var(--space-8) var(--space-16);
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--bg-brand-normal);
+  color: var(--text-brand-on-primary);
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.skip-link:focus-visible {
+  position: static;
+  outline: var(--border-width-200) solid var(--border-brand-intense);
+  outline-offset: var(--space-2);
+}
+
+/* ── Layout presets (Stage 4) ───────────────────────────────────────────────────────────────── */
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-8);
+}
+.preset-card {
+  display: grid;
+  gap: var(--space-6);
+  padding: var(--space-8);
+  border: var(--border-width-100) solid var(--border-gray-normal);
+  border-radius: var(--radius-12);
+  background: var(--surface-container);
+  color: var(--text-gray-primary);
+  text-align: start;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--glass-duration) ease, background var(--glass-duration) ease;
+}
+.preset-card:hover {
+  border-color: var(--border-brand-normal);
+}
+.preset-card[aria-pressed='true'] {
+  border-color: var(--border-brand-normal);
+  background: var(--bg-brand-subtle);
+  box-shadow: inset 0 0 0 1px var(--border-brand-normal);
+}
+.preset-card:focus-visible {
+  outline: var(--border-width-200) solid var(--border-brand-normal);
+  outline-offset: var(--space-2);
+}
+.preset-sketch {
+  inline-size: 100%;
+  aspect-ratio: 64 / 40;
+  border-radius: var(--radius-6);
+  background: var(--surface-container-high);
+}
+.preset-sketch rect[data-kind='m'] { fill: var(--border-gray-intense); }
+.preset-sketch rect[data-kind='t'] { fill: var(--text-gray-caption); }
+.preset-sketch rect[data-kind='a'] { fill: var(--bg-brand-normal); }
+.preset-sketch rect[data-kind='p'] { fill: var(--bg-brand-light); }
+.preset-sketch rect[data-kind='d'] { fill: var(--bg-gray-dark); }
+.preset-card[aria-pressed='true'] .preset-sketch { background: var(--surface-container); }
+.preset-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Review dashboard (Stage 5) ────────────────────────────────────────────────────────────── */
+.review {
+  padding: 0 var(--space-24) var(--space-24);
+}
+.review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  border: var(--border-width-100) solid var(--surface-outline);
+  border-radius: var(--radius-12);
+  overflow: hidden;
+}
+.review-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-12);
+  align-items: center;
+  padding: var(--space-12) var(--space-16);
+  background: var(--surface-container);
+}
+.review-item + .review-item {
+  border-block-start: var(--border-width-100) solid var(--surface-outline);
+}
+.review-icon {
+  display: grid;
+  color: var(--icon-gray-normal);
+}
+.review-item[data-done] .review-icon {
+  color: var(--text-success-normal);
+}
+.review-text {
+  min-inline-size: 0;
+}
+.review-badge {
+  padding: var(--space-2) var(--space-8);
+  border-radius: var(--radius-round);
+  background: var(--surface-container-high);
+  color: var(--text-gray-secondary);
+}
+.review-item[data-severity='fix'] .review-badge {
+  background: var(--bg-warning-subtle);
+  color: var(--text-warning-intense);
+}
+.review-bar {
+  display: flex;
+  gap: var(--space-2);
+  block-size: var(--space-8);
+  border-radius: var(--radius-round);
+  overflow: hidden;
+  background: var(--surface-container-high);
+}
+.review-bar > span[data-part='complete'] { background: var(--bg-success-normal); }
+.review-bar > span[data-part='review'] { background: var(--bg-warning-normal); }
+.review-bar > span[data-part='in_progress'] { background: var(--bg-brand-normal); }
+.review-bar > span[data-part='empty'] { background: var(--border-gray-normal); }
+@media (max-width: 639px) {
+  .review { padding-inline: var(--space-16); }
+  .review-item { grid-template-columns: auto minmax(0, 1fr); }
+  .review-item > :last-child:not(.review-text) { grid-column: 2; justify-self: start; }
+}
+
+/* Card progress: "4 of 10 sections complete" with a thin bar. */
+.project-card-progress {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+.project-card-bar {
+  flex: 1;
+  min-inline-size: var(--space-24);
+  max-inline-size: 6rem;
+  block-size: var(--space-4);
+  border-radius: var(--radius-round);
+  background: var(--surface-container-high);
+  overflow: hidden;
+}
+.project-card-bar > span {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--bg-success-normal);
+}
+
+/* ── Preview (Stage 5 restyle): a calm reading page in the 720px column ────────────────────── */
+.preview {
+  background: var(--surface-container);
+  min-block-size: 100svh;
+}
+.preview-page {
+  inline-size: min(100% - 2 * var(--space-gutter), var(--content-max));
+  margin-inline: auto;
+  padding-block: var(--space-64) var(--space-96);
+}
+.preview-head {
+  display: grid;
+  gap: var(--space-16);
+  padding-block-end: var(--space-32);
+}
+.preview-eyebrow {
+  margin: 0;
+  font-family: var(--font-family-primary);
+  font-size: var(--overline-lg-size);
+  font-weight: 600;
+  letter-spacing: var(--overline-lg-tracking);
+  text-transform: uppercase;
+  color: var(--text-brand-primary);
+}
+.preview-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--display-md-size);
+  line-height: var(--display-leading);
+  letter-spacing: var(--display-tracking);
+  color: var(--text-gray-primary);
+  text-wrap: balance;
+}
+.preview-subtitle {
+  margin: 0;
+  font-size: var(--heading-lg-size);
+  line-height: 1.45;
+  color: var(--text-gray-secondary);
+  text-wrap: pretty;
+}
+.preview-facts {
+  margin: var(--space-8) 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-16) var(--space-24);
+  padding-block-start: var(--space-16);
+  border-block-start: var(--border-width-100) solid var(--surface-outline);
+}
+.preview-facts dt {
+  font-size: var(--label-sm-size);
+  font-weight: 600;
+  letter-spacing: var(--overline-lg-tracking);
+  text-transform: uppercase;
+  color: var(--text-gray-caption);
+}
+.preview-facts dd {
+  margin: var(--space-4) 0 0;
+  color: var(--text-gray-primary);
+}
+.preview-cover {
+  margin: 0 0 var(--space-48);
+  inline-size: min(100vw - 2 * var(--space-gutter), var(--block-wide-max));
+  margin-inline: calc(50% - min(50vw - var(--space-gutter), var(--block-wide-max) / 2));
+}
+.preview-cover img {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  border-radius: var(--radius-16);
+}
+.preview-intro {
+  display: grid;
+  gap: var(--space-32);
+  padding-block-end: var(--space-48);
+  margin-block-end: var(--space-48);
+  border-block-end: var(--border-width-100) solid var(--surface-outline);
+}
+.preview-summary {
+  margin: 0;
+  font-size: var(--body-xxl-size);
+  line-height: var(--body-xxl-leading);
+  color: var(--text-gray-primary);
+}
+.preview-contents-title {
+  margin: 0 0 var(--space-12);
+  font-size: var(--label-sm-size);
+  font-weight: 600;
+  letter-spacing: var(--overline-lg-tracking);
+  text-transform: uppercase;
+  color: var(--text-gray-caption);
+}
+.preview-contents ol {
+  margin: 0;
+  padding-inline-start: var(--space-20);
+  columns: 2 14rem;
+  column-gap: var(--space-32);
+}
+.preview-contents li {
+  break-inside: avoid;
+  padding-block: var(--space-4);
+  color: var(--text-gray-caption);
+}
+.preview-contents a {
+  color: var(--text-gray-primary);
+  text-decoration: none;
+}
+.preview-contents a:hover {
+  color: var(--text-brand-primary);
+  text-decoration: underline;
+}
+.preview-contents a:focus-visible {
+  outline: var(--border-width-200) solid var(--border-brand-normal);
+  outline-offset: var(--space-2);
+  border-radius: var(--radius-4);
+}
+/* Section headings clear the sticky preview bar when jumped to from the contents. */
+.preview .cs-section-heading {
+  scroll-margin-block-start: calc(var(--glass-bar-height) + var(--space-24));
+}
+@media (max-width: 767px) {
+  .preview-page { padding-block-start: var(--space-32); }
+  .preview-title { font-size: var(--heading-xxl-size); }
+  .preview-subtitle { font-size: var(--heading-md-size); }
+}
+
+/* ── Print / Save as PDF ─────────────────────────────────────────────────────────────────────── */
+@page {
+  size: A4;
+  margin: 18mm 16mm 20mm;
+}
+@media print {
+  .preview-bar,
+  .skip-links,
+  nextjs-portal {
+    display: none !important;
+  }
+  .preview {
+    background: none;
+    min-block-size: 0;
+  }
+  .preview-page {
+    inline-size: 100%;
+    padding: 0;
+  }
+  .preview-cover,
+  .preview .vb[data-block-width='wide'],
+  .preview .vb-showcase[data-width='frame'] {
+    inline-size: 100%;
+    margin-inline: 0;
+  }
+  .preview-contents a { text-decoration: none; }
+  /* Keep blocks, figures and tables whole; never leave a heading alone at the foot of a page. */
+  .preview .vb,
+  .preview figure,
+  .preview .cs-callout,
+  .preview tr,
+  .preview img,
+  .preview-facts {
+    break-inside: avoid;
+  }
+  .preview :is(h1, h2, h3, h4) {
+    break-after: avoid;
+  }
+  .preview p { orphans: 3; widows: 3; }
+  /* Interactive bits that can't work on paper. */
+  .preview .vb-slider-input,
+  .preview .vb-slider-handle,
+  .preview iframe {
+    display: none;
+  }
+  .preview * {
+    animation: none !important;
+    transition: none !important;
+  }
+  .preview [data-block-surface],
+  .preview .vb-devices,
+  .preview .vb-showcase,
+  .preview .cs-callout {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

@@ -353,8 +353,10 @@ export function Toolbar({editor, onLink, onFind, inserts}: {editor: Editor; onLi
     <IconButton key="find" label="Find and replace" tooltip={`Find and replace (${shortcut('⌘F')})`} size="sm" variant="ghost" onClick={onFind} icon={<Icon icon={Search} size="sm" color="inherit" />} />
   );
   const styleSelect = (
+    // A fixed minimum width: the longest style names ("Heading 1") stay readable when the
+    // toolbar is narrow (outline and side panel both open).
+    <span key="style" className="write-style-select">
     <Selector
-      key="style"
       placement={popupPlacement}
       label="Text style"
       isLabelHidden
@@ -365,6 +367,7 @@ export function Toolbar({editor, onLink, onFind, inserts}: {editor: Editor; onLi
       variant="ghost"
       isDisabled={!state.isEditable}
     />
+    </span>
   );
   const colour = (
     <Popover

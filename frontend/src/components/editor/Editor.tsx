@@ -12,20 +12,23 @@ import {Banner} from '@astryxdesign/core/Banner';
 import {Dialog, DialogHeader} from '@astryxdesign/core/Dialog';
 import {TextInput} from '@astryxdesign/core/TextInput';
 import {Icon} from '@astryxdesign/core/Icon';
-import {Archive, ArchiveRestore, ArrowLeft, Bold, Code, Eye, Highlighter, Italic, Link2, ListTree, Monitor, MoreHorizontal, PanelRight, RemoveFormatting, Smartphone, Strikethrough, Tablet, Underline} from 'lucide-react';
+import {Archive, ArchiveRestore, ArrowLeft, ClipboardCheck, Bold, Code, Eye, Highlighter, Italic, Link2, ListTree, Monitor, MoreHorizontal, PanelRight, RemoveFormatting, Smartphone, Strikethrough, Tablet, Underline} from 'lucide-react';
 import {TextSelection} from '@tiptap/pm/state';
 import {Switch} from '@astryxdesign/core/Switch';
 import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
 import {StudioSearch} from './search';
 import {FindReplace} from './FindReplace';
 import {TableBar} from './TableBar';
-import {LatestDoc, SectionIds, activeSectionIndex, outlineOf} from './sections';
+import {LatestDoc, SectionIds, SectionLabels, activeSectionIndex, outlineOf} from './sections';
 import {StoryOutline} from './StoryOutline';
 import {SectionGuide} from './SectionGuide';
+import {TitleFields} from './TitleFields';
+import {ASSET_DRAG_TYPE, MediaPanel} from './MediaPanel';
+import {ReviewDialog} from './ReviewDialog';
 import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/SegmentedControl';
 import {caseStudyExtensions} from '@/components/caseStudy/schema';
 import {parseEmbed} from '@/lib/caseStudies/embeds';
-import {DEFAULT_FRAMEWORK, getFramework, sectionOf} from '@studio/shared';
+import {DEFAULT_FRAMEWORK, getFramework, reviewCaseStudy, sectionOf, slugify, type StoryReview} from '@studio/shared';
 import type {StudioCaseStudy, StudioMeta, StudioStatus} from '@studio/shared';
 import {archiveStudioCaseStudy, getSectionNotes, restoreStudioCaseStudy, saveStudioCaseStudy} from '@/app/studio/case-study-actions';
 import {studioKindOfFile, uploadStudioAsset} from '@/lib/storage/studio-storage';
@@ -47,6 +50,13 @@ type SaveState = 'saved' | 'unsaved' | 'saving' | 'error';
 const AUTOSAVE_MS = 1200;
 
 const CUSTOM_NODES = new Set(editorNodes.map(node => node.name));
+
+/** Whether a selection is inside one of the visual blocks (which have their own bar above them). */
+function isInsideBlock(selection: TextSelection) {
+  const {$from} = selection;
+  for (let depth = $from.depth; depth > 0; depth -= 1) if (CUSTOM_NODES.has($from.node(depth).type.name)) return true;
+  return false;
+}
 
 const TIME = new Intl.DateTimeFormat('en-IN', {timeStyle: 'short'});
 
@@ -140,6 +150,7 @@ const PREVIEW_WIDTHS = {desktop: 1280, tablet: 834, mobile: 390} as const;
  * makes it read-only. Media are private uploads, shown via /studio/files.
  */
 /** Below this width the side panel becomes a drawer over the document. */
+type PanelTab = 'guide' | 'block' | 'media' | 'settings';
 const DRAWER_QUERY = '(max-width: 1023.98px)';
 /** From this width the outline is docked on the left; below it, it's a drawer. */
 const OUTLINE_QUERY = '(min-width: 1280px)';
@@ -167,7 +178,7 @@ export function Editor({study}: {study: StudioCaseStudy}) {
 
 function EditorInner({study}: {study: StudioCaseStudy}) {
   const media = useMedia();
-  const [panelTab, setPanelTab] = useState<'guide' | 'block' | 'settings'>('guide');
+  const [panelTab, setPanelTab] = useState<PanelTab>('guide');
   const [notes, setNotes] = useState<Record<string, string>>({});
   const isOutlineDocked = useMediaQuery(OUTLINE_QUERY, true);
   // null = not chosen: docked open on wide screens, a closed drawer below 1280px.
@@ -185,14 +196,21 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
   // null = not chosen yet: docked open on wide screens, drawer closed below 1024px.
   const [panelChoice, setIsPanelOpen] = useState<boolean | null>(null);
   const isDrawer = useMediaQuery(DRAWER_QUERY, false);
+  // From 768px only the story column scrolls (not the window): floating bars follow it.
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
   const isPanelOpen = panelChoice ?? !isDrawer;
   /** The link editor: address, displayed text, new tab, and the range it applies to. */
   const [linkDialog, setLinkDialog] = useState<LinkDraft | null>(null);
   const [isFindOpen, setIsFindOpen] = useState(false);
+  /** The review, worked out when the Review dialog opens (from the document as it is then). */
+  const [review, setReview] = useState<StoryReview | null>(null);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [embedDialog, setEmbedDialog] = useState<{kind: 'figma' | 'video'; url: string; error?: string} | null>(null);
   const [uploading, setUploading] = useState(0);
 
   const metaRef = useRef(meta);
+  /** A draft still on its generated short name follows the title until the user sets one. */
+  const slugIsAuto = useRef(study.slug.startsWith('untitled-'));
   // The version this tab last saved (or loaded): sent with each save so a newer save elsewhere isn't overwritten.
   const savedAtRef = useRef(study.updated_at);
   const timer = useRef<number | undefined>(undefined);
@@ -255,6 +273,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
       ...editorNodes,
       StudioSearch,
       SectionIds,
+      SectionLabels,
       LatestDoc,
       Placeholder.configure({
         // Every empty section shows its hint (not only the one with the cursor); the hint is
@@ -290,6 +309,15 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
           setIsFindOpen(true);
           return true;
         }
+        // Up from the very start of the story: into the subtitle above it.
+        if (event.key === 'ArrowUp' && editorRef.current && editorRef.current.state.selection.from <= 1 && !event.shiftKey) {
+          const subtitle = document.querySelector<HTMLTextAreaElement>('.write-subtitle');
+          if (subtitle) {
+            event.preventDefault();
+            subtitle.focus();
+            return true;
+          }
+        }
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
           event.preventDefault();
           void saveNow();
@@ -298,6 +326,20 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
         return false;
       },
       handleDrop: (view, event, _slice, moved) => {
+        // A file dragged from the Media tab: drop it where it lands.
+        const dragged = event.dataTransfer?.getData(ASSET_DRAG_TYPE);
+        if (dragged) {
+          event.preventDefault();
+          const pos = view.posAtCoords({left: event.clientX, top: event.clientY})?.pos;
+          try {
+            const node = nodeFor(JSON.parse(dragged) as Asset);
+            const chain = editorRef.current?.chain().focus();
+            if (chain) (pos === undefined ? chain.insertContent(node) : chain.insertContentAt(pos, node)).run();
+          } catch {
+            // Not one of ours: ignore it.
+          }
+          return true;
+        }
         const files = Array.from(event.dataTransfer?.files ?? []);
         if (moved || !files.length) return false;
         event.preventDefault();
@@ -327,6 +369,29 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
     editorRef.current = editor;
   }, [editor]);
 
+  // The floating bars (text bubble, table bar) only follow window scrolling by themselves, so
+  // when the column scrolls, ask them to reposition (one transaction per frame, no doc change).
+  useEffect(() => {
+    if (!scrollElement) return;
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const current = editorRef.current;
+        if (!current || current.isDestroyed || (current.state.selection.empty && !current.isActive('table'))) return;
+        const tr = current.state.tr;
+        for (const key of ['studioTextBubble', 'studioTextBubbleBelow', 'studioTableBar']) tr.setMeta(key, 'updatePosition');
+        current.view.dispatch(tr);
+      });
+    };
+    scrollElement.addEventListener('scroll', onScroll, {passive: true});
+    return () => {
+      scrollElement.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, [scrollElement]);
+
   // Save before leaving, and warn if a save is still pending.
   useEffect(() => {
     const onLeave = (event: BeforeUnloadEvent) => {
@@ -340,6 +405,37 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
   }, [saveState, saveNow]);
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
+
+  // Drawers (outline below 1280px, side panel below 1024px): Escape closes the open one and
+  // puts the focus back on the button that opened it.
+  const isOutlineDrawer = !isOutlineDocked && isOutlineOpen;
+  const isSideDrawer = isDrawer && isPanelOpen;
+  useEffect(() => {
+    if (!isOutlineDrawer && !isSideDrawer) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (document.querySelector('[role=dialog], [role=alertdialog], [role=menu]')?.checkVisibility?.()) return;
+      if (isOutlineDrawer) {
+        setOutlineChoice(false);
+        document.getElementById('write-outline-toggle')?.focus();
+      } else {
+        setIsPanelOpen(false);
+        document.getElementById('write-panel-toggle')?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOutlineDrawer, isSideDrawer]);
+  // Opening a drawer moves the focus into it.
+  useEffect(() => {
+    if (isOutlineDrawer) requestAnimationFrame(() => document.querySelector<HTMLElement>('.write-outline-link[aria-current], .write-outline-link')?.focus());
+  }, [isOutlineDrawer]);
+
+  // The browser tab names the case study being edited, and follows the title as it changes.
+  useEffect(() => {
+    const name = meta.title.replace(/\*/g, '').trim() || 'Untitled case study';
+    document.title = `Edit: ${name} · Case Study Studio`;
+  }, [meta.title]);
 
   // Private section notes (kept outside the document).
   useEffect(() => {
@@ -487,6 +583,19 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
             : `Saved · ${TIME.format(new Date(savedAt))}`;
 
   const archiveLabel = status === 'archived' ? 'Restore' : 'Archive';
+  const openReview = () => {
+    if (!editor) return;
+    setReview(
+      reviewCaseStudy({
+        title: meta.title,
+        content: plainDocument(editor),
+        cover_path: meta.cover_path,
+        thumbnail_path: meta.thumbnail_path,
+        thumbnail_alt: meta.thumbnail_alt,
+      }),
+    );
+    setIsReviewOpen(true);
+  };
   const openPreview = async () => {
     await saveNow();
     setPreviewWidth('desktop');
@@ -495,7 +604,23 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
   return (
     <VStack gap={0} className="write" data-panel={isPanelOpen ? 'open' : 'closed'}>
       {/* Top bar: back, where it stands, preview and archive. */}
-      <HStack className="studio-bar glass glass-bar" justify="between" vAlign="center" gap={3}>
+      {/* Screen readers: the page's name, and ways past the bars to the story or the outline. */}
+      <h1 className="sr-only">Edit: {meta.title.replace(/\*/g, '').trim() || 'Untitled case study'}</h1>
+      <nav aria-label="Skip links" className="skip-links">
+        <button type="button" className="skip-link" onClick={() => editor?.commands.focus()}>
+          Skip to the story
+        </button>
+        <button
+          type="button"
+          className="skip-link"
+          onClick={() => {
+            setOutlineChoice(true);
+            requestAnimationFrame(() => document.querySelector<HTMLElement>('.write-outline-link')?.focus());
+          }}>
+          Skip to the outline
+        </button>
+      </nav>
+      <HStack className="studio-bar glass glass-bar" justify="between" vAlign="center" gap={3} role="banner">
         <HStack gap={3} vAlign="center">
           <span className="only-wide">
             <Button
@@ -519,6 +644,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
             />
           </span>
           <IconButton
+            id="write-outline-toggle"
             label={isOutlineOpen ? 'Hide outline' : 'Show outline'}
             tooltip={isOutlineOpen ? 'Hide outline' : 'Show outline'}
             variant={isOutlineOpen ? 'secondary' : 'ghost'}
@@ -532,7 +658,8 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
             style={{...EYEBROW_STYLE, color: 'var(--color-text-secondary)'}}>
             {status === 'archived' ? 'Archived' : 'Private draft'}
           </Text>
-          <Text type="supporting" color="secondary" aria-live="polite">
+          {/* Not a live region: it changes on every pause in typing. Failures show as an alert. */}
+          <Text type="supporting" color="secondary">
             {saveLabel}
           </Text>
         </HStack>
@@ -540,6 +667,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
           {/* Phones get the same actions as icon-only buttons (labels as tooltips). */}
           <span className="only-wide">
             <HStack gap={2} vAlign="center">
+              <Button label="Review" variant="ghost" size="sm" onClick={openReview} icon={<Icon icon={ClipboardCheck} size="sm" color="inherit" />} />
               <Button label="Preview" variant="ghost" size="sm" onClick={openPreview} icon={<Icon icon={Eye} size="sm" color="inherit" />} />
               <Button
                 label={archiveLabel}
@@ -553,6 +681,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
           </span>
           <span className="only-narrow">
             <HStack gap={2} vAlign="center">
+              <IconButton label="Review" tooltip="Review" variant="ghost" size="sm" onClick={openReview} icon={<Icon icon={ClipboardCheck} size="sm" color="inherit" />} />
               <IconButton label="Preview" tooltip="Preview" variant="ghost" size="sm" onClick={openPreview} icon={<Icon icon={Eye} size="sm" color="inherit" />} />
               <IconButton
                 label={archiveLabel}
@@ -566,8 +695,9 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
             </HStack>
           </span>
           <IconButton
-            label={isPanelOpen ? 'Hide settings panel' : 'Show settings panel'}
-            tooltip={isPanelOpen ? 'Hide settings panel' : 'Show settings panel'}
+            id="write-panel-toggle"
+            label={isPanelOpen ? 'Hide side panel' : 'Show side panel'}
+            tooltip={isPanelOpen ? 'Hide side panel' : 'Show side panel'}
             variant={isPanelOpen ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() =>
@@ -594,7 +724,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
 
       <HStack gap={0} vAlign="start" className="write-main">
         {!isOutlineDocked && isOutlineOpen && (
-          <button type="button" className="write-outline-scrim" aria-label="Close outline" onClick={() => setOutlineChoice(false)} />
+          <button type="button" className="write-outline-scrim" aria-label="Close outline" tabIndex={-1} onClick={() => setOutlineChoice(false)} />
         )}
         {editor && isOutlineOpen && (
           <StoryOutline
@@ -610,7 +740,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
             onClose={isOutlineDocked ? undefined : () => setOutlineChoice(false)}
           />
         )}
-        <VStack gap={0} className="write-canvas">
+        <VStack gap={0} className="write-canvas" role="main" aria-label="Story">
           {editor && (
             <>
               <Toolbar
@@ -623,12 +753,24 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
               <TableBar editor={editor} />
               {/* Selected text (spec A4): B, I, U, link, highlight, More. Hidden in tables (the
                   table bar takes over) and for block selections (the inspector takes over). */}
-              <BubbleMenu
-                editor={editor}
-                pluginKey="studioTextBubble"
-                className="write-bubble glass glass-group glass--interactive"
-                shouldShow={({editor: e, state: s}) => !isFindOpen && e.isEditable && !s.selection.empty && s.selection instanceof TextSelection && !e.isActive('table')}>
-                <HStack gap={1} role="toolbar" aria-label="Selected text">
+              {/* Inside a visual block (split layout, quote, callout) the block's own bar sits above the
+                  text, so there the bubble opens below the selection instead of covering it. */}
+              {(['above', 'below'] as const).map(where => (
+                <BubbleMenu
+                  key={where}
+                  editor={editor}
+                  pluginKey={where === 'above' ? 'studioTextBubble' : 'studioTextBubbleBelow'}
+                  className="write-bubble glass glass-group glass--interactive"
+                  options={{placement: where === 'above' ? 'top' : 'bottom', offset: 8, flip: true, shift: {padding: 8}}}
+                  shouldShow={({editor: e, state: s}) =>
+                    !isFindOpen &&
+                    e.isEditable &&
+                    !s.selection.empty &&
+                    s.selection instanceof TextSelection &&
+                    !e.isActive('table') &&
+                    isInsideBlock(s.selection) === (where === 'below')
+                  }>
+                  <HStack gap={1} role="toolbar" aria-label="Selected text">
                   <IconButton label="Bold" tooltip="Bold" size="sm" variant={editor.isActive('bold') ? 'secondary' : 'ghost'} icon={<Icon icon={Bold} size="sm" color="inherit" />} onClick={() => editor.chain().focus().toggleBold().run()} />
                   <IconButton label="Italic" tooltip="Italic" size="sm" variant={editor.isActive('italic') ? 'secondary' : 'ghost'} icon={<Icon icon={Italic} size="sm" color="inherit" />} onClick={() => editor.chain().focus().toggleItalic().run()} />
                   <IconButton label="Underline" tooltip="Underline" size="sm" variant={editor.isActive('underline') ? 'secondary' : 'ghost'} icon={<Icon icon={Underline} size="sm" color="inherit" />} onClick={() => editor.chain().focus().toggleUnderline().run()} />
@@ -656,32 +798,43 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                     hasChevron={false}
                   />
                 </HStack>
-              </BubbleMenu>
+                </BubbleMenu>
+              ))}
               <SlashMenu editor={editor} commands={inserts} />
             </>
           )}
           {/* Only the writing scrolls (tablet/desktop): its scrollbar starts below the toolbar. */}
-          <div className="write-scroll">
-            <EditorContent editor={editor} className="write-document" />
+          <div className="write-scroll" ref={setScrollElement}>
+            <div className="write-document">
+              <TitleFields
+                editor={editor}
+                title={meta.title}
+                subtitle={meta.subtitle}
+                isEditable={status !== 'archived'}
+                onChange={patch => changeMeta(patch.title !== undefined && slugIsAuto.current ? {...patch, slug: slugify(patch.title) || meta.slug} : patch)}
+              />
+              <EditorContent editor={editor} />
+            </div>
           </div>
         </VStack>
 
         {isDrawer && isPanelOpen && (
           // Drawer backdrop (shown below 1024px only): tap to close.
-          <button type="button" className="write-side-scrim" aria-label="Close settings" onClick={() => setIsPanelOpen(false)} />
+           <button type="button" className="write-side-scrim" aria-label="Close side panel" tabIndex={-1} onClick={() => setIsPanelOpen(false)} />
         )}
         {isPanelOpen && (
-          <VStack gap={0} className="write-side">
+          <VStack gap={0} className="write-side" role="complementary" aria-label="Side panel">
             <HStack className="write-side-tabs">
               <SegmentedControl
                 label="Side panel"
                 value={panelTab}
-                onChange={value => setPanelTab(value as 'guide' | 'block' | 'settings')}
+                onChange={value => setPanelTab(value as PanelTab)}
                 size="sm"
                 layout="fill">
                 <SegmentedControlItem value="guide" label="Guide" />
                 <SegmentedControlItem value="block" label="Block" />
-                <SegmentedControlItem value="settings" label="Case study" />
+                <SegmentedControlItem value="media" label="Media" />
+                <SegmentedControlItem value="settings" label="Details" />
               </SegmentedControl>
             </HStack>
             {panelTab === 'guide' ? (
@@ -698,6 +851,14 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                     isEditable={status !== 'archived'}
                   />
                 )}
+              </VStack>
+            ) : panelTab === 'media' ? (
+              <VStack gap={0} className="write-settings">
+                <MediaPanel
+                  caseStudyId={study.id}
+                  isEditable={status !== 'archived'}
+                  onInsert={asset => editor?.chain().focus().insertContent(nodeFor(asset)).run()}
+                />
               </VStack>
             ) : panelTab === 'block' ? (
               <VStack gap={0} className="write-settings">
@@ -752,6 +913,19 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
           </VStack>
         )}
       </Dialog>
+
+      {editor && (
+        <ReviewDialog
+          editor={editor}
+          review={review}
+          isOpen={isReviewOpen}
+          onClose={() => setIsReviewOpen(false)}
+          onOpenDetails={() => {
+            setPanelTab('settings');
+            setIsPanelOpen(true);
+          }}
+        />
+      )}
 
       {/* Link editor (spec A5) */}
       <Dialog isOpen={linkDialog !== null} onOpenChange={open => !open && setLinkDialog(null)} purpose="form" width={460}>

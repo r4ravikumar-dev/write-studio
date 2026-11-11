@@ -26,6 +26,8 @@ import {
   type TimelineConfig,
   type ScreenSequenceConfig,
   type AnnotatedImageConfig,
+  type BlockWidth,
+  type Surface,
   type FlowDiagramConfig,
 } from '@/lib/caseStudies/blocks';
 import {EYEBROW_STYLE} from '@/theme/eyebrow';
@@ -105,12 +107,24 @@ function Caption({children}: {children?: string}) {
   return children?.trim() ? <figcaption className="cs-caption">{children}</figcaption> : null;
 }
 
+/**
+ * Stage 4 layout options shared by several blocks: `data-block-width="wide"` widens the block to
+ * the page's frame lines (like a wide showcase) and `data-block-surface` puts it on a background.
+ * Nothing is added for the defaults, so older documents render exactly as before.
+ */
+function layoutAttrs(width?: BlockWidth, surface?: Surface) {
+  return {
+    'data-block-width': width === 'wide' ? 'wide' : undefined,
+    'data-block-surface': surface && surface !== 'none' ? surface : undefined,
+  };
+}
+
 // ----------------------------------------------------------------------------
 // 1. Image grid
 // ----------------------------------------------------------------------------
 export function ImageGrid({config, edit}: {config: ImageGridConfig; edit?: EditHooks}) {
   return (
-    <figure className="vb vb-grid-block">
+    <figure className="vb vb-grid-block" {...layoutAttrs(config.width, config.surface)}>
       <div
         className="vb-grid"
         data-arrangement={config.arrangement}
@@ -215,7 +229,7 @@ export function Comparison({config, edit}: {config: ComparisonConfig; edit?: Edi
   // The slider needs both pictures; until then (or when editing them) it shows side by side.
   if (config.display === 'slider' && config.left.media && config.right.media) return <ComparisonSlider config={config} />;
   return (
-    <figure className="vb vb-compare" data-split={config.split}>
+    <figure className="vb vb-compare" data-split={config.split} {...layoutAttrs(config.width)}>
       <div className="vb-compare-grid">
         <Side side={config.left} ratio={config.ratio} tone="before" onPick={edit ? () => edit.pickMedia('left', 'any') : undefined} />
         <Side side={config.right} ratio={config.ratio} tone="after" onPick={edit ? () => edit.pickMedia('right', 'any') : undefined} />
@@ -371,7 +385,7 @@ export function DeviceMockup({
 // ----------------------------------------------------------------------------
 export function SplitLayout({config, edit, children}: {config: SplitConfig; edit?: EditHooks; children: ReactNode}) {
   return (
-    <div className="vb vb-split" data-order={config.order} data-proportion={config.proportion} data-align={config.align}>
+    <div className="vb vb-split" data-order={config.order} data-proportion={config.proportion} data-align={config.align} {...layoutAttrs(config.width, config.surface)}>
       <div className="vb-split-media">
         <MediaView media={config.media} ratio={config.ratio} emptyLabel="Choose image or video" onPick={edit ? () => edit.pickMedia('media', 'any') : undefined} />
       </div>
@@ -385,7 +399,7 @@ export function SplitLayout({config, edit, children}: {config: SplitConfig; edit
 // ----------------------------------------------------------------------------
 export function PullQuote({config, children}: {config: QuoteConfig; children: ReactNode}) {
   return (
-    <figure className="vb vb-quote" data-style={config.style}>
+    <figure className="vb vb-quote" data-style={config.style} data-text-align={config.align === 'center' ? 'center' : undefined}>
       <blockquote className="vb-quote-text">{children}</blockquote>
       {(config.attribution || config.role) && (
         <figcaption className="vb-quote-by">
@@ -416,7 +430,12 @@ export function Callout({tone, icon, children}: {tone: CalloutTone; icon: Callou
 
 export function Metrics({config}: {config: MetricsConfig}) {
   return (
-    <figure className="vb vb-metrics" data-style={config.style}>
+    <figure
+      className="vb vb-metrics"
+      data-style={config.style}
+      data-size={config.size === 'large' ? 'large' : undefined}
+      data-text-align={config.align === 'center' ? 'center' : undefined}
+      {...layoutAttrs(undefined, config.surface)}>
       <dl className="vb-metrics-grid" style={{['--vb-columns' as string]: config.columns}}>
         {config.items.map((item, index) => (
           <div key={index} className="vb-metric">

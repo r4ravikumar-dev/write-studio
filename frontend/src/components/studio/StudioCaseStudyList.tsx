@@ -106,6 +106,17 @@ export function StudioCaseStudyList({studies, emptyTitle, emptyText, emptyAction
                     .join('')}
                   Edited <span suppressHydrationWarning>{relative(row.updated_at)}</span>
                 </Text>
+                {!row.setup_state && (row.sections_total ?? 0) > 0 && (
+                  <HStack gap={2} vAlign="center" className="project-card-progress">
+                    {/* Text first for screen readers; the bar repeats it visually. */}
+                    <Text type="supporting" color="secondary">
+                      {`${row.sections_complete ?? 0} of ${row.sections_total} sections complete`}
+                    </Text>
+                    <span className="project-card-bar" aria-hidden="true">
+                      <span style={{inlineSize: `${Math.round(((row.sections_complete ?? 0) / (row.sections_total ?? 1)) * 100)}%`}} />
+                    </span>
+                  </HStack>
+                )}
               </VStack>
               <span className="project-card-menu">{actionsMenu(row)}</span>
             </HStack>

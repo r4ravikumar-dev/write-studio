@@ -26,6 +26,9 @@ import {
   GAPS,
   RATIOS,
   SURFACES,
+  BLOCK_WIDTHS,
+  type BlockWidth,
+  type Surface,
   devicePreset,
   newDevice,
   type ComparisonConfig,
@@ -53,10 +56,27 @@ import type {MediaRef} from '@studio/shared';
 import {studioMediaUrl} from '@studio/shared';
 import {blockLabel, deleteBlock, duplicateBlock, mediaFromAsset, setBlockAttrs} from './blockOps';
 import {useMedia} from './MediaLibrary';
+import {PresetGallery} from './PresetGallery';
 import type {MediaKind} from './upload';
 import {EYEBROW_STYLE} from '@/theme/eyebrow';
 
 type Props<T> = {config: T; onChange: (next: T) => void};
+
+/** Stage 4: width and background, shared by several blocks. */
+function WidthAndBackground<T extends {width?: BlockWidth; surface?: Surface}>({config, onChange, withSurface = true}: Props<T> & {withSurface?: boolean}) {
+  return (
+    <>
+      <SegmentedControl label="Width" value={config.width ?? 'content'} onChange={value => onChange({...config, width: value as BlockWidth})} size="sm" layout="fill">
+        {BLOCK_WIDTHS.map(option => (
+          <SegmentedControlItem key={option.value} value={option.value} label={option.label} />
+        ))}
+      </SegmentedControl>
+      {withSurface && (
+        <Selector label="Background" options={SURFACES} value={config.surface ?? 'none'} onChange={value => onChange({...config, surface: value as Surface})} size="sm" />
+      )}
+    </>
+  );
+}
 
 function Section({title, children}: {title: string; children: React.ReactNode}) {
   return (
@@ -157,6 +177,7 @@ function ImageGridInspector({config, onChange}: Props<ImageGridConfig>) {
           <SegmentedControlItem value="2" label="2 columns" />
           <SegmentedControlItem value="1" label="1 column" />
         </SegmentedControl>
+        <WidthAndBackground config={config} onChange={onChange} />
       </Section>
       <Divider />
       <Section title={`Images (${config.items.length})`}>
@@ -215,6 +236,7 @@ function ComparisonInspector({config, onChange}: Props<ComparisonConfig>) {
           <SegmentedControlItem value="side-by-side" label="Side by side" />
           <SegmentedControlItem value="slider" label="Slider" />
         </SegmentedControl>
+        <WidthAndBackground config={config} onChange={onChange} withSurface={false} />
         {config.display === 'slider' && (!config.left.media || !config.right.media) && (
           <Text type="supporting" color="secondary">
             Choose both pictures to use the slider. Until then it shows side by side.
@@ -273,7 +295,7 @@ function ShowcaseInspector({config, onChange}: Props<ShowcaseConfig>) {
         </SegmentedControl>
         {ratioSelector(config.ratio, value => onChange({...config, ratio: value as ShowcaseConfig['ratio']}))}
         <Selector label="Keep in view" options={FOCUS_POINTS} value={config.focus} onChange={focus => onChange({...config, focus})} size="sm" />
-        <Selector label="Background surface" options={SURFACES} value={config.surface} onChange={value => onChange({...config, surface: value as ShowcaseConfig['surface']})} size="sm" />
+        <Selector label="Background" options={SURFACES} value={config.surface} onChange={value => onChange({...config, surface: value as ShowcaseConfig['surface']})} size="sm" />
         {config.surface !== 'none' && (
           <Selector label="Space around" options={GAPS} value={config.inset} onChange={value => onChange({...config, inset: value as ShowcaseConfig['inset']})} size="sm" />
         )}
@@ -323,7 +345,7 @@ function DeviceInspector({config, onChange}: Props<DeviceMockupConfig>) {
           <SegmentedControlItem value="normal" label="Normal" />
           <SegmentedControlItem value="loose" label="Loose" />
         </SegmentedControl>
-        <Selector label="Background surface" options={SURFACES} value={config.surface} onChange={value => onChange({...config, surface: value as DeviceMockupConfig['surface']})} size="sm" />
+        <Selector label="Background" options={SURFACES} value={config.surface} onChange={value => onChange({...config, surface: value as DeviceMockupConfig['surface']})} size="sm" />
         <Switch label="Shadows" value={config.shadow} onChange={shadow => onChange({...config, shadow})} size="sm" />
         <Selector
           label="On phones"
@@ -440,6 +462,7 @@ function SplitInspector({config, onChange}: Props<SplitConfig>) {
           <SegmentedControlItem value="end" label="Bottom" />
         </SegmentedControl>
         {ratioSelector(config.ratio, value => onChange({...config, ratio: value as SplitConfig['ratio']}))}
+        <WidthAndBackground config={config} onChange={onChange} />
         <Text type="supporting" color="secondary">
           On phones the picture always comes first, then the text.
         </Text>
@@ -462,6 +485,10 @@ function QuoteInspector({config, onChange}: Props<QuoteConfig>) {
         onChange={value => onChange({...config, style: value as QuoteConfig['style']})}
         size="sm"
       />
+      <SegmentedControl label="Alignment" value={config.align ?? 'start'} onChange={value => onChange({...config, align: value as QuoteConfig['align']})} size="sm" layout="fill">
+        <SegmentedControlItem value="start" label="Left" />
+        <SegmentedControlItem value="center" label="Centre" />
+      </SegmentedControl>
       <TextInput label="Who said it" value={config.attribution} onChange={attribution => onChange({...config, attribution})} size="sm" width="100%" />
       <TextInput label="Their role" value={config.role} onChange={role => onChange({...config, role})} size="sm" width="100%" />
     </VStack>
@@ -490,6 +517,15 @@ function MetricsInspector({config, onChange}: Props<MetricsConfig>) {
           <SegmentedControlItem value="3" label="3" />
           <SegmentedControlItem value="4" label="4" />
         </SegmentedControl>
+        <SegmentedControl label="Number size" value={config.size ?? 'regular'} onChange={value => onChange({...config, size: value as MetricsConfig['size']})} size="sm" layout="fill">
+          <SegmentedControlItem value="regular" label="Regular" />
+          <SegmentedControlItem value="large" label="Large" />
+        </SegmentedControl>
+        <SegmentedControl label="Alignment" value={config.align ?? 'start'} onChange={value => onChange({...config, align: value as MetricsConfig['align']})} size="sm" layout="fill">
+          <SegmentedControlItem value="start" label="Left" />
+          <SegmentedControlItem value="center" label="Centre" />
+        </SegmentedControl>
+        <Selector label="Background" options={SURFACES} value={config.surface ?? 'none'} onChange={value => onChange({...config, surface: value as MetricsConfig['surface']})} size="sm" />
       </Section>
       <Divider />
       <Section title="Figures">
@@ -927,6 +963,15 @@ export function BlockInspector({editor, block}: {editor: Editor; block: {name: s
           <IconButton label="Delete block" tooltip="Delete" size="sm" variant="destructive" onClick={() => deleteBlock(editor, pos)} icon={<Icon icon={Trash2} size="sm" color="inherit" />} />
         </HStack>
       </HStack>
+      {name === 'callout' ? (
+        <PresetGallery
+          block="callout"
+          current={{tone: node.attrs.tone, icon: node.attrs.icon}}
+          onApply={next => setBlockAttrs(editor, pos, {tone: next.tone, icon: next.icon})}
+        />
+      ) : (
+        config && <PresetGallery block={name} current={config} onApply={setConfig} />
+      )}
       {body}
       <Text type="supporting" color="secondary">
         Drag a block by its handle, or use the arrows on its bar, to reorder it.
