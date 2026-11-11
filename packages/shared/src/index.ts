@@ -8,3 +8,4 @@ export * from './studio';
 export * from './auth';
 export * from './frameworks';
 export * from './caseStudies/setup';
+export * from './caseStudies/sections';

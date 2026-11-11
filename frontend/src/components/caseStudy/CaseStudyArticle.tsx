@@ -1,3 +1,4 @@
+import {Fragment} from 'react';
 import type {JSONContent} from '@tiptap/core';
 import {renderToReactElement} from '@tiptap/static-renderer';
 import {VStack} from '@astryxdesign/core/Layout';
@@ -19,7 +20,7 @@ import {
   AnnotatedImage,
   FlowDiagram,
 } from './visualBlocks';
-import {studioMediaUrl} from '@studio/shared';
+import {isSectionHeading, studioMediaUrl} from '@studio/shared';
 import {
   defaultComparison,
   defaultDeviceMockup,
@@ -65,7 +66,31 @@ function configOf<T extends object>(attrs: Attrs | undefined, defaults: () => T)
  * ever injected.
  */
 export function CaseStudyArticle({content}: {content: JSONContent}) {
-  const body = renderToReactElement({
+  // Each story section (a top-level section heading and what follows it) becomes a <section>;
+  // anything before the first one is rendered on its own. Section metadata isn't rendered.
+  const chunks: {key: string; isSection: boolean; nodes: JSONContent[]}[] = [];
+  for (const node of content.content ?? []) {
+    if (isSectionHeading(node)) chunks.push({key: String(node.attrs?.sectionId ?? chunks.length), isSection: true, nodes: [node]});
+    else if (chunks.length) chunks[chunks.length - 1].nodes.push(node);
+    else chunks.push({key: 'intro', isSection: false, nodes: [node]});
+  }
+  return (
+    <VStack gap={0} className="cs-prose cs-article">
+      {chunks.map(chunk =>
+        chunk.isSection ? (
+          <section key={chunk.key} className="cs-section">
+            {renderNodes({type: 'doc', content: chunk.nodes})}
+          </section>
+        ) : (
+          <Fragment key={chunk.key}>{renderNodes({type: 'doc', content: chunk.nodes})}</Fragment>
+        ),
+      )}
+    </VStack>
+  );
+}
+
+function renderNodes(content: JSONContent) {
+  return renderToReactElement({
     content,
     extensions: caseStudyExtensions,
     options: {
@@ -234,10 +259,4 @@ export function CaseStudyArticle({content}: {content: JSONContent}) {
       },
     },
   });
-
-  return (
-    <VStack gap={0} className="cs-prose cs-article">
-      {body}
-    </VStack>
-  );
 }

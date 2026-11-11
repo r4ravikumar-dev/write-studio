@@ -1,4 +1,5 @@
 import type {JSONContent} from './json';
+import {newSectionId} from './sections';
 import {DEFAULT_FRAMEWORK, frameworkSection, type FrameworkSection} from '../frameworks';
 
 /**
@@ -17,7 +18,7 @@ export type CaseStudySection = FrameworkSection;
  * style) as placeholders, and whatever the user types takes those styles.
  */
 export function caseStudySectionNodes(section: CaseStudySection): JSONContent[] {
-  return [{type: 'heading', attrs: {level: 2, section: section.key}}, {type: 'paragraph'}];
+  return [{type: 'heading', attrs: {level: 2, section: section.key, sectionId: newSectionId(), sectionStatus: null}}, {type: 'paragraph'}];
 }
 
 /** A new case study's body: every framework section, empty, ready to write in. */

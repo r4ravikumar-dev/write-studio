@@ -12,19 +12,22 @@ import {Banner} from '@astryxdesign/core/Banner';
 import {Dialog, DialogHeader} from '@astryxdesign/core/Dialog';
 import {TextInput} from '@astryxdesign/core/TextInput';
 import {Icon} from '@astryxdesign/core/Icon';
-import {Archive, ArchiveRestore, ArrowLeft, Bold, Code, Eye, Highlighter, Italic, Link2, Monitor, MoreHorizontal, PanelRight, RemoveFormatting, Smartphone, Strikethrough, Tablet, Underline} from 'lucide-react';
+import {Archive, ArchiveRestore, ArrowLeft, Bold, Code, Eye, Highlighter, Italic, Link2, ListTree, Monitor, MoreHorizontal, PanelRight, RemoveFormatting, Smartphone, Strikethrough, Tablet, Underline} from 'lucide-react';
 import {TextSelection} from '@tiptap/pm/state';
 import {Switch} from '@astryxdesign/core/Switch';
 import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
 import {StudioSearch} from './search';
 import {FindReplace} from './FindReplace';
 import {TableBar} from './TableBar';
+import {LatestDoc, SectionIds, activeSectionIndex, outlineOf} from './sections';
+import {StoryOutline} from './StoryOutline';
+import {SectionGuide} from './SectionGuide';
 import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/SegmentedControl';
 import {caseStudyExtensions} from '@/components/caseStudy/schema';
 import {parseEmbed} from '@/lib/caseStudies/embeds';
-import {clearUntouchedHints, sectionOf} from '@studio/shared';
+import {DEFAULT_FRAMEWORK, getFramework, sectionOf} from '@studio/shared';
 import type {StudioCaseStudy, StudioMeta, StudioStatus} from '@studio/shared';
-import {archiveStudioCaseStudy, restoreStudioCaseStudy, saveStudioCaseStudy} from '@/app/studio/case-study-actions';
+import {archiveStudioCaseStudy, getSectionNotes, restoreStudioCaseStudy, saveStudioCaseStudy} from '@/app/studio/case-study-actions';
 import {studioKindOfFile, uploadStudioAsset} from '@/lib/storage/studio-storage';
 import {editorNodes} from './nodeViews';
 import {Toolbar} from './Toolbar';
@@ -138,6 +141,21 @@ const PREVIEW_WIDTHS = {desktop: 1280, tablet: 834, mobile: 390} as const;
  */
 /** Below this width the side panel becomes a drawer over the document. */
 const DRAWER_QUERY = '(max-width: 1023.98px)';
+/** From this width the outline is docked on the left; below it, it's a drawer. */
+const OUTLINE_QUERY = '(min-width: 1280px)';
+
+/** Subscribes to a media query (hydration-safe: `fallback` on the server). */
+function useMediaQuery(query: string, fallback: boolean) {
+  return useSyncExternalStore(
+    onChange => {
+      const list = window.matchMedia(query);
+      list.addEventListener('change', onChange);
+      return () => list.removeEventListener('change', onChange);
+    },
+    () => window.matchMedia(query).matches,
+    () => fallback,
+  );
+}
 
 export function Editor({study}: {study: StudioCaseStudy}) {
   return (
@@ -149,7 +167,13 @@ export function Editor({study}: {study: StudioCaseStudy}) {
 
 function EditorInner({study}: {study: StudioCaseStudy}) {
   const media = useMedia();
-  const [panelTab, setPanelTab] = useState<'block' | 'settings'>('settings');
+  const [panelTab, setPanelTab] = useState<'guide' | 'block' | 'settings'>('guide');
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const isOutlineDocked = useMediaQuery(OUTLINE_QUERY, true);
+  // null = not chosen: docked open on wide screens, a closed drawer below 1280px.
+  const [outlineChoice, setOutlineChoice] = useState<boolean | null>(null);
+  const isOutlineOpen = outlineChoice ?? isOutlineDocked;
+  const framework = getFramework(study.framework_id, study.framework_version) ?? DEFAULT_FRAMEWORK;
   const [previewWidth, setPreviewWidth] = useState<keyof typeof PREVIEW_WIDTHS | null>(null);
   const [meta, setMeta] = useState<StudioMeta>(() => metaOf(study));
   const [status, setStatus] = useState<StudioStatus>(study.status);
@@ -160,15 +184,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
   /** Below 1024px the side panel is a drawer: closed at first, opened from the top bar. */
   // null = not chosen yet: docked open on wide screens, drawer closed below 1024px.
   const [panelChoice, setIsPanelOpen] = useState<boolean | null>(null);
-  const isDrawer = useSyncExternalStore(
-    onChange => {
-      const query = window.matchMedia(DRAWER_QUERY);
-      query.addEventListener('change', onChange);
-      return () => query.removeEventListener('change', onChange);
-    },
-    () => window.matchMedia(DRAWER_QUERY).matches,
-    () => false,
-  );
+  const isDrawer = useMediaQuery(DRAWER_QUERY, false);
   const isPanelOpen = panelChoice ?? !isDrawer;
   /** The link editor: address, displayed text, new tab, and the range it applies to. */
   const [linkDialog, setLinkDialog] = useState<LinkDraft | null>(null);
@@ -238,6 +254,8 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
       ...caseStudyExtensions.filter(extension => !CUSTOM_NODES.has(extension.name)),
       ...editorNodes,
       StudioSearch,
+      SectionIds,
+      LatestDoc,
       Placeholder.configure({
         // Every empty section shows its hint (not only the one with the cursor); the hint is
         // never stored, so typing replaces it and the text takes the normal body style.
@@ -246,15 +264,18 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
           // An empty framework heading shows its title; the paragraph under it shows the hint.
           if (node.type.name === 'heading') return sectionOf(node)?.title ?? (hasAnchor ? 'Section heading' : '');
           if (node.type.name !== 'paragraph') return '';
-          const $pos = e.state.doc.resolve(pos);
+          // The doc being applied (see LatestDoc), not the editor's previous state.
+          const doc = (e.storage as {latestDoc?: {doc: typeof e.state.doc | null}}).latestDoc?.doc ?? e.state.doc;
+          if (pos > doc.content.size) return '';
+          const $pos = doc.resolve(pos);
           const before = $pos.index() > 0 ? $pos.parent.child($pos.index() - 1) : null;
           const hint = before?.type.name === 'heading' ? sectionOf(before)?.hint : undefined;
           return hint ?? (hasAnchor ? 'Start writing, or type / to add a picture, video, file or Figma design' : '');
         },
       }),
     ],
-    // Old drafts: untouched template hint text becomes a placeholder (see clearUntouchedHints).
-    content: clearUntouchedHints(study.content),
+    // Always the current schema: the API migrates older documents (with a backup) before sending them.
+    content: study.content,
     editable: study.status !== 'archived',
     editorProps: {
       attributes: {class: 'cs-prose write-prose', 'aria-label': 'Case study text'},
@@ -320,6 +341,29 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
 
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
+  // Private section notes (kept outside the document).
+  useEffect(() => {
+    let isCancelled = false;
+    void getSectionNotes(study.id).then(result => {
+      if (isCancelled) return;
+      if (result.ok) setNotes(result.notes);
+      else setError(result.error);
+    });
+    return () => {
+      isCancelled = true;
+    };
+  }, [study.id]);
+
+  // The story outline, worked out from the document, and the section the cursor is in.
+  const outline = useEditorState({
+    editor,
+    selector: ({editor: e}) => {
+      if (!e) return {sections: [], active: -1};
+      const sections = outlineOf(e.state.doc);
+      return {sections, active: activeSectionIndex(sections, e.state.selection.from)};
+    },
+  }) ?? {sections: [], active: -1};
+
   const changeMeta = (patch: Partial<StudioMeta>) => {
     if (status === 'archived') return; // read-only until restored
     setMeta(current => {
@@ -358,6 +402,9 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
       setPanelTab('block');
       // Only the docked panel opens itself; a drawer would cover the text on every tap.
       if (!isDrawer) setIsPanelOpen(true);
+    } else if (panelTab === 'block') {
+      // Back in the text: back to the guidance for the section.
+      setPanelTab('guide');
     }
   }
 
@@ -471,6 +518,14 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
               icon={<Icon icon={ArrowLeft} size="sm" color="inherit" />}
             />
           </span>
+          <IconButton
+            label={isOutlineOpen ? 'Hide outline' : 'Show outline'}
+            tooltip={isOutlineOpen ? 'Hide outline' : 'Show outline'}
+            variant={isOutlineOpen ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setOutlineChoice(!isOutlineOpen)}
+            icon={<Icon icon={ListTree} size="sm" color="inherit" />}
+          />
           <Text
             type="supporting"
             className="only-wide"
@@ -538,6 +593,23 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
       )}
 
       <HStack gap={0} vAlign="start" className="write-main">
+        {!isOutlineDocked && isOutlineOpen && (
+          <button type="button" className="write-outline-scrim" aria-label="Close outline" onClick={() => setOutlineChoice(false)} />
+        )}
+        {editor && isOutlineOpen && (
+          <StoryOutline
+            editor={editor}
+            sections={outline.sections}
+            active={outline.active}
+            framework={framework}
+            isEditable={status !== 'archived'}
+            onNavigate={() => {
+              setPanelTab('guide');
+              if (!isOutlineDocked) setOutlineChoice(false);
+            }}
+            onClose={isOutlineDocked ? undefined : () => setOutlineChoice(false)}
+          />
+        )}
         <VStack gap={0} className="write-canvas">
           {editor && (
             <>
@@ -604,14 +676,30 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
               <SegmentedControl
                 label="Side panel"
                 value={panelTab}
-                onChange={value => setPanelTab(value as 'block' | 'settings')}
+                onChange={value => setPanelTab(value as 'guide' | 'block' | 'settings')}
                 size="sm"
                 layout="fill">
+                <SegmentedControlItem value="guide" label="Guide" />
                 <SegmentedControlItem value="block" label="Block" />
                 <SegmentedControlItem value="settings" label="Case study" />
               </SegmentedControl>
             </HStack>
-            {panelTab === 'block' ? (
+            {panelTab === 'guide' ? (
+              <VStack gap={0} className="write-settings">
+                {editor && (
+                  <SectionGuide
+                    editor={editor}
+                    caseStudyId={study.id}
+                    sections={outline.sections}
+                    active={outline.active}
+                    inserts={inserts}
+                    notes={notes}
+                    onNoteSaved={(sectionId, body) => setNotes(current => ({...current, [sectionId]: body}))}
+                    isEditable={status !== 'archived'}
+                  />
+                )}
+              </VStack>
+            ) : panelTab === 'block' ? (
               <VStack gap={0} className="write-settings">
                 {editor && selectedBlock ? (
                   <BlockInspector key={selectedKey} editor={editor} block={selectedBlock} />

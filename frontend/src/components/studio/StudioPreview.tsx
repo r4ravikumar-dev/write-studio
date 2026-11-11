@@ -1,4 +1,4 @@
-import {clearUntouchedHints} from '@studio/shared';
+
 import {VStack, HStack} from '@astryxdesign/core/Layout';
 import {Text} from '@astryxdesign/core/Text';
 import {Button} from '@astryxdesign/core/Button';
@@ -31,7 +31,7 @@ export function StudioPreview({study, isEmbedded}: {study: StudioCaseStudy; isEm
           // eslint-disable-next-line @next/next/no-img-element
           <img className="cs-cover" src={studioMediaUrl(study.cover_path)} alt={study.thumbnail_alt} fetchPriority="high" />
         )}
-        <CaseStudyArticle content={clearUntouchedHints(study.content)} />
+        <CaseStudyArticle content={study.content} />
       </Chapter>
     </VStack>
   );

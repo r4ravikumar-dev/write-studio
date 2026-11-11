@@ -448,6 +448,10 @@ const SectionKey = Extension.create({
             parseHTML: element => element.getAttribute('data-section'),
             renderHTML: attributes => (attributes.section ? {'data-section': attributes.section} : {}),
           },
+          // Stage 2 section metadata (on top-level level-2 headings only; see editor/sections.ts).
+          // Private working state: never rendered into HTML.
+          sectionId: {default: null, rendered: false},
+          sectionStatus: {default: null, rendered: false},
         },
       },
     ];

@@ -1,4 +1,5 @@
 import type {JSONContent} from './json';
+import {newSectionId} from './sections';
 import {
   CURRENT_FRAMEWORKS,
   DEFAULT_FRAMEWORK,
@@ -101,7 +102,7 @@ export function outlineDocument(outline: OutlineItem[], framework: Framework | u
   for (const item of outline) {
     const section = item.key ? framework?.sections.find(candidate => candidate.key === item.key) : undefined;
     const title = item.title.trim();
-    const attrs: Record<string, unknown> = {level: 2};
+    const attrs: Record<string, unknown> = {level: 2, sectionId: newSectionId(), sectionStatus: null};
     if (section) attrs.section = section.key;
     const heading: JSONContent = {type: 'heading', attrs};
     if (title && title !== section?.title) heading.content = [{type: 'text', text: title}];

@@ -87,3 +87,21 @@ export async function deleteStudioCaseStudy(id: string) {
   revalidatePath('/studio', 'layout');
   return result;
 }
+
+/** Private section notes (never part of the document). Keyed by section id. */
+export async function getSectionNotes(id: string): Promise<{ok: true; notes: Record<string, string>} | {ok: false; error: string}> {
+  await requireStudioUser();
+  try {
+    const {notes} = await api<{notes: {section_id: string; body: string}[]}>(`/api/app/case-studies/${id}/notes`, {auth: true});
+    return {ok: true, notes: Object.fromEntries(notes.map(note => [note.section_id, note.body]))};
+  } catch (error) {
+    return {ok: false, error: errorMessage(error, 'We couldn’t load your notes. Reload the page to try again.')};
+  }
+}
+
+export async function saveSectionNote(id: string, sectionId: string, body: string) {
+  return attempt(
+    () => api(`/api/app/case-studies/${id}/notes/${encodeURIComponent(sectionId)}`, {method: 'PUT', body: {body}, auth: true}),
+    'We couldn’t save your note. Check your connection and try again.',
+  );
+}

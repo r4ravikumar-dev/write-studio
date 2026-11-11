@@ -1,7 +1,11 @@
 import {Router} from 'express';
 import {
+  CONTENT_SCHEMA_VERSION,
   caseStudyTemplate,
   cleanSetup,
+  isSectionId,
+  migrateContent,
+  normaliseSections,
   getFramework,
   isProjectType,
   outlineDocument,
@@ -57,11 +61,43 @@ function toRow(draft: Partial<StudioCaseStudyDraft>, ownerId: string, workspaceI
     platform: text(draft.platform, 200),
     objective: text(draft.objective, 1000),
     challenge: text(draft.challenge, 1000),
-    content: draft.content,
+    // Every save is stored in the current schema, with valid, unique section ids.
+    content: draft.content && typeof draft.content === 'object' ? normaliseSections(draft.content) : draft.content,
+    content_schema_version: CONTENT_SCHEMA_VERSION,
   };
   const problems = studioDraftProblems(row as StudioCaseStudyDraft, ownerId, workspaceId);
   if (problems.length) throw new HttpError(422, problems.join(' '));
   return row;
+}
+
+/**
+ * A case study in the current content schema. An older document is migrated explicitly: the
+ * original is copied to studio_content_backups first, then the migrated version is saved (only if
+ * nobody saved in between). Never done silently in the browser.
+ */
+async function currentCaseStudy(id: string, ownerId: string): Promise<StudioCaseStudy> {
+  const study = await ownCaseStudy(id, ownerId);
+  if (study.content_schema_version >= CONTENT_SCHEMA_VERSION || study.setup_state) return study;
+  const {content, version} = migrateContent(study.content, study.content_schema_version);
+  const backup = await supabase.from('studio_content_backups').insert({
+    case_study_id: study.id,
+    owner_id: ownerId,
+    from_version: study.content_schema_version,
+    to_version: version,
+    content: study.content,
+  });
+  if (backup.error) throw new HttpError(502, backup.error.message);
+  const {data, error} = await supabase
+    .from('studio_case_studies')
+    .update({content, content_schema_version: version})
+    .eq('id', study.id)
+    .eq('owner_id', ownerId)
+    .eq('updated_at', study.updated_at)
+    .select('*')
+    .maybeSingle();
+  if (error) throw new HttpError(502, error.message);
+  // Saved elsewhere in the meantime: read whatever is there now (it was saved in the new schema).
+  return (data as unknown as StudioCaseStudy | null) ?? ownCaseStudy(id, ownerId);
 }
 
 async function ownCaseStudy(id: string, ownerId: string, fields = '*') {
@@ -148,6 +184,7 @@ appCaseStudiesRouter.post(
     const row = body.setup
       ? setupRow(body.setup, req.user!.id, workspace.id, body.finish !== false)
       : {title: text(body.title, 300) || 'Untitled case study', content: caseStudyTemplate(), framework_id: 'product-ux', framework_version: 1};
+    (row as Record<string, unknown>).content_schema_version = CONTENT_SCHEMA_VERSION;
     const id = await insertCaseStudy(req.user!.id, workspace.id, row);
     noStore(res);
     res.status(201).json({id});
@@ -162,7 +199,7 @@ appCaseStudiesRouter.put(
     const current = await ownCaseStudy(id, req.user!.id, 'id, workspace_id, setup_state');
     if (!current.setup_state) throw new HttpError(409, 'This case study has already been created. Open it to keep writing.');
     const body = (req.body ?? {}) as {setup?: unknown; finish?: unknown};
-    const row = setupRow(body.setup, req.user!.id, current.workspace_id, body.finish !== false);
+    const row = {...setupRow(body.setup, req.user!.id, current.workspace_id, body.finish !== false), content_schema_version: CONTENT_SCHEMA_VERSION};
     const {data, error} = await supabase
       .from('studio_case_studies')
       .update(row)
@@ -182,7 +219,7 @@ appCaseStudiesRouter.put(
 appCaseStudiesRouter.post(
   '/:id/duplicate',
   handle(async (req, res) => {
-    const source = await ownCaseStudy(requireUuid(param(req, 'id')), req.user!.id);
+    const source = await currentCaseStudy(requireUuid(param(req, 'id')), req.user!.id);
     if (source.setup_state) throw new HttpError(409, 'Finish setting up this case study before copying it.');
     const name = source.title.replace(/\*/g, '').trim() || 'Untitled case study';
     const title = text((req.body ?? {}).title, 300) || `Copy of ${name}`.slice(0, 300);
@@ -199,7 +236,7 @@ appCaseStudiesRouter.post(
 appCaseStudiesRouter.get(
   '/:id',
   handle(async (req, res) => {
-    const study = await ownCaseStudy(requireUuid(param(req, 'id')), req.user!.id);
+    const study = await currentCaseStudy(requireUuid(param(req, 'id')), req.user!.id);
     noStore(res);
     res.json({study});
   }),
@@ -230,6 +267,39 @@ appCaseStudiesRouter.put(
     if (!data) throw new HttpError(409, 'This case study was changed in another tab or window. Reload the page to get the latest version, then make your change again.', {code: 'conflict'});
     noStore(res);
     res.json({updatedAt: data.updated_at, slug: data.slug});
+  }),
+);
+
+/** Private section notes: never part of the document, its preview or exports. */
+appCaseStudiesRouter.get(
+  '/:id/notes',
+  handle(async (req, res) => {
+    const id = requireUuid(param(req, 'id'));
+    await ownCaseStudy(id, req.user!.id, 'id');
+    const {data, error} = await supabase.from('studio_section_notes').select('section_id, body, updated_at').eq('case_study_id', id).eq('owner_id', req.user!.id);
+    if (error) throw new HttpError(502, error.message);
+    noStore(res);
+    res.json({notes: data ?? []});
+  }),
+);
+
+/** Saves (or, when empty, deletes) the note for one section. */
+appCaseStudiesRouter.put(
+  '/:id/notes/:sectionId',
+  handle(async (req, res) => {
+    const id = requireUuid(param(req, 'id'));
+    const sectionId = param(req, 'sectionId');
+    if (!isSectionId(sectionId)) throw new HttpError(400, 'Unknown section.');
+    await ownCaseStudy(id, req.user!.id, 'id');
+    const body = String((req.body ?? {}).body ?? '').trim();
+    if (body.length > 5000) throw new HttpError(422, 'A note can be up to 5,000 characters. Shorten it, then try again.');
+    const notes = supabase.from('studio_section_notes');
+    const {error} = body
+      ? await notes.upsert({case_study_id: id, owner_id: req.user!.id, section_id: sectionId, body}, {onConflict: 'case_study_id,section_id'})
+      : await notes.delete().eq('case_study_id', id).eq('owner_id', req.user!.id).eq('section_id', sectionId);
+    if (error) throw new HttpError(502, error.message);
+    noStore(res);
+    res.json({ok: true});
   }),
 );
 
