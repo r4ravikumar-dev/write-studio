@@ -261,6 +261,112 @@ export const defaultMetrics = (): MetricsConfig => ({
 });
 
 // ----------------------------------------------------------------------------
+// 7. Process timeline (Insert 2.0)
+// ----------------------------------------------------------------------------
+export type TimelinePhase = {id: string; when: string; title: string; text: string};
+export type TimelineConfig = {
+  /** horizontal: phases side by side (vertical on phones); vertical: one under another. */
+  layout: 'horizontal' | 'vertical';
+  style: 'line' | 'cards';
+  phases: TimelinePhase[];
+  caption: string;
+};
+
+let idCounter = 0;
+/** A short unique id for list items inside a block's config. */
+export const blockItemId = (prefix: string) => `${prefix}${Date.now().toString(36)}${(idCounter++).toString(36)}`;
+
+export const newPhase = (title = ''): TimelinePhase => ({id: blockItemId('p'), when: '', title, text: ''});
+export const defaultTimeline = (): TimelineConfig => ({
+  layout: 'horizontal',
+  style: 'line',
+  phases: ['Discover', 'Define', 'Design', 'Deliver'].map(newPhase),
+  caption: '',
+});
+
+// ----------------------------------------------------------------------------
+// 8. Screen sequence (Insert 2.0)
+// ----------------------------------------------------------------------------
+export type SequenceStep = {id: string; media: MediaRef | null; title: string; text: string};
+export type ScreenSequenceConfig = {
+  steps: SequenceStep[];
+  /** How each screen is framed. */
+  frame: 'none' | 'phone' | 'browser';
+  columns: 2 | 3 | 4;
+  /** Arrows between steps. */
+  arrows: boolean;
+  ratio: Ratio;
+  caption: string;
+};
+export const newStep = (): SequenceStep => ({id: blockItemId('s'), media: null, title: '', text: ''});
+export const defaultScreenSequence = (): ScreenSequenceConfig => ({
+  steps: [newStep(), newStep(), newStep()],
+  frame: 'phone',
+  columns: 3,
+  arrows: true,
+  ratio: '9:16',
+  caption: '',
+});
+
+// ----------------------------------------------------------------------------
+// 9. Annotated screenshot (Insert 2.0)
+// ----------------------------------------------------------------------------
+export type Annotation = {
+  id: string;
+  /** Marker position on the image, in % of its width and height. */
+  x: number;
+  y: number;
+  title: string;
+  text: string;
+};
+export type AnnotatedImageConfig = {
+  media: MediaRef | null;
+  annotations: Annotation[];
+  ratio: Ratio;
+  /** Notes beside the image (wide screens) or under it. Always under it on phones. */
+  notes: 'below' | 'side';
+  caption: string;
+};
+export const newAnnotation = (x = 50, y = 50): Annotation => ({id: blockItemId('a'), x, y, title: '', text: ''});
+export const defaultAnnotatedImage = (): AnnotatedImageConfig => ({
+  media: null,
+  annotations: [],
+  ratio: 'auto',
+  notes: 'below',
+  caption: '',
+});
+
+// ----------------------------------------------------------------------------
+// 10. Flow diagram (Insert 2.0)
+// ----------------------------------------------------------------------------
+export type FlowNodeKind = 'start' | 'step' | 'decision' | 'end';
+export type FlowNode = {
+  id: string;
+  kind: FlowNodeKind;
+  label: string;
+  /** Text on the arrow that leaves this node ("Yes", "Taps Pay"). */
+  next: string;
+};
+export type FlowDiagramConfig = {
+  /** horizontal: left to right (top to bottom on phones); vertical: top to bottom. */
+  direction: 'horizontal' | 'vertical';
+  nodes: FlowNode[];
+  caption: string;
+};
+export const FLOW_KINDS: {value: FlowNodeKind; label: string}[] = [
+  {value: 'start', label: 'Start'},
+  {value: 'step', label: 'Step'},
+  {value: 'decision', label: 'Decision'},
+  {value: 'end', label: 'End'},
+];
+export const newFlowNode = (kind: FlowNodeKind = 'step', label = ''): FlowNode => ({id: blockItemId('n'), kind, label, next: ''});
+export const defaultFlowDiagram = (): FlowDiagramConfig => ({
+  direction: 'horizontal',
+  nodes: [newFlowNode('start', 'Start'), newFlowNode('step', 'Step'), newFlowNode('decision', 'Decision?'), newFlowNode('end', 'Done')],
+  caption: '',
+});
+
+// ----------------------------------------------------------------------------
 // Node names and validation
 // ----------------------------------------------------------------------------
 export const VISUAL_BLOCKS = {
@@ -272,5 +378,9 @@ export const VISUAL_BLOCKS = {
   pullQuote: 'Quote',
   callout: 'Callout',
   metrics: 'Metrics',
+  timeline: 'Process timeline',
+  screenSequence: 'Screen sequence',
+  annotatedImage: 'Annotated screenshot',
+  flowDiagram: 'Flow diagram',
 } as const;
 export type VisualBlockName = keyof typeof VISUAL_BLOCKS;
