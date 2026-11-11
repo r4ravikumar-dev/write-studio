@@ -25,6 +25,7 @@ echo ok
 
 step 'TypeScript (shared, Express, frontend)';  npm run typecheck --silent
 step 'ESLint (frontend)';                       (cd frontend && npx eslint src)
+step 'Story review engine (offline)';           npx tsx packages/shared/test/review.test.ts | tail -1
 step 'Express build';                           npm run build -w @studio/express-api --silent >/dev/null && echo ok
 step 'Django checks';                           (cd backend/django && .venv/bin/python manage.py check)
 step 'Django auth tests (offline, in-memory)';  (cd backend/django && .venv/bin/python manage.py test accounts)
@@ -44,5 +45,6 @@ step 'Storage: private files, isolation (SEC-008/009/010)';              $PY -I 
 step 'Documents: editor data, isolation, no publishing, portfolio gone (SEC-004/011-016)'; $PY -I supabase/tests/test_studio_documents_live.py "$PWD" "$LOG"
 step 'Project setup: frameworks, resume, duplicate, ownership (Stage 1)'; $PY -I supabase/tests/test_studio_setup_live.py "$PWD" "$LOG"
 step 'Sections: v2 migration + backup, section ids, private notes (Stage 2)'; $PY -I supabase/tests/test_studio_sections_live.py "$PWD" "$LOG"
+step 'Review: card progress, restyled preview (Stage 5)';  $PY -I supabase/tests/test_studio_review_live.py "$PWD" "$LOG"
 step 'Lifecycle and caching (SEC-017/018)';                               $PY -I supabase/tests/test_studio_lifecycle_live.py "$PWD" "$LOG"
 echo; echo 'All checks passed.'
