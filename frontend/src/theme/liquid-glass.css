@@ -1,0 +1,610 @@
+/*
+ * Liquid Glass (Apple-style), built on DNA tokens.
+ *
+ * WHERE GLASS IS ALLOWED: the three-tier rule.
+ *   1. Top layer: floating navigation and controls ONLY. In the Studio that is the
+ *      workspace header, the editor's top bar, the floating formatting toolbar and the
+ *      text bubble menu.
+ *   2. Header bar (.glass-bar): edge to edge, square, sticky at the top; content scrolls under it.
+ *   3. Base layer: content stays opaque DNA surfaces. Never put .glass on cards, tables,
+ *      the document, dialogs or form panels (no glass-on-glass).
+ *
+ * OPTICS (web approximation of Apple's pipeline):
+ *   - Sampling and blur: backdrop-filter blur + saturation boost (keeps colours vivid,
+ *     not muddy grey) + a touch of contrast.
+ *   - Fresnel rim: inset highlights (top specular, bottom internal reflection, continuous
+ *     rim) for thickness, plus DNA's hairline ring and floating elevation.
+ *   - Light sits on the rim only (1px top highlight, faint bottom edge): no radial bloom
+ *     are set by <GlassRuntime/>.
+ *   - Adaptive vibrancy: CSS can't sample backdrop luminance, so `.glass` (regular) uses a
+ *     dense white tint that keeps text/gray/primary above 4.5:1 over any content. `.glass--clear`
+ *     is for rich or dark media only.
+ *   - Refraction (SDF lens bending) and metaball merging can't run on a live backdrop blur
+ *     in browsers: rim lighting stands in for refraction, and shared capsules
+ *     (.glass-group, the glassEffectUnion equivalent) stand in for merging.
+ *
+ * GEOMETRY: capsules (radius/round) for single-row controls; concentric rounded rects for
+ * taller panels (inner radius = outer radius − padding, kept on the DNA scale).
+ *
+ * DEGRADES AUTOMATICALLY to opaque DNA fills and solid borders under Reduce Transparency,
+ * Increase Contrast, or no backdrop-filter support; no motion under Reduce Motion.
+ *
+ * Every value is a DNA token, a mix of DNA tokens with DNA opacity steps, or a filter amount.
+ */
+
+:root {
+  /* Optical stack */
+  --glass-blur: var(--space-24);
+  --glass-saturate: 180%;
+  --glass-contrast: 105%;
+
+  /* Material tints (.regular, .clear, .tint) */
+  --glass-tint-regular-from: color-mix(in oklab, var(--color-base-white) calc(var(--opacity-80) * 100%), transparent);
+  --glass-tint-regular-to: color-mix(in oklab, var(--color-base-white) calc(var(--opacity-70) * 100%), transparent);
+  --glass-tint-clear-from: color-mix(in oklab, var(--color-base-white) calc(var(--opacity-20) * 100%), transparent);
+  --glass-tint-clear-to: color-mix(in oklab, var(--color-base-white) calc(var(--opacity-10) * 100%), transparent);
+  --glass-tint-brand-from: color-mix(in oklab, var(--bg-brand-normal) calc(var(--opacity-90) * 100%), transparent);
+  --glass-tint-brand-to: color-mix(in oklab, var(--bg-brand-normal) calc(var(--opacity-90) * 100%), transparent);
+
+  /* Fresnel rim */
+  --glass-rim-specular: color-mix(in oklab, var(--color-base-white) calc(var(--opacity-90) * 100%), transparent);
+  --glass-rim-reflection: color-mix(in oklab, var(--color-base-white) calc(var(--opacity-30) * 100%), transparent);
+  --glass-rim-edge: color-mix(in oklab, var(--color-base-white) calc(var(--opacity-40) * 100%), transparent);
+
+  /* Depth: DNA hairline ring (Elevation/none) + floating elevation */
+  --glass-elevation: var(--elevation-400);
+  --glass-elevation-hover: var(--elevation-500);
+
+  /* Geometry */
+  --glass-radius: var(--radius-round);
+  --glass-padding: var(--space-4);
+  --glass-inner-radius: var(--radius-round);
+
+  /* Floating bars: inset from the edges, and where content may start below them */
+  --glass-bar-inset: 0px; /* bars are edge to edge */
+  --glass-bar-height: var(--space-56);
+
+  /* Motion (the interactive "bounce") */
+  --glass-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --glass-duration: 250ms;
+}
+
+/* ---- The material ------------------------------------------------------------ */
+.glass {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--glass-radius);
+  color: var(--text-gray-primary);
+  background: linear-gradient(135deg, var(--glass-tint-regular-from), var(--glass-tint-regular-to));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) contrast(var(--glass-contrast));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) contrast(var(--glass-contrast));
+  box-shadow:
+    inset 0 var(--border-width-100) 0 0 var(--glass-rim-specular),
+    inset 0 calc(-1 * var(--border-width-100)) 0 0 var(--glass-rim-reflection),
+    inset 0 0 0 var(--border-width-100) var(--glass-rim-edge),
+    var(--elevation-none),
+    var(--glass-elevation);
+  transition:
+    transform var(--glass-duration) var(--glass-ease),
+    box-shadow var(--glass-duration) var(--glass-ease),
+    background var(--glass-duration) ease;
+}
+
+/* Specular light that follows the pointer (set by GlassRuntime; rests top-left). */
+.glass::before {
+  /* Rim light: a 1px ring, bright along the top edge, faint along the bottom, clear between.
+     This is where Liquid Glass "catches" light; there is no bloom on the surface itself. */
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  padding: var(--border-width-100);
+  background: linear-gradient(
+    to bottom,
+    var(--glass-rim-specular) 0%,
+    transparent 40%,
+    transparent 70%,
+    var(--glass-rim-reflection) 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: var(--opacity-80);
+  transition: opacity var(--glass-duration) ease;
+}
+.glass:hover::before {
+  opacity: var(--opacity-100);
+}
+
+/* Variants (.regular is the default) */
+.glass--clear {
+  color: var(--text-gray-inverse);
+  background: linear-gradient(135deg, var(--glass-tint-clear-from), var(--glass-tint-clear-to));
+}
+.glass--tint {
+  color: var(--text-brand-on-primary);
+  background: linear-gradient(135deg, var(--glass-tint-brand-from), var(--glass-tint-brand-to));
+}
+
+/* .interactive(): springs up under the pointer and presses in. */
+.glass--interactive:hover {
+  transform: scale(1.02);
+  box-shadow:
+    inset 0 var(--border-width-100) 0 0 var(--glass-rim-specular),
+    inset 0 calc(-1 * var(--border-width-100)) 0 0 var(--glass-rim-reflection),
+    inset 0 0 0 var(--border-width-100) var(--glass-rim-edge),
+    var(--elevation-none),
+    var(--glass-elevation-hover);
+}
+.glass--interactive:active {
+  transform: scale(0.97);
+}
+
+/* Taller panels: a concentric rounded rect instead of a capsule. */
+.glass--panel {
+  --glass-radius: var(--radius-24);
+  --glass-padding: var(--space-8);
+  --glass-inner-radius: var(--radius-16); /* 24 − 8 */
+}
+
+/* Concentric children: controls inside glass follow the container's curve. */
+.glass .astryx-button,
+.glass .astryx-icon-button {
+  border-radius: var(--glass-inner-radius);
+  --_button-radius: var(--glass-inner-radius);
+}
+
+/* Shared capsule (glassEffectUnion): related actions in one piece of glass. */
+.glass-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--glass-padding);
+}
+
+/* ---- Floating bars (top layer) + scroll edge (transition boundary) --------------- */
+/* Header bar: edge to edge, square, pinned to the top of the viewport (product decision,
+   2026-11-10: headers are not floating capsules). Still glass: blur + tint, with a hairline
+   bottom edge instead of a rim and a soft shadow so content scrolls under it. */
+.glass-bar:not(#\#) {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 20;
+  margin: 0;
+  border-radius: 0;
+  min-block-size: var(--glass-bar-height);
+  padding: var(--space-8) var(--space-24);
+  box-shadow:
+    inset 0 calc(-1 * var(--border-width-100)) 0 0 var(--border-gray-subtle),
+    var(--glass-button-elevation);
+}
+.glass-bar:not(#\#)::before {
+  border-radius: 0;
+}
+
+/* ---- Accessibility degradation ------------------------------------------------------ */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: var(--bg-gray-inverse);
+  }
+  .glass--clear {
+    background: var(--bg-gray-dark);
+  }
+  .glass--tint {
+    background: var(--bg-brand-normal);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--bg-gray-inverse);
+    color: var(--text-gray-primary);
+    box-shadow: var(--elevation-200);
+    outline: var(--border-width-100) solid var(--border-gray-intense);
+  }
+  .glass--clear {
+    background: var(--bg-gray-dark);
+    color: var(--text-gray-inverse);
+  }
+  .glass--tint {
+    background: var(--bg-brand-normal);
+    color: var(--text-brand-on-primary);
+  }
+  .glass::before {
+    display: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .glass {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--bg-gray-inverse);
+    color: var(--text-gray-primary);
+    outline: var(--border-width-200) solid var(--border-gray-intense);
+  }
+  .glass--tint {
+    background: var(--bg-brand-intense);
+    color: var(--text-brand-on-primary);
+  }
+  .glass::before {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass,
+  .glass::before {
+    transition: none;
+  }
+  .glass--interactive:hover,
+  .glass--interactive:active {
+    transform: none;
+  }
+}
+
+/* ==================================================================================
+ * Glass buttons: Apple's .glass / .glassProminent button styles, on every Astryx button.
+ * Buttons are controls (not content), so glass is allowed anywhere they appear.
+ *   primary      → .glassProminent: brand-tinted glass, text/brand/onPrimary
+ *   secondary    → .glass regular: clear capsule with Fresnel rim
+ *   ghost        → flat everywhere; faint gray tint on hover / while its menu is open
+ *   destructive  → secondary glass with error-coloured label and icon
+ * Capsules (radius/round) replace DNA's default button radius/8: product decision for glass.
+ * The :not(#\#) chain (4) outranks Astryx's atomic classes (3), no !important needed.
+ * ================================================================================== */
+:root {
+  --glass-button-elevation: var(--elevation-200);
+  --glass-button-elevation-hover: var(--elevation-300);
+  --glass-tint-ghost-from: color-mix(in oklab, var(--color-base-white) calc(var(--opacity-50) * 100%), transparent);
+  --glass-tint-ghost-to: color-mix(in oklab, var(--color-base-white) calc(var(--opacity-20) * 100%), transparent);
+  --glass-tint-error-from: color-mix(in oklab, var(--bg-error-normal) calc(var(--opacity-90) * 100%), transparent);
+  --glass-tint-error-to: color-mix(in oklab, var(--bg-error-intense) calc(var(--opacity-90) * 100%), transparent);
+  --glass-button-rim:
+    inset 0 var(--border-width-100) 0 0 var(--glass-rim-specular),
+    inset 0 calc(-1 * var(--border-width-100)) 0 0 var(--glass-rim-reflection),
+    inset 0 0 0 var(--border-width-100) var(--glass-rim-edge);
+  /* No radial bloom (it reads as fake glass). Light lives only on the rim; this stays as an empty
+     layer so every background list keeps the same shape. */
+  --glass-button-specular: linear-gradient(transparent, transparent);
+}
+
+.astryx-button:not(#\#):not(#\#):not(#\#):not(#\#) {
+  --_button-radius: var(--radius-round);
+  border-radius: var(--radius-round);
+  border-color: transparent;
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) contrast(var(--glass-contrast));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) contrast(var(--glass-contrast));
+  box-shadow: var(--glass-button-rim), var(--elevation-none), var(--glass-button-elevation);
+  transition:
+    transform var(--glass-duration) var(--glass-ease),
+    box-shadow var(--glass-duration) var(--glass-ease),
+    background var(--glass-duration) ease;
+}
+
+/* .glassProminent */
+.astryx-button[data-variant='primary']:not(#\#):not(#\#):not(#\#):not(#\#) {
+  color: var(--text-brand-on-primary);
+  background:
+    var(--glass-button-specular),
+    linear-gradient(135deg, var(--glass-tint-brand-from), var(--glass-tint-brand-to));
+}
+/* .glass (regular) */
+.astryx-button[data-variant='secondary']:not(#\#):not(#\#):not(#\#):not(#\#) {
+  color: var(--text-gray-primary);
+  background:
+    var(--glass-button-specular),
+    linear-gradient(135deg, var(--glass-tint-regular-from), var(--glass-tint-regular-to));
+}
+/* Ghost: flat everywhere (no glass, rim or shadow); a faint tint on hover only. */
+.astryx-button[data-variant='ghost']:not(#\#):not(#\#):not(#\#):not(#\#) {
+  color: var(--text-gray-primary);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: transparent;
+  box-shadow: none;
+}
+.astryx-button[data-variant='ghost']:not(:disabled, [aria-disabled='true']):is(:hover, [aria-expanded='true']):not(#\#):not(#\#):not(#\#):not(#\#) {
+  transform: none;
+  background: var(--bg-gray-moderate);
+  box-shadow: none;
+}
+.astryx-button[data-variant='ghost']:active:not(#\#):not(#\#):not(#\#):not(#\#):not(#\#) {
+  box-shadow: none;
+}
+/* Destructive: secondary glass (clear capsule, rim) with the DNA error colour on label and icon.
+   Not a filled red button (product decision); hover adds a faint error tint. */
+.astryx-button[data-variant='destructive']:not(#\#):not(#\#):not(#\#):not(#\#) {
+  color: var(--text-error-normal);
+  background:
+    var(--glass-button-specular),
+    linear-gradient(135deg, var(--glass-tint-regular-from), var(--glass-tint-regular-to));
+}
+.astryx-button[data-variant='destructive']:not(:disabled, [aria-disabled='true']):hover:not(#\#):not(#\#):not(#\#):not(#\#) {
+  background:
+    var(--glass-button-specular),
+    linear-gradient(135deg, var(--bg-error-subtle), var(--bg-error-subtle));
+}
+.glass .astryx-button[data-variant='destructive']:not(#\#):not(#\#):not(#\#):not(#\#) {
+  box-shadow: var(--glass-button-rim);
+}
+
+/* .interactive(): springs up under the pointer, presses in. */
+.astryx-button:not(:disabled, [aria-disabled='true']):hover:not(#\#):not(#\#):not(#\#):not(#\#) {
+  transform: scale(1.03);
+  box-shadow: var(--glass-button-rim), var(--elevation-none), var(--glass-button-elevation-hover);
+}
+.astryx-button[data-variant='primary']:not(:disabled, [aria-disabled='true']):hover:not(#\#):not(#\#):not(#\#):not(#\#) {
+  background:
+    var(--glass-button-specular),
+    linear-gradient(var(--bg-brand-intense), var(--bg-brand-intense));
+}
+.astryx-button:not(:disabled, [aria-disabled='true']):active:not(#\#):not(#\#):not(#\#):not(#\#) {
+  transform: scale(0.97);
+  box-shadow: var(--glass-button-rim), var(--elevation-none), var(--elevation-100);
+}
+
+/* Inside a glass bar or panel: no glass-on-glass (no second blur). Ghost buttons sit flat in the
+   bar and light up on hover; secondary (also the toolbar's "on" state for toggles such as Bold)
+   is a brand-tinted selection with a rim; the bar's primary action keeps its tinted capsule. */
+.glass .astryx-button:not([data-variant='primary']):not(#\#):not(#\#):not(#\#):not(#\#) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.glass .astryx-button[data-variant='ghost']:not(#\#):not(#\#):not(#\#):not(#\#) {
+  background: transparent;
+  box-shadow: none;
+}
+.glass .astryx-button[data-variant='secondary']:not(#\#):not(#\#):not(#\#):not(#\#) {
+  color: var(--text-brand-primary);
+  background: var(--glass-button-specular), linear-gradient(135deg, var(--bg-brand-light), var(--bg-brand-light));
+  box-shadow: var(--glass-button-rim);
+}
+.glass .astryx-button:not([data-variant='primary']):not(:disabled, [aria-disabled='true']):hover:not(#\#):not(#\#):not(#\#):not(#\#) {
+  transform: none;
+  box-shadow: var(--glass-button-rim);
+}
+.glass .astryx-button[data-variant='ghost']:not(:disabled, [aria-disabled='true']):is(:hover, [aria-expanded='true']):not(#\#):not(#\#):not(#\#):not(#\#) {
+  background: var(--bg-gray-moderate);
+  box-shadow: none;
+}
+
+/* Disabled: no glass; DNA disabled fill. */
+.astryx-button:is(:disabled, [aria-disabled='true']):not(#\#):not(#\#):not(#\#):not(#\#) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: var(--bg-gray-disabled-subtle);
+  color: var(--text-gray-disabled-intense);
+  box-shadow: none;
+}
+
+/* Keyboard focus: DNA brand border. */
+.astryx-button:focus-visible:not(#\#):not(#\#):not(#\#):not(#\#) {
+  outline: var(--border-width-200) solid var(--border-brand-normal);
+  outline-offset: var(--space-2);
+}
+
+/* Degradation, as for the bars. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .astryx-button[data-variant='primary']:not(#\#):not(#\#):not(#\#):not(#\#) { background: var(--bg-brand-normal); }
+  .astryx-button[data-variant='secondary']:not(#\#):not(#\#):not(#\#):not(#\#) { background: var(--bg-gray-inverse); }
+  .astryx-button[data-variant='destructive']:not(#\#):not(#\#):not(#\#):not(#\#) { background: var(--bg-gray-inverse); }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .astryx-button:not(#\#):not(#\#):not(#\#):not(#\#) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+    border: var(--border-width-100) solid var(--border-gray-intense);
+  }
+  .astryx-button[data-variant='primary']:not(#\#):not(#\#):not(#\#):not(#\#) { background: var(--bg-brand-normal); border-color: var(--border-brand-normal); }
+  .astryx-button[data-variant='secondary']:not(#\#):not(#\#):not(#\#):not(#\#) { background: var(--bg-gray-inverse); }
+  .astryx-button[data-variant='destructive']:not(#\#):not(#\#):not(#\#):not(#\#) { background: var(--bg-gray-inverse); border-color: var(--border-error-normal); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .astryx-button:not(#\#):not(#\#):not(#\#):not(#\#),
+  .astryx-button:hover:not(#\#):not(#\#):not(#\#):not(#\#),
+  .astryx-button:active:not(#\#):not(#\#):not(#\#):not(#\#) {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* ==================================================================================
+ * Glass controls: every Astryx control a user acts with, not only buttons.
+ *   fields (text input, text area, select)  → outlined white field, radius/8 (not glass: legibility)
+ *   segmented control                        → glass track + sliding glass lens
+ *   tabs                                     → capsule tabs; selected = brand-tinted lens
+ *   menus, select popups, popovers           → glass panels (top layer)
+ *   switch, slider                           → glass thumb (lens) on a DNA track
+ * Inside a glass surface (bar, panel, popover) controls drop their own blur: no glass-on-glass.
+ * ================================================================================== */
+:root {
+  --glass-field-from: color-mix(in oklab, var(--color-base-white) calc(var(--opacity-90) * 100%), transparent);
+  --glass-field-to: color-mix(in oklab, var(--color-base-white) calc(var(--opacity-70) * 100%), transparent);
+  --glass-track: color-mix(in oklab, var(--bg-gray-moderate) calc(var(--opacity-70) * 100%), transparent);
+  --glass-menu-from: color-mix(in oklab, var(--color-base-white) calc(var(--opacity-90) * 100%), transparent);
+  --glass-menu-to: color-mix(in oklab, var(--color-base-white) calc(var(--opacity-80) * 100%), transparent);
+  --glass-backdrop: blur(var(--glass-blur)) saturate(var(--glass-saturate)) contrast(var(--glass-contrast));
+}
+
+/* Fields: outlined (white, clear gray/intense outline). A gray fill reads as disabled in DNA,
+   so gray is kept for the disabled state only. Brand outline on hover/focus. */
+:is(.astryx-text-input, .astryx-text-area, .astryx-selector[data-variant='input']):not(#\#):not(#\#):not(#\#):not(#\#) {
+  border-color: transparent;
+  border-radius: var(--radius-8);
+  background: var(--surface-container);
+  box-shadow: inset 0 0 0 var(--border-width-100) var(--border-gray-intense);
+  transition: box-shadow var(--glass-duration) var(--glass-ease);
+}
+:is(.astryx-text-input, .astryx-text-area, .astryx-selector[data-variant='input']):hover:not(#\#):not(#\#):not(#\#):not(#\#) {
+  box-shadow: inset 0 0 0 var(--border-width-100) var(--border-brand-light);
+}
+:is(.astryx-text-input, .astryx-text-area, .astryx-selector[data-variant='input']):focus-within:not(#\#):not(#\#):not(#\#):not(#\#) {
+  box-shadow: inset 0 0 0 var(--border-width-200) var(--border-brand-normal);
+}
+:is(.astryx-text-input, .astryx-text-area, .astryx-selector[data-variant='input']):has(:disabled):not(#\#):not(#\#):not(#\#):not(#\#) {
+  background: var(--bg-gray-disabled-subtle);
+  box-shadow: inset 0 0 0 var(--border-width-100) var(--border-gray-subtle);
+}
+
+/* Segmented control: glass track, selected segment is a lens. */
+.astryx-segmented-control:not(#\#):not(#\#):not(#\#):not(#\#) {
+  border-radius: var(--radius-round);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  backdrop-filter: var(--glass-backdrop);
+  background: var(--glass-track);
+  box-shadow: inset 0 0 0 var(--border-width-100) var(--glass-rim-edge);
+}
+:is(.astryx-segmented-control-item, .astryx-segmented-control > [data-astryx-layer-root]):not(#\#):not(#\#):not(#\#):not(#\#) {
+  border-radius: var(--radius-round);
+}
+:is(.astryx-segmented-control-item[aria-checked='true'], .astryx-segmented-control > [data-astryx-layer-root]):not(#\#):not(#\#):not(#\#):not(#\#) {
+  background: var(--glass-button-specular), linear-gradient(135deg, var(--glass-field-from), var(--glass-field-to));
+  box-shadow: var(--glass-button-rim), var(--elevation-200);
+}
+
+/* Tabs: capsules; the selected tab is a brand-tinted lens (replaces the underline). */
+:is(.astryx-tab, .astryx-tab > span, .astryx-tab-list > [data-astryx-layer-root]):not(#\#):not(#\#):not(#\#):not(#\#) {
+  border-radius: var(--radius-round);
+}
+.astryx-tab[aria-selected='true']:not(#\#):not(#\#):not(#\#):not(#\#) {
+  color: var(--text-brand-primary);
+  background: var(--glass-button-specular), linear-gradient(135deg, var(--bg-brand-light), var(--bg-brand-light));
+  box-shadow: var(--glass-button-rim);
+}
+.astryx-tab-indicator:not(#\#):not(#\#):not(#\#):not(#\#) {
+  display: none;
+}
+.astryx-tab-strip:not(.glass .astryx-tab-strip):not(#\#):not(#\#):not(#\#):not(#\#) {
+  padding: var(--space-4);
+  border-radius: var(--radius-round);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  backdrop-filter: var(--glass-backdrop);
+  background: var(--glass-track);
+}
+
+/* Menus, select popups, popovers: glass panels. */
+:is(.astryx-popover, .astryx-selector-popup):not(#\#):not(#\#):not(#\#):not(#\#) {
+  border-radius: var(--radius-16);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+  backdrop-filter: var(--glass-backdrop);
+  background: var(--glass-button-specular), linear-gradient(135deg, var(--glass-menu-from), var(--glass-menu-to));
+  box-shadow: var(--glass-button-rim), var(--elevation-none), var(--elevation-400);
+}
+:is(.astryx-dropdown-menu-item, .astryx-selector-option):not(#\#):not(#\#):not(#\#):not(#\#) {
+  border-radius: var(--radius-8);
+}
+
+/* Switch: DNA track, glass lens thumb. */
+input[role='switch'] + div:not(#\#):not(#\#):not(#\#):not(#\#) {
+  border-radius: var(--radius-round);
+  box-shadow: inset 0 0 0 var(--border-width-100) var(--glass-rim-edge);
+}
+input[role='switch'] + div > div:not(#\#):not(#\#):not(#\#):not(#\#) {
+  border-radius: var(--radius-round);
+  background: var(--glass-button-specular), linear-gradient(135deg, var(--glass-field-from), var(--glass-field-to));
+  box-shadow: var(--glass-button-rim), var(--elevation-200);
+  transition: transform var(--glass-duration) var(--glass-ease);
+}
+input[role='switch']:active + div > div:not(#\#):not(#\#):not(#\#):not(#\#) {
+  transform: scale(1.15);
+}
+/* Slider: glass lens thumb. */
+[role='slider']:not(#\#):not(#\#):not(#\#):not(#\#) {
+  background: var(--glass-button-specular), linear-gradient(135deg, var(--glass-field-from), var(--glass-field-to));
+  box-shadow: var(--glass-button-rim), var(--elevation-200);
+  transition: transform var(--glass-duration) var(--glass-ease);
+}
+[role='slider']:active:not(#\#):not(#\#):not(#\#):not(#\#) {
+  transform: scale(1.15);
+}
+
+/* No glass-on-glass: controls inside glass bars, panels and popovers keep their tint, not a second blur. */
+:is(.glass, .astryx-popover, .astryx-selector-popup) :is(.astryx-text-input, .astryx-text-area, .astryx-selector, .astryx-segmented-control, .astryx-button):not(#\#):not(#\#):not(#\#):not(#\#) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Degradation */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :is(.astryx-text-input, .astryx-text-area, .astryx-selector[data-variant='input'], .astryx-popover, .astryx-selector-popup):not(#\#):not(#\#):not(#\#):not(#\#) {
+    background: var(--bg-gray-inverse);
+  }
+  .astryx-segmented-control:not(#\#):not(#\#):not(#\#):not(#\#) { background: var(--bg-gray-moderate); }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :is(.astryx-text-input, .astryx-text-area, .astryx-selector[data-variant='input'], .astryx-popover, .astryx-selector-popup, .astryx-segmented-control):not(#\#):not(#\#):not(#\#):not(#\#) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  :is(.astryx-text-input, .astryx-text-area, .astryx-selector[data-variant='input'], .astryx-popover, .astryx-selector-popup):not(#\#):not(#\#):not(#\#):not(#\#) {
+    background: var(--bg-gray-inverse);
+    box-shadow: inset 0 0 0 var(--border-width-100) var(--border-gray-intense);
+  }
+  .astryx-segmented-control:not(#\#):not(#\#):not(#\#):not(#\#) { background: var(--bg-gray-moderate); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(input[role='switch'] + div > div, [role='slider']):not(#\#):not(#\#):not(#\#):not(#\#) {
+    transition: none;
+    transform: none;
+  }
+}
+
+
+/* ==================================================================================
+ * Touch targets (product rule): every action control is at least size/28 tall and never
+ * taller than size/48. On touch screens (coarse pointer) the floor rises to size/40,
+ * still capped at size/48. Labelled buttons are at least size/64 wide; icon-only buttons
+ * are circles (width = height), at least 36px (40px on touch), at most size/48.
+ * ================================================================================== */
+:root {
+  --target-min: var(--size-28);
+  --target-max: var(--size-48);
+  /* Icon-only buttons: 36px floor (DNA has no size/36: size/32 + size/04). */
+  --icon-target-min: calc(var(--size-32) + var(--size-04));
+}
+@media (pointer: coarse) {
+  :root {
+    --target-min: var(--size-40);
+    --icon-target-min: var(--size-40);
+  }
+}
+:is(.astryx-button, .astryx-segmented-control-item, .astryx-tab, .astryx-selector, .astryx-text-input, .astryx-dropdown-menu-item, .astryx-selector-option):not(#\#):not(#\#):not(#\#):not(#\#) {
+  min-block-size: var(--target-min);
+  max-block-size: var(--target-max);
+}
+/* Labelled buttons: never narrower than size/64. */
+.astryx-button:not([aria-label]):not(#\#):not(#\#):not(#\#):not(#\#) {
+  min-inline-size: var(--size-64);
+}
+/* Icon-only buttons (Astryx gives them an aria-label): a perfect circle, width = height. */
+.astryx-button[aria-label]:not(#\#):not(#\#):not(#\#):not(#\#) {
+  aspect-ratio: 1;
+  min-block-size: var(--icon-target-min);
+  min-inline-size: var(--icon-target-min);
+  max-inline-size: var(--target-max);
+  padding-inline: 0;
+  border-radius: var(--radius-round);
+}
+
+/* Back buttons: a tonal brand button (soft purple fill, brand arrow and label) so "back" reads
+   clearly as an action without competing with the primary. Circle when icon-only. */
+.astryx-button.back-cta:not(#\#):not(#\#):not(#\#):not(#\#):not(#\#) {
+  color: var(--text-brand-primary);
+  background: var(--bg-brand-light);
+  box-shadow: none;
+  font-weight: 600;
+}
+.astryx-button.back-cta:not(:disabled, [aria-disabled='true']):hover:not(#\#):not(#\#):not(#\#):not(#\#):not(#\#) {
+  background: color-mix(in oklab, var(--bg-brand-light), var(--bg-brand-normal) calc(var(--opacity-10) * 100%));
+  box-shadow: none;
+}
+.astryx-button.back-cta:not(:disabled, [aria-disabled='true']):active:not(#\#):not(#\#):not(#\#):not(#\#):not(#\#) {
+  background: color-mix(in oklab, var(--bg-brand-light), var(--bg-brand-normal) calc(var(--opacity-20) * 100%));
+  box-shadow: none;
+}

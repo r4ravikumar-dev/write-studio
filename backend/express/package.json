@@ -1,0 +1,29 @@
+{
+  "name": "@studio/express-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The Studio's data API: private workspaces, case studies and media in Supabase, behind Django-issued JWTs.",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+    "build": "tsup",
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@studio/shared": "*",
+    "@supabase/supabase-js": "^2.119.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "jose": "^6.1.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^26.6.6",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.0",
+    "typescript": "^6.0.3"
+  }
+}

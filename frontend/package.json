@@ -1,0 +1,53 @@
+{
+  "name": "@studio/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "theme:build": "astryx theme build ../node_modules/@astryxdesign/theme-stone/src/stoneTheme.ts -o src/theme/theme.css && rm -f src/theme/stone.js src/theme/stone.d.ts src/theme/theme.css.d.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@astryxdesign/cli": "^0.7.8",
+    "@astryxdesign/core": "^0.7.8",
+    "@astryxdesign/theme-stone": "^0.7.8",
+    "@gsap/react": "^2.1.2",
+    "@studio/shared": "*",
+    "@stylexjs/stylex": "^0.19.1",
+    "@tiptap/core": "^3.33.0",
+    "@tiptap/extension-details": "^3.33.0",
+    "@tiptap/extension-highlight": "^3.33.0",
+    "@tiptap/extension-image": "^3.33.0",
+    "@tiptap/extension-list": "^3.33.0",
+    "@tiptap/extension-subscript": "^3.33.0",
+    "@tiptap/extension-superscript": "^3.33.0",
+    "@tiptap/extension-table": "^3.33.0",
+    "@tiptap/extension-text-align": "^3.33.0",
+    "@tiptap/extension-text-style": "^3.33.0",
+    "@tiptap/extensions": "^3.33.0",
+    "@tiptap/pm": "^3.33.0",
+    "@tiptap/react": "^3.33.0",
+    "@tiptap/starter-kit": "^3.33.0",
+    "@tiptap/static-renderer": "^3.33.0",
+    "framer-motion": "^14.9.1",
+    "gsap": "^3.15.1",
+    "jose": "^6.1.0",
+    "lenis": "^1.3.27",
+    "lucide-react": "^1.69.0",
+    "next": "^16.4.5",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^10.14.0",
+    "eslint-config-next": "^16.4.5",
+    "typescript": "^6.0.3"
+  }
+}
