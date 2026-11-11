@@ -34,7 +34,8 @@ s, b, _ = API(ta, 'POST', CS, {'setup': setup(outline=outline), 'finish': True})
 s, b, _ = API(ta, 'GET', f'{CS}/{cid}'); st = j(b)['study']
 ok('project details, framework id and version are stored', (st['project_type'], st['role'], st['framework_id'], st['framework_version'], st['setup_state']) == ('redesign', 'Lead designer', 'product-ux', 1, None))
 heads = [n for n in st['content']['content'] if n['type'] == 'heading']
-ok('an unchanged framework section is an empty tagged heading (title shown as placeholder)', heads[0] == {'type': 'heading', 'attrs': {'level': 2, 'section': 'opening'}})
+h0 = heads[0]['attrs']
+ok('an unchanged framework section is an empty tagged heading with a section id (title shown as placeholder)', 'content' not in heads[0] and h0['level'] == 2 and h0['section'] == 'opening' and h0['sectionStatus'] is None and h0['sectionId'].startswith('s'))
 ok('a renamed section keeps its key and the new title as text', heads[1]['attrs'].get('section') == 'challenge' and heads[1]['content'][0]['text'] == 'The problem')
 ok("the user's own section is a heading with their title; blank rows are dropped", len(heads) == 3 and 'section' not in heads[2]['attrs'] and heads[2]['content'][0]['text'] == 'Accessibility')
 ok('every section is followed by an empty paragraph to write in', len(st['content']['content']) == 6 and all(n['type'] == 'paragraph' and 'content' not in n for n in st['content']['content'][1::2]))

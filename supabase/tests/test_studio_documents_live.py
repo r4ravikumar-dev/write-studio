@@ -55,7 +55,10 @@ draft.update(content=doc, summary='A private test.', thumbnail_path=img['path'],
 s, b, _ = API(ta, 'PUT', f'/api/app/case-studies/{cid}', {**draft, 'expected_updated_at': study['updated_at']}); saved = j(b)
 ok('A saves every block type with private media', s == 200 and saved.get('updatedAt'), f"{s} {saved.get('error', '')[:90]}")
 s, b, _ = API(ta, 'GET', f'/api/app/case-studies/{cid}'); back = j(b)['study']
-ok('reload returns the document exactly as saved (SEC-011)', back['content'] == doc and back['thumbnail_path'] == img['path'] and back['cover_path'] == lib['path'])
+# Since Stage 2 the server gives every section heading (level 2) an id and a status; nothing else changes.
+first = back['content']['content'][0]['attrs']
+expected = copy.deepcopy(doc); expected['content'][0]['attrs'].update(sectionId=first.get('sectionId'), sectionStatus=None)
+ok('reload returns the document exactly as saved, plus a section id (SEC-011)', back['content'] == expected and re.match(r'^s[a-z0-9]{6,24}$', first.get('sectionId') or '') and back['thumbnail_path'] == img['path'] and back['cover_path'] == lib['path'])
 ok('stored JSON holds raw storage paths, never URLs', '/studio/files/' not in json.dumps(back['content']) and 'http' not in json.dumps(back['content']).replace('https://youtu.be', ''))
 
 # --- concurrency ----------------------------------------------------------------
