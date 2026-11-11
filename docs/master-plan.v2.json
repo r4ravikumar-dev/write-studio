@@ -1,0 +1,1302 @@
+{
+  "document": {
+    "title": "Write Studio — Public Multi-User Case Study Studio: Architecture & Agent Execution Plan",
+    "version": "2.0.0",
+    "created_date": "2026-11-10",
+    "status": "Approved. v2 removes the single-owner personal portfolio subsystem; the product is now only the public, multi-user, private-by-default Studio. All six phases are kept.",
+    "source": "v1.0.0 (write-studio-multi-user-master-plan.json) plus product decisions made on 2026-11-10",
+    "purpose": "Give an AI coding agent an unambiguous contract for a public-registration, multi-user Case Study Studio in which every user has one private personal workspace and nobody else can access their documents or uploaded media. The former single-owner portfolio CMS, public portfolio pages and their data are removed.",
+    "important_scope_note": "This is an implementation plan and master prompt, not evidence that code, migrations, Supabase settings, or production deployment have already been changed.",
+    "changes_from_v1": [
+      "Removed the separate personal portfolio architecture (public site, /work, /write CMS, side work, portfolio publishing, public case-study pages and the \"Email me the PDF\" flow).",
+      "Removed the requirement to preserve the old /work and /write owner-only systems.",
+      "Removed the dual Portfolio/Studio editor architecture: one editor, Studio only.",
+      "Added: eliminate every hardcoded single-owner restriction (ADMIN_EMAIL, owner role, is_cms_owner(), owner-only routes).",
+      "Added: clean up obsolete public data access and routes (legacy tables, public bucket, public API routes, public renderers).",
+      "Recorded the decisions already made: Django is the identity provider; Supabase project psfjngzdldqhvmabgvos is staging; work proceeds phase by phase.",
+      "Unchanged: the six phases and the core privacy requirement."
+    ]
+  },
+  "locked_product_decisions": {
+    "product_direction": "A public Case Study Creation Studio and nothing else. Public means anyone can register and use it; it never means user documents or uploads are public. There is no owner, admin or portfolio mode.",
+    "registration_and_login": {
+      "decision": "Support both email/password and passwordless email OTP.",
+      "password_flow": [
+        "A user can sign up with email, password, and display name.",
+        "Email confirmation is required before the account is treated as verified and allowed into the workspace.",
+        "A returning user can sign in with email and password.",
+        "Provide password recovery and authenticated password update flows.",
+        "A user who initially registered or signed in using OTP can add a password later while authenticated, so both methods remain available on the same Auth identity."
+      ],
+      "otp_flow": [
+        "A user can request a numeric email one-time code.",
+        "A user can verify the code and sign in without a password.",
+        "The OTP path must support first-time registration as well as sign-in for an existing account.",
+        "Codes are generated, hashed, rate-limited and emailed by the Django auth service."
+      ],
+      "identity_rule": "Both methods resolve to one account per verified email in the Django auth service (UUID id). Do not create separate accounts or duplicate profiles based on the sign-in method. Do not implement unsafe manual account merging.",
+      "email_verification": "Required for new accounts: a single-use confirmation link for password sign-up, or the email code itself for passwordless sign-up."
+    },
+    "workspace_model": {
+      "decision": "One personal workspace per authenticated account in the initial release.",
+      "provisioning": "Create the profile and personal workspace automatically when a Supabase Auth user is created.",
+      "team_features": "Do not implement teams, invitations, shared workspaces, or collaboration in this release. Keep the data model extensible for a future multi-workspace model."
+    },
+    "document_privacy": {
+      "decision": "All new Studio case studies are private by default and remain private in the initial release.",
+      "visibility": "Only the authenticated owner can list, read, edit, archive, delete, preview, or download their own records and files.",
+      "public_publishing": "Disabled for Studio documents in this release. Do not add public share links, public profiles, public document routes, public indexing, sitemap entries, or public search for Studio data.",
+      "sharing": "Disabled in the initial release. No other user should receive access through a share token or guessed URL."
+    },
+    "technology_decisions": {
+      "framework": "Keep the existing Next.js 16 App Router application.",
+      "authentication": "Django auth service (decided 2026-11-10): email/password with confirmation, email OTP, recovery, password change, account deletion; issues short-lived access and rotating refresh JWTs (HS256, shared secret). Supabase Auth is not used.",
+      "database": "Supabase PostgreSQL. Studio tables have RLS enabled with no policies and no grants for anon/authenticated (deny-all); the Express API scopes every query to the verified token user; ownership is also enforced by constraints and triggers.",
+      "storage": "Supabase Storage: one private bucket (studio-private-media), no storage policies, reached only through the Express API.",
+      "editor": "Reuse the existing Tiptap 3 editor, custom nodes, slash commands, block inspector, visual blocks, and shared document schema wherever possible.",
+      "design_system": "Continue using the existing Astryx-based component and styling conventions. Do not introduce an unrelated UI framework or redesign the entire product as part of this security foundation.",
+      "api": "Express API (TypeScript) is the only holder of the Supabase service-role key."
+    },
+    "portfolio_removal": {
+      "decision": "Remove the personal portfolio subsystem completely. It is not part of the product.",
+      "remove": [
+        "Public portfolio pages and their data access: /, /work, /work/[slug], sitemap entries, public case-study rendering and queries.",
+        "The owner-only CMS: /write, /write/login, /write/[id], /write/[id]/preview, /write/side-work and their server actions.",
+        "Portfolio publishing (draft/published snapshots, publish/unpublish, public revalidation), side work, downloads and the \"Email me the PDF\" lead flow.",
+        "The legacy data layer: public.case_studies, public.assets, public.side_work, public.is_cms_owner() and the public case-study-media bucket with its policies (forward-only migration; refuse to drop anything that still holds data).",
+        "Every hardcoded single-owner restriction: ADMIN_EMAIL, ownerEmail(), getOwner(), ownerClient(), requireOwner, the owner role claim, the hardcoded email in SQL, and owner-only API routes."
+      ],
+      "keep": "Everything the Studio uses: the shared Tiptap schema, editor UI, node views, visual blocks, toolbar, slash menu, block inspector, media library UX and the Astryx design system."
+    }
+  },
+  "repository_snapshot_findings": {
+    "verified_files_and_behavior": [
+      {
+        "path": "package.json",
+        "finding": "The supplied snapshot uses Next.js 16.4.5, React 19.3.1, @supabase/ssr 0.12.7, @supabase/supabase-js 2.119.0, Tiptap 3.33.0, and Astryx packages. Scripts include dev, build, start, lint, and theme:build. No dedicated test script is present in the supplied package.json."
+      },
+      {
+        "path": "src/lib/supabase/server.ts",
+        "finding": "Defines createSupabaseServerClient(), createSupabasePublicClient(), ownerEmail(), and getOwner(). getOwner() checks the signed-in email against ADMIN_EMAIL. Remove: Studio uses its own authenticated-user helpers; no owner check remains."
+      },
+      {
+        "path": "src/proxy.ts",
+        "finding": "The proxy currently matches only /write and redirects anyone other than the configured owner email to /write/login. Extend it carefully to protect /studio without weakening the /write owner-only check. Keep public Studio auth routes accessible."
+      },
+      {
+        "path": "src/app/write/login/actions.ts",
+        "finding": "The current OTP login is explicitly owner-only: sendCode() only sends to ownerEmail(), and verifyCode() rejects other emails. Do not convert this legacy action into the multi-user auth action. Add separate Studio auth actions."
+      },
+      {
+        "path": "src/app/auth/callback/route.ts",
+        "finding": "Exchanges a PKCE code for a session and currently only permits redirects beginning with /write. Extend safe destination handling to allow approved /studio destinations while preventing external/open redirects. Preserve legacy /write callback behavior."
+      },
+      {
+        "path": "src/app/write/actions.ts",
+        "finding": "Uses ownerClient() for legacy create, save, publish, unpublish, delete, and sign-out actions. Do not redirect these actions to Studio tables. Add separate Studio data actions."
+      },
+      {
+        "path": "src/lib/caseStudies/queries.ts",
+        "finding": "Reads public published snapshots from public.case_studies for public site pages and lists draft/published records for the legacy owner. Keep these queries scoped to the legacy portfolio. Add distinct Studio queries."
+      },
+      {
+        "path": "src/components/write/Editor.tsx",
+        "finding": "The editor directly imports publishCaseStudy(), saveCaseStudy(), and unpublishCaseStudy() from src/app/write/actions.ts; directly uses uploadAsset(); and builds preview links under /write/[id]/preview. It is therefore coupled to the legacy data/storage system and must be decoupled before it can safely power /studio."
+      },
+      {
+        "path": "src/components/write/upload.ts",
+        "finding": "The current browser uploader writes to MEDIA_BUCKET (case-study-media) and inserts metadata into public.assets. That bucket is public for legacy portfolio rendering. Never use this uploader for Studio users. Create a separate Studio storage adapter/uploader."
+      },
+      {
+        "path": "src/lib/caseStudies/media.ts",
+        "finding": "mediaUrl() constructs public URLs for case-study-media. Do not use it for private Studio files. Add a separate private-media URL-resolution strategy that does not persist signed URLs in Tiptap JSON."
+      },
+      {
+        "path": "supabase/migrations/0001_case_studies.sql",
+        "finding": "Creates the legacy case_studies and assets tables, a hardcoded is_cms_owner() email check, public-read policy for published case studies, public-read access to assets, and a public case-study-media bucket. Do not edit this migration or repurpose these tables for Studio. Note the hardcoded SQL email and ADMIN_EMAIL can diverge; treat this as a legacy configuration item, not a reason to remove the owner check from /write."
+      },
+      {
+        "path": "supabase/migrations/0002_case_study_downloads.sql",
+        "finding": "Adds the downloads JSONB column to legacy case_studies. Keep it legacy-only unless a future Studio requirement explicitly adopts private file attachments."
+      },
+      {
+        "path": "supabase/migrations/0003_side_work.sql",
+        "finding": "Creates legacy public.side_work with public reads and owner-only writes. Keep it separate from Studio."
+      },
+      {
+        "path": "src/lib/caseStudies/types.ts",
+        "finding": "The legacy CaseStudy type contains portfolio-specific fields including published snapshot, published_at, is_featured, sort_order, SEO fields, thumbnail/cover URLs, and downloads. Do not force the new Studio model to pretend that a private draft is a published portfolio record. Create a Studio-specific domain type and a narrow adapter to the shared editor UI."
+      },
+      {
+        "path": "src/components/write/MediaLibrary.tsx",
+        "finding": "Imports listAssets(), uploadAsset(), and asset operations from the legacy upload module. Refactor media operations behind an injected adapter/context so Studio and legacy portfolio can use different stores and buckets."
+      }
+    ],
+    "snapshot_limitations": [
+      "The supplied ZIP does not include all typical repository root/config files, including a lockfile, tsconfig.json, Next.js configuration, ESLint configuration, Supabase CLI config, or an existing automated test setup. The agent must inspect the complete working repository before changing code and must not assume these files are absent from the actual project.",
+      "The supplied ZIP contains no Supabase secrets or live project credentials. No live database, Storage, email, or deployment behavior has been verified.",
+      "The previous source review was static. The agent must run the actual build/lint/test commands in the complete repository and report any environmental blockers."
+    ],
+    "v2_note": "Findings describe the original single-owner snapshot. In v2 every owner-only and portfolio item listed here is removed rather than preserved."
+  },
+  "target_architecture": {
+    "high_level": {
+      "public_application": "Only marketing/entry and authentication pages are public. \"/\" sends visitors to the Studio.",
+      "studio_application": "A private per-user workspace under /studio. Each authenticated user has exactly one personal workspace in the initial release.",
+      "shared_code": "One editor, one schema, one persistence layer (Studio), one private media resolver. No mode switches or alternative backends."
+    },
+    "route_map": {
+      "public_or_auth_routes": [
+        "/studio/signup",
+        "/studio/login",
+        "/studio/forgot-password",
+        "/studio/update-password",
+        "/auth/callback"
+      ],
+      "authenticated_studio_routes": [
+        "/studio",
+        "/studio/case-studies",
+        "/studio/case-studies/new",
+        "/studio/case-studies/[id]",
+        "/studio/case-studies/[id]/preview",
+        "/studio/media",
+        "/studio/settings"
+      ],
+      "routing_rules": [
+        "Only the Studio signup, login, and password recovery entry routes are public within /studio.",
+        "All workspace, editor, media, preview, and settings routes require a verified authenticated user.",
+        "An unauthenticated user visiting a protected Studio route is redirected to /studio/login with a safe internal next destination.",
+        "An authenticated user visiting /studio/login or /studio/signup is redirected to /studio unless they are completing a safe recovery or verification flow.",
+        "Do not create any public /studio document route in this release.",
+        "Obsolete portfolio routes (/work, /write and their APIs) must not exist; requests to them get 404.",
+        "No route grants any account more access than another; there is no owner or admin route."
+      ],
+      "obsolete_routes_to_remove": [
+        "/",
+        "/work",
+        "/work/[slug]",
+        "/write",
+        "/write/login",
+        "/write/[id]",
+        "/write/[id]/preview",
+        "/write/side-work"
+      ]
+    },
+    "folder_architecture": {
+      "proposed_routes": [
+        "src/app/studio/signup/",
+        "src/app/studio/login/",
+        "src/app/studio/forgot-password/",
+        "src/app/studio/update-password/",
+        "src/app/studio/page.tsx",
+        "src/app/studio/actions.ts",
+        "src/app/studio/case-studies/new/",
+        "src/app/studio/case-studies/[id]/",
+        "src/app/studio/case-studies/[id]/preview/",
+        "src/app/studio/media/",
+        "src/app/studio/settings/"
+      ],
+      "proposed_libraries": [
+        "src/lib/auth/current-user.ts",
+        "src/lib/auth/require-user.ts",
+        "src/lib/auth/profile.ts",
+        "src/lib/studio/types.ts",
+        "src/lib/studio/queries.ts",
+        "src/lib/studio/actions.ts",
+        "src/lib/studio/validation.ts",
+        "src/lib/storage/studio-storage.ts",
+        "src/lib/storage/private-media-url.ts",
+        "src/lib/editor/editor-adapter.ts"
+      ],
+      "proposed_components": [
+        "src/components/studio/StudioDashboard.tsx",
+        "src/components/studio/WorkspaceHeader.tsx",
+        "src/components/studio/AccountMenu.tsx",
+        "src/components/studio/StudioAuthForms.tsx",
+        "src/components/write/Editor.tsx (the one editor, Studio only)",
+        "src/components/write/MediaLibrary.tsx (Studio private media only)"
+      ],
+      "implementation_note": "These are target locations, not a mandate to create duplicate files. Inspect the complete repository, follow established conventions, and reuse existing route groups/components where appropriate."
+    }
+  },
+  "database_design": {
+    "migration_policy": {
+      "principle": "Forward-only migrations. Do not edit already-applied migrations. Remove obsolete legacy tables and the public bucket only through a new forward migration that refuses to drop anything still holding data.",
+      "proposed_migrations": [
+        {
+          "file": "supabase/migrations/0004_split_backends.sql",
+          "purpose": "Service-role-only writes and the private `django` schema for the auth service."
+        },
+        {
+          "file": "supabase/migrations/0005_studio_accounts.sql",
+          "purpose": "One personal workspace per account, created by trigger on django.accounts_user."
+        },
+        {
+          "file": "supabase/migrations/0006_studio_case_studies.sql",
+          "purpose": "Private case studies with ownership constraints, deny-all RLS."
+        },
+        {
+          "file": "supabase/migrations/0007_studio_assets.sql",
+          "purpose": "Private asset metadata with ownership constraints, deny-all RLS."
+        },
+        {
+          "file": "supabase/migrations/0008_studio_private_storage.sql",
+          "purpose": "Private bucket with no storage policies."
+        },
+        {
+          "file": "supabase/migrations/0009_remove_portfolio.sql",
+          "purpose": "Drop the obsolete portfolio data layer (case_studies, assets, side_work, is_cms_owner(), public bucket policies), refusing if any of it still holds data."
+        }
+      ],
+      "deployment_rule": "Create and test migrations locally or in a dedicated staging Supabase project first. Do not execute migrations against production, alter production Auth settings, or deploy without explicit user approval."
+    },
+    "tables": [
+      {
+        "name": "public.profiles",
+        "purpose": "Private account profile data. Email and authentication credentials remain managed by Supabase Auth; do not duplicate password or authentication secrets in this table.",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "constraints": "primary key; references auth.users(id) on delete cascade"
+          },
+          {
+            "name": "display_name",
+            "type": "text",
+            "constraints": "not null; bounded length"
+          },
+          {
+            "name": "avatar_path",
+            "type": "text",
+            "constraints": "nullable; private storage path only if avatar uploads are introduced"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "constraints": "not null default now()"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "constraints": "not null default now()"
+          }
+        ],
+        "access": "Authenticated user may read their own profile and update only allowed profile fields. Profile identity must not be user-editable. No anon/public profile listing."
+      },
+      {
+        "name": "public.studio_workspaces",
+        "purpose": "One personal workspace per account now; provides an extensible parent scope for user documents and files later.",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "constraints": "primary key default gen_random_uuid()"
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "constraints": "not null references auth.users(id) on delete cascade; unique"
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "constraints": "not null default 'My Workspace'; bounded length"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "constraints": "not null default now()"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "constraints": "not null default now()"
+          }
+        ],
+        "constraints": [
+          "Add a unique constraint on (id, owner_id) to support composite ownership checks from child records.",
+          "The unique owner_id constraint enforces exactly one personal workspace per user in this release.",
+          "A user may update an allowed workspace display name but may not transfer workspace ownership."
+        ]
+      },
+      {
+        "name": "public.studio_case_studies",
+        "purpose": "Private working case-study documents belonging to a single personal workspace.",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "constraints": "primary key default gen_random_uuid()"
+          },
+          {
+            "name": "workspace_id",
+            "type": "uuid",
+            "constraints": "not null references studio_workspaces(id)"
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "constraints": "not null references auth.users(id) on delete cascade"
+          },
+          {
+            "name": "slug",
+            "type": "text",
+            "constraints": "not null; normalized; unique within workspace, not globally"
+          },
+          {
+            "name": "title",
+            "type": "text",
+            "constraints": "not null default 'Untitled case study'; bounded length"
+          },
+          {
+            "name": "subtitle",
+            "type": "text",
+            "constraints": "not null default ''"
+          },
+          {
+            "name": "label",
+            "type": "text",
+            "constraints": "not null default ''"
+          },
+          {
+            "name": "area",
+            "type": "text",
+            "constraints": "not null default ''"
+          },
+          {
+            "name": "tags",
+            "type": "text[]",
+            "constraints": "not null default '{}'"
+          },
+          {
+            "name": "summary",
+            "type": "text",
+            "constraints": "not null default ''"
+          },
+          {
+            "name": "focus",
+            "type": "text",
+            "constraints": "not null default ''"
+          },
+          {
+            "name": "thumbnail_path",
+            "type": "text",
+            "constraints": "nullable private storage path"
+          },
+          {
+            "name": "thumbnail_alt",
+            "type": "text",
+            "constraints": "not null default ''"
+          },
+          {
+            "name": "thumbnail_focus",
+            "type": "text",
+            "constraints": "not null default 'center'"
+          },
+          {
+            "name": "cover_path",
+            "type": "text",
+            "constraints": "nullable private storage path"
+          },
+          {
+            "name": "layout",
+            "type": "text",
+            "constraints": "not null default 'split'; validate against supported editor layouts"
+          },
+          {
+            "name": "content",
+            "type": "jsonb",
+            "constraints": "not null default Tiptap empty doc"
+          },
+          {
+            "name": "content_schema_version",
+            "type": "integer",
+            "constraints": "not null default 1; used for future document migrations"
+          },
+          {
+            "name": "status",
+            "type": "text",
+            "constraints": "not null default 'draft'; allowed values draft or archived only"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "constraints": "not null default now()"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamptz",
+            "constraints": "not null default now()"
+          }
+        ],
+        "constraints": [
+          "Foreign-key workspace and owner together, preferably with a composite reference to studio_workspaces(id, owner_id), so a document cannot claim another user's workspace.",
+          "Unique (workspace_id, slug); the same slug may exist in different users' workspaces.",
+          "Status is restricted to draft and archived. Do not add published state or public snapshot fields in this release.",
+          "No portfolio concepts (is_featured, public sort order, SEO publishing, published snapshot, published_at, public downloads): Studio documents are private.",
+          "Validate Tiptap JSON server-side and cap document payload size before insert/update."
+        ],
+        "indexes": [
+          "owner_id",
+          "workspace_id",
+          "updated_at desc",
+          "(workspace_id, slug) unique",
+          "status if needed for dashboard filtering"
+        ],
+        "access": "CRUD only for authenticated owner_id matching auth.uid() and only when workspace_id belongs to that same auth.uid(). No anon policy and no public list/read policy."
+      },
+      {
+        "name": "public.studio_assets",
+        "purpose": "Private file metadata for images, videos, and document attachments uploaded by Studio users. Assets may be attached to a case study or remain in the owner's media library.",
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid",
+            "constraints": "primary key default gen_random_uuid()"
+          },
+          {
+            "name": "workspace_id",
+            "type": "uuid",
+            "constraints": "not null references studio_workspaces(id)"
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "constraints": "not null references auth.users(id) on delete cascade"
+          },
+          {
+            "name": "case_study_id",
+            "type": "uuid",
+            "constraints": "nullable references studio_case_studies(id) on delete set null"
+          },
+          {
+            "name": "path",
+            "type": "text",
+            "constraints": "not null unique; relative path within studio-private-media only"
+          },
+          {
+            "name": "kind",
+            "type": "text",
+            "constraints": "not null; allowed image, video, file"
+          },
+          {
+            "name": "mime",
+            "type": "text",
+            "constraints": "not null default ''"
+          },
+          {
+            "name": "size",
+            "type": "bigint",
+            "constraints": "not null default 0; non-negative"
+          },
+          {
+            "name": "width",
+            "type": "integer",
+            "constraints": "nullable"
+          },
+          {
+            "name": "height",
+            "type": "integer",
+            "constraints": "nullable"
+          },
+          {
+            "name": "alt",
+            "type": "text",
+            "constraints": "not null default ''"
+          },
+          {
+            "name": "original_name",
+            "type": "text",
+            "constraints": "not null default ''"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamptz",
+            "constraints": "not null default now()"
+          }
+        ],
+        "constraints": [
+          "Use a composite workspace/owner integrity check matching studio_workspaces.",
+          "The server action must verify that case_study_id, when present, belongs to the same workspace and owner.",
+          "Keep asset rows and files reusable within the same owner's media library; deleting one case study may set case_study_id to null rather than deleting all reusable media.",
+          "Use validated generated storage paths; never trust a client-supplied owner_id or workspace_id."
+        ],
+        "indexes": [
+          "owner_id",
+          "workspace_id",
+          "case_study_id",
+          "created_at desc",
+          "path unique"
+        ],
+        "access": "CRUD only for the authenticated owner and their workspace. No anon/public read access."
+      }
+    ],
+    "signup_provisioning": {
+      "implementation": "Use a PostgreSQL trigger on auth.users to create one profiles row and one studio_workspaces row when a new Auth user is inserted.",
+      "security_requirements": [
+        "The trigger function should be narrowly scoped, SECURITY DEFINER only where required, and set a safe search_path (prefer empty search_path with all object references schema-qualified).",
+        "Use idempotent inserts/upserts so retries do not create duplicate workspaces.",
+        "Read only harmless profile metadata such as display_name from raw_user_meta_data. Never trust user-editable metadata for roles, access rights, owner_id, or workspace permissions.",
+        "Do not allow clients to self-assign profile IDs or workspace ownership.",
+        "Test trigger failure behavior because a failing auth.users trigger can block sign-up."
+      ],
+      "outcome": "Every verified or pending Auth account that successfully enters the application has exactly one corresponding profile and personal workspace; no manual workspace creation is required."
+    },
+    "rls_requirements": {
+      "global_rule": "For every Studio-owned row, authorization must be enforced by PostgreSQL RLS as well as application checks. A user must not gain access by guessing a UUID, editing a request, calling the Supabase REST API directly, or bypassing UI navigation.",
+      "identity_source": "Use auth.uid() from the authenticated JWT. Never trust a user ID posted by the browser. Explicitly ensure auth.uid() is not null in policies where it improves clarity.",
+      "profiles": [
+        "Authenticated users can select their own profile only.",
+        "Authenticated users can update allowed profile fields on their own profile only.",
+        "Do not expose a public profile directory.",
+        "Prevent user-controlled changes to profile.id or role-like fields; do not add a role field for this initial release."
+      ],
+      "workspaces": [
+        "Users can select their own workspace only.",
+        "Users may update only non-sensitive workspace fields, such as display name.",
+        "Workspace creation is performed by the trusted signup trigger, not by arbitrary client inserts.",
+        "Owner identity cannot be changed."
+      ],
+      "case_studies": [
+        "SELECT: owner_id equals auth.uid() and the referenced workspace is owned by auth.uid().",
+        "INSERT: WITH CHECK verifies owner_id equals auth.uid() and workspace ownership matches auth.uid().",
+        "UPDATE: both USING and WITH CHECK enforce owner and workspace ownership, preventing transfer to another user.",
+        "DELETE: only the owner may delete their record.",
+        "No anon/public policy; no policy based on user_metadata."
+      ],
+      "assets": [
+        "Apply equivalent SELECT, INSERT, UPDATE, DELETE owner/workspace rules.",
+        "For an attached case_study_id, verify that the referenced document belongs to the same owner and workspace.",
+        "Prevent owner_id/workspace_id reassignment through updates."
+      ],
+      "database_grants": [
+        "Review default grants and explicitly ensure anon cannot read Studio tables.",
+        "Grant authenticated only the operations needed by the application, then rely on RLS for row-level enforcement.",
+        "Do not expose a service_role key to browser code.",
+        "Any privileged server-only service-role operation must perform explicit owner authorization and be limited to narrowly defined tasks such as account deletion cleanup if absolutely necessary."
+      ],
+      "policy_performance": "Add indexes for columns referenced by policy conditions and use stable policy expressions. Review the generated query plans for high-volume owner-scoped list queries."
+    }
+  },
+  "authentication_implementation": {
+    "client_and_session_rules": [
+      "Continue using @supabase/ssr cookie-based clients for Next.js server components, server actions, and route handlers.",
+      "Use the existing createSupabaseServerClient() as a base, but add separate getCurrentUser(), requireStudioUser(), and getPersonalWorkspace() helpers.",
+      "Use supabase.auth.getUser() to verify the current user for protected server operations. Do not treat a client-provided user ID or unverified session data as authorization.",
+      "Keep browser Supabase client use limited to user-session operations covered by RLS.",
+      "Keep environment secrets server-only. The publishable/anon key may remain public only because RLS policies enforce access."
+    ],
+    "server_actions": {
+      "signup_with_password": "Call supabase.auth.signUp with normalized email, password, display_name metadata, and an approved emailRedirectTo that returns to /auth/callback?next=/studio. Require confirmation and handle the no-session-until-confirmed state.",
+      "login_with_password": "Call supabase.auth.signInWithPassword. Return safe generic errors and do not expose whether arbitrary emails are registered.",
+      "send_email_otp": "Call supabase.auth.signInWithOtp with email and shouldCreateUser enabled for the intended registration/login UX. Include only safe display-name metadata when registering. Use an email template with the OTP token variable for numeric code entry.",
+      "verify_email_otp": "Validate the code format and call supabase.auth.verifyOtp with the correct email OTP type for the configured template. Set the cookie session and redirect only to an allowlisted Studio path.",
+      "forgot_password": "Call resetPasswordForEmail with an approved /auth/callback recovery destination.",
+      "update_password": "Require an authenticated recovery session, validate password policy, then call auth.updateUser({ password }).",
+      "logout": "Sign out the current Studio user, clear cached Studio pages and redirect to /studio/login.",
+      "set_password_for_otp_account": "For a verified user currently authenticated through OTP, allow them to add or change a password using auth.updateUser({ password }). Require an authenticated session and the application password policy; do not create a second Auth user."
+    },
+    "callback_requirements": [
+      "Confirmation and recovery links land on /studio pages and are completed by a button (so link scanners cannot consume them).",
+      "Allow only exact /studio destinations and internal relative paths; reject absolute URLs, protocol-relative URLs, backslash tricks, malformed paths and unrecognized destinations.",
+      "Confirmation, recovery and deletion tokens are single-use and short-lived."
+    ],
+    "proxy_requirements": [
+      "src/proxy.ts matches /studio routes only.",
+      "One access rule for everyone: protected /studio routes need any verified account; there is no owner or admin rule.",
+      "Allow /studio/signup, /studio/login, password recovery and confirmation routes without a session.",
+      "Prevent redirect loops and keep safe next paths.",
+      "Do not use the proxy as the sole security boundary; every server action and API call still verifies the user, and the database enforces ownership."
+    ],
+    "provider_configuration_checklist": [
+      "Enable email/password authentication in Supabase Auth.",
+      "Enable email OTP/passwordless authentication.",
+      "Require email confirmation for new accounts.",
+      "Configure the email template for numeric OTP delivery when code entry is used (use the OTP token template variable, not a magic-link-only confirmation URL template).",
+      "Configure the password signup confirmation and recovery templates for the SSR/PKCE callback flow.",
+      "Configure production SMTP in Supabase Auth. Do not assume the app's Nodemailer/Gmail variables are automatically used by Supabase Auth.",
+      "Configure exact local, staging, and production Site URLs and redirect allowlists.",
+      "Configure OTP expiry, rate limits, and CAPTCHA/abuse protection suitable for public registration.",
+      "Test same-email password and OTP authentication against the same Auth identity in staging.",
+      "Test the OTP-first account path: authenticate by OTP, add a password to that same user, sign out, and verify both password and OTP login work for the same Auth user ID."
+    ]
+  },
+  "private_storage_architecture": {
+    "bucket": {
+      "id": "studio-private-media",
+      "public": false,
+      "max_file_size_bytes": 52428800,
+      "allowed_content_types": [
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+        "image/gif",
+        "image/avif",
+        "video/mp4",
+        "video/webm",
+        "video/quicktime",
+        "application/pdf",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ],
+      "svg_policy": "SVG is not allowed in Studio uploads (it can carry scripts)."
+    },
+    "path_convention": "{auth-user-id}/{workspace-id}/{case-study-id-or-library}/{generated-uuid}.{validated-extension}",
+    "path_rules": [
+      "The first folder segment must equal auth.uid().",
+      "The second folder segment must identify a workspace owned by auth.uid().",
+      "Use generated UUID filenames; keep the original filename only as metadata.",
+      "Reject traversal, absolute paths, external URLs, unexpected prefixes, and path values from untrusted clients.",
+      "Never upload Studio files into case-study-media."
+    ],
+    "storage_rls": [
+      "Create separate SELECT, INSERT, UPDATE, and DELETE policies on storage.objects for bucket_id = studio-private-media and role authenticated.",
+      "Each policy must verify the user ID path prefix against auth.uid().",
+      "Where practical, also verify the workspace path segment against studio_workspaces for the same auth.uid().",
+      "Do not add anon/public SELECT or download policies for the Studio bucket.",
+      "Do not modify storage schema tables directly; use Supabase Storage APIs for object operations.",
+      "If implementing a same-origin media route, the route must use the request user session and RLS-enabled client, never a service-role client for ordinary media delivery."
+    ],
+    "asset_url_handling": [
+      "Persist only stable private storage paths in studio_assets and Tiptap document attributes. Never persist a signed URL or public URL.",
+      "Preferred preview/editor delivery: use authenticated Supabase Storage requests with the current user JWT, or a same-origin private media route that verifies the cookie session and queries studio_assets through an RLS-enabled user client before streaming the object.",
+      "For a same-origin media route, accept an asset ID or validated storage path, resolve it through studio_assets under RLS, verify the owner/workspace, retrieve the object using the authenticated user context, and return private, no-store cache headers. Return a non-disclosing 404/403 for unknown or non-owned files.",
+      "Support video Range requests if the chosen delivery route is used by native video elements; do not buffer large videos unnecessarily.",
+      "Resolve temporary display URLs at render time without mutating the persisted Tiptap JSON. Saving must persist the original stable path, never the display URL.",
+      "Do not use signed URLs as the default preview mechanism: a signed URL is a bearer link and anyone holding it can access the object until it expires. If an explicit download feature later requires signed URLs, keep expiry short, do not expose them as share links, and document the bearer-link behavior.",
+      "Audit every media-bearing node and metadata field (image, video, file attachment, comparison, device mockup, showcase, thumbnail, cover, and downloadable asset) to ensure it uses the Studio resolver when rendered in /studio.",
+      "There is no public media URL helper: every file is private and resolved through the Studio route."
+    ],
+    "upload_lifecycle": [
+      "Validate MIME type, file size, media kind, and file naming on the server or through trusted storage constraints; client validation is only a usability aid.",
+      "Upload through the authenticated user session so Storage RLS applies.",
+      "After a successful object upload, insert the studio_assets metadata row using the authenticated user and workspace derived server-side.",
+      "If metadata insertion fails after upload, attempt to remove the just-uploaded object so orphaned uploads are minimized.",
+      "When a case study is deleted, keep media reusable in the user's library by detaching case_study_id where appropriate; do not delete another user's objects.",
+      "When an account is deleted, remove private Storage objects through the Storage API using a controlled server-only cleanup process before/alongside deleting the Auth account. Database cascade alone does not remove stored objects."
+    ]
+  },
+  "editor_and_workspace_integration": {
+    "editor_reuse_strategy": "One Tiptap editor and one content schema, bound to the Studio only. No portfolio mode, no backend adapters, no publish controls.",
+    "required_refactor": [
+      {
+        "area": "Persistence adapter",
+        "current_coupling": "Editor.tsx directly imports saveCaseStudy, publishCaseStudy, and unpublishCaseStudy from src/app/write/actions.ts.",
+        "target": "The editor saves and archives through Studio actions only. Remove the legacy actions and any adapter layer that existed only to support two modes."
+      },
+      {
+        "area": "Publish controls",
+        "current_coupling": "The current Editor exposes Publish/Update and Unpublish actions and treats status as draft/published.",
+        "target": "No publish/unpublish code exists anywhere. Studio status is draft or archived."
+      },
+      {
+        "area": "Upload and media library",
+        "current_coupling": "Editor.tsx and MediaLibrary.tsx import uploadAsset/listAssets/updateAssetAlt from the legacy upload module.",
+        "target": "Studio storage only: studio-private-media and public.studio_assets. Remove the legacy public uploader."
+      },
+      {
+        "area": "Private asset rendering",
+        "current_coupling": "mediaUrl() creates a public URL for paths in case-study-media.",
+        "target": "Every media node resolves through the private Studio resolver (/studio/files/<path>), resolved at render time, never persisted. Remove the public mediaUrl()."
+      },
+      {
+        "area": "Preview routes",
+        "current_coupling": "Editor preview links target /write/[id]/preview.",
+        "target": "Only /studio/case-studies/[id]/preview, owner-checked. Remove /write previews."
+      },
+      {
+        "area": "Domain types",
+        "current_coupling": "Legacy CaseStudy type includes public portfolio fields and a published snapshot.",
+        "target": "Studio types only (StudioCaseStudy, StudioCaseStudyDraft, StudioAsset). Remove the legacy CaseStudy, published snapshot and download types."
+      }
+    ],
+    "shared_features_to_preserve": [
+      "Tiptap 3 core editor and existing schema",
+      "Existing headings, paragraphs, lists, tables, quotes, callouts, links, formatting, and slash-menu commands",
+      "Existing visual block types: image grids, comparisons, showcases, device mockups, split layouts, pull quotes, callouts, and metrics",
+      "Block Inspector and per-block configuration",
+      "Toolbar, bubble menu, media library UX, drag/drop, clipboard uploads, and responsive preview controls",
+      "Autosave behavior and saved/unsaved/saving/error state feedback"
+    ],
+    "studio_editor_behavior": [
+      "Create a private draft from the existing case-study starter template or a Studio-specific template adapter.",
+      "Autosave private content to studio_case_studies only.",
+      "Support manual Save and retry behavior without allowing a save to another user's record.",
+      "Support Archive and Restore if implemented; do not equate archive with public unpublishing.",
+      "Provide authenticated desktop/tablet/mobile private preview.",
+      "Do not generate public URLs or public SEO/sitemap metadata for Studio drafts.",
+      "Do not store signed URLs in the document JSON when saving."
+    ]
+  },
+  "implementation_phases": [
+    {
+      "phase": 0,
+      "name": "Repository audit, baseline, and safe preparation",
+      "priority": "P0",
+      "goal": "Understand the complete working repository, take a backup, and remove the obsolete single-owner portfolio subsystem before building on it.",
+      "tasks": [
+        {
+          "id": "P0-01",
+          "action": "Inspect the complete repository, current Git status/branch, package manager, lockfile, Next.js/TypeScript/ESLint configuration, existing Supabase setup, environment variable names, and any existing test infrastructure.",
+          "why": "The supplied ZIP is a partial source snapshot and omits several root configuration files; implementation must target the real repository, not assume the ZIP is complete.",
+          "outcome": "A verified repository map and baseline command list."
+        },
+        {
+          "id": "P0-02",
+          "action": "Trace all imports and data paths for the portfolio subsystem (case_studies, assets, side_work, case-study-media, /work, /write, publish actions, public media URLs, owner checks) so they can be removed without breaking the Studio.",
+          "why": "Portfolio code is being removed; hidden dependencies must be found first.",
+          "outcome": "A dependency map of what to delete and what the Studio still needs."
+        },
+        {
+          "id": "P0-03",
+          "action": "Run existing lint/build checks and record current failures before making changes. Do not 'fix' unrelated baseline issues without documenting them.",
+          "why": "A reliable before/after baseline is needed to identify regressions.",
+          "outcome": "Recorded baseline build/lint state."
+        },
+        {
+          "id": "P0-04",
+          "action": "Confirm a database backup and a separate local/staging Supabase environment are available. If not available to the agent, create a precise manual prerequisite checklist and do not execute production migrations.",
+          "why": "Removing legacy data and routes is destructive; it must happen on staging first with a backup.",
+          "outcome": "A safe staging path and explicit production guardrail."
+        },
+        {
+          "id": "P0-05",
+          "action": "Remove the portfolio subsystem and every hardcoded single-owner restriction (ADMIN_EMAIL, owner role, owner-only routes and checks), and clean up obsolete public data access and routes (/work, /write, public API routes, public renderers, sitemap).",
+          "why": "The product is only the public multi-user Studio; leftover owner logic or public read paths are attack surface.",
+          "outcome": "No owner concept and no public data path remain."
+        }
+      ],
+      "exit_criteria": [
+        "The real repository structure is verified.",
+        "Existing behavior has a recorded baseline.",
+        "No production database or storage changes have been made.",
+        "No owner-only code, routes or settings remain; obsolete public routes return 404."
+      ]
+    },
+    {
+      "phase": 1,
+      "name": "Studio schema, ownership, and signup provisioning",
+      "priority": "P0",
+      "goal": "Create the independent data model for personal user workspaces and private case studies.",
+      "tasks": [
+        {
+          "id": "P1-01",
+          "action": "Add migration 0004_studio_accounts.sql with profiles and studio_workspaces tables, appropriate foreign keys, updated_at triggers, and a secure auth.users signup trigger.",
+          "why": "Every account needs a profile and exactly one personal workspace without requiring manual setup.",
+          "outcome": "New accounts can be provisioned automatically and idempotently."
+        },
+        {
+          "id": "P1-02",
+          "action": "Add migration 0005_studio_case_studies.sql with studio_case_studies, workspace/owner constraints, owner-scoped slug uniqueness, status draft/archived, Tiptap JSONB content, schema version, timestamps, indexes, and RLS.",
+          "why": "User documents need their own private, ownership-enforced table.",
+          "outcome": "A private document table with workspace-level ownership integrity."
+        },
+        {
+          "id": "P1-03",
+          "action": "Add migration 0006_studio_assets.sql with studio_assets, ownership constraints, workspace indexes, metadata fields, and RLS.",
+          "why": "Private media metadata needs its own ownership-enforced table.",
+          "outcome": "An isolated asset library for every Studio user."
+        },
+        {
+          "id": "P1-04",
+          "action": "Add secure RLS policies and grants for profiles, workspaces, documents, and assets. Explicitly test anon denial and cross-owner denial.",
+          "why": "Frontend filtering is not a security boundary; the database must independently enforce access for direct API calls.",
+          "outcome": "Only the authenticated owner can read or mutate their Studio records."
+        },
+        {
+          "id": "P1-05",
+          "action": "Add migration comments/documentation and update supabase/README.md with the new migration order, ownership model, RLS behavior, and staging-only execution instructions.",
+          "why": "The database contract must be understandable and repeatable for future development.",
+          "outcome": "Documented, forward-only Studio schema setup."
+        },
+        {
+          "id": "P1-06",
+          "action": "Add forward migration 0009_remove_portfolio.sql dropping public.case_studies, public.assets, public.side_work, public.is_cms_owner() and the public bucket's policies, refusing if any still hold data; remove the public bucket through the Storage API once empty.",
+          "why": "Obsolete public data access must not linger in the database.",
+          "outcome": "Only Studio data structures remain."
+        }
+      ],
+      "exit_criteria": [
+        "All new Studio tables exist in local/staging only.",
+        "Signup trigger creates one profile and one workspace.",
+        "RLS tests show user A cannot access user B rows.",
+        "Legacy portfolio tables, function, policies and public bucket are gone (staging first)."
+      ]
+    },
+    {
+      "phase": 2,
+      "name": "Dual-method authentication and protected Studio routes",
+      "priority": "P0",
+      "goal": "Allow public registration and login, with the same rules for every account.",
+      "tasks": [
+        {
+          "id": "P2-01",
+          "action": "Add getCurrentUser(), requireStudioUser(), and getPersonalWorkspace() helpers using the existing cookie-based Supabase server client and verified auth.getUser() calls.",
+          "why": "Authorization must not depend on any special account; there is no owner.",
+          "outcome": "A reusable per-request authenticated user context."
+        },
+        {
+          "id": "P2-02",
+          "action": "Create Studio signup/login UI supporting email+password and email OTP code entry. Include display name for first-time registration and generic account errors.",
+          "why": "The locked requirement is both authentication methods, with one identity per email.",
+          "outcome": "New and returning users can use either supported sign-in method."
+        },
+        {
+          "id": "P2-03",
+          "action": "Implement password signup, password login, OTP send, OTP verify, password recovery, password update, and Studio logout server actions with validation and safe error handling.",
+          "why": "A public product needs complete account lifecycle flows rather than an owner-only OTP form.",
+          "outcome": "Complete Studio authentication actions."
+        },
+        {
+          "id": "P2-04",
+          "action": "Handle confirmation and recovery links safely for /studio destinations only. Reject external and malformed redirects.",
+          "why": "PKCE confirmation/recovery must return users safely without opening redirect vulnerabilities.",
+          "outcome": "Safe link handling with no open redirects."
+        },
+        {
+          "id": "P2-05",
+          "action": "Protect all private Studio routes in src/proxy.ts; allow only Studio auth entry routes without a session. No /write rules.",
+          "why": "Every account is an ordinary user; route protection is the same for all.",
+          "outcome": "Correct route-level navigation and access control."
+        },
+        {
+          "id": "P2-06",
+          "action": "Document Supabase Auth dashboard configuration: email/password, OTP, confirmation, SMTP, templates, callback URLs, rate limits, OTP expiry, and CAPTCHA.",
+          "why": "Several auth controls live in Supabase configuration, not only in source code.",
+          "outcome": "A production configuration checklist with no hidden dashboard dependency."
+        }
+      ],
+      "exit_criteria": [
+        "A new user can register with email/password and verify email.",
+        "A new user can register/sign in by numeric email OTP.",
+        "An existing user can sign in with either supported method using the same Auth identity.",
+        "Forgot/reset password works."
+      ]
+    },
+    {
+      "phase": 3,
+      "name": "Private storage and media authorization",
+      "priority": "P0",
+      "goal": "Ensure no Studio uploads are publicly retrievable or cross-accessible.",
+      "tasks": [
+        {
+          "id": "P3-01",
+          "action": "Add migration 0007_studio_private_storage.sql to create studio-private-media with public=false, file-size limit, and reviewed allowed MIME types.",
+          "why": "Studio uploads must live in a private bucket; there is no public bucket in the product.",
+          "outcome": "A separate private storage boundary for Studio uploads."
+        },
+        {
+          "id": "P3-02",
+          "action": "Create Storage RLS policies for authenticated select/insert/update/delete that validate bucket ID, auth.uid() path prefix, and workspace ownership.",
+          "why": "A private bucket without correct object policies is not sufficient; user A must not list, read, overwrite, or delete user B files.",
+          "outcome": "Storage API enforces per-user object isolation."
+        },
+        {
+          "id": "P3-03",
+          "action": "Implement Studio storage adapter and uploader using generated paths under owner/workspace/case-study-or-library. Insert metadata into studio_assets only after successful upload.",
+          "why": "The current uploadAsset() writes into public.assets and case-study-media.",
+          "outcome": "New Studio uploads are stored only in the private bucket and private metadata table."
+        },
+        {
+          "id": "P3-04",
+          "action": "Implement authenticated private URL resolution for editor and preview. Preserve raw storage paths in persisted Tiptap JSON; resolve temporary URLs only at render time.",
+          "why": "Persisting signed URLs causes expiry-related broken documents and accidentally shares temporary bearer links.",
+          "outcome": "Private images/videos/files render for the owner without making stored paths public."
+        },
+        {
+          "id": "P3-05",
+          "action": "Audit all editor media node types and metadata (images, video, file attachments, visual blocks, thumbnails, covers, downloads). Add compensating cleanup when object upload succeeds but metadata insert fails.",
+          "why": "A single public media helper inside a custom Tiptap node could leak private media through a public URL.",
+          "outcome": "All media operations use one private resolver and storage path."
+        }
+      ],
+      "exit_criteria": [
+        "Studio bucket is private.",
+        "User A cannot download/list/update/delete User B assets through direct Storage API calls.",
+        "Anonymous users cannot retrieve Studio objects.",
+        "Editor and private preview can render owned assets.",
+        "Tiptap content stores stable paths, not temporary signed URLs."
+      ]
+    },
+    {
+      "phase": 4,
+      "name": "Workspace dashboard, Studio CRUD, and shared-editor decoupling",
+      "priority": "P0",
+      "goal": "Make the editor usable by any registered user, privately, with no publishing.",
+      "tasks": [
+        {
+          "id": "P4-01",
+          "action": "Create Studio types, validators, queries, and server actions for list/create/get/save/archive/restore/delete. Derive owner and workspace server-side for every operation.",
+          "why": "Every operation must be scoped to the signed-in user and their workspace.",
+          "outcome": "A complete private Studio data layer."
+        },
+        {
+          "id": "P4-02",
+          "action": "Build the personal Studio dashboard showing only the current user's documents, status, updated time, and create action. Add empty/loading/error states.",
+          "why": "Users need a clear private landing place for their writing.",
+          "outcome": "An authenticated workspace with no cross-user document listing."
+        },
+        {
+          "id": "P4-03",
+          "action": "Make the editor and media library Studio-only: remove legacy persistence/upload imports and the dual-mode adapter layer.",
+          "why": "There is one product and one data store.",
+          "outcome": "One editor bound to the Studio."
+        },
+        {
+          "id": "P4-04",
+          "action": "Implement Studio autosave and manual save to studio_case_studies. Preserve current save status feedback and handle concurrent/in-flight saves safely.",
+          "why": "The existing autosave behavior is a core part of the tool and must persist into the right owner's private record.",
+          "outcome": "Reliable private draft editing and persistence."
+        },
+        {
+          "id": "P4-05",
+          "action": "Remove publish/unpublish and portfolio-only fields (Show on Home, order, SEO, downloads). Implement draft/archive only.",
+          "why": "Studio documents are private-only; there is no public publishing in the product.",
+          "outcome": "No public publishing path exists."
+        },
+        {
+          "id": "P4-06",
+          "action": "Add an authenticated private preview at /studio/case-studies/[id]/preview. Verify ownership before loading content and resolving private media URLs.",
+          "why": "Users need to inspect their case study without creating a public URL.",
+          "outcome": "Owner-only responsive preview."
+        },
+        {
+          "id": "P4-07",
+          "action": "Implement media library list, upload, update alt text, attach/reuse assets, and safe delete behavior through Studio-specific adapter functions.",
+          "why": "The media library must list and manage only the signed-in user's private files.",
+          "outcome": "A media library isolated to each workspace."
+        }
+      ],
+      "exit_criteria": [
+        "Two separate accounts can create and edit independent documents.",
+        "Autosave and reload preserve text and all supported visual blocks.",
+        "Studio preview is private and owner-checked.",
+        "The editor has no portfolio mode, publish code or legacy imports."
+      ]
+    },
+    {
+      "phase": 5,
+      "name": "Security test suite, account lifecycle, and release readiness",
+      "priority": "P0",
+      "goal": "Prove privacy boundaries through real API and Storage tests, then prepare a controlled rollout.",
+      "tasks": [
+        {
+          "id": "P5-01",
+          "action": "Add automated tests using the repository's existing test tooling; if none exists, choose the smallest compatible setup after checking the full repo. Include unit tests for validators and integration/e2e tests for auth, CRUD, and isolation.",
+          "why": "No dedicated test setup is present in the supplied package.json and privacy must be tested, not assumed.",
+          "outcome": "Repeatable security and regression test commands."
+        },
+        {
+          "id": "P5-02",
+          "action": "Create staging test users A and B. Verify cross-account document read/update/delete, guessed UUIDs, direct REST requests, direct Storage URLs, storage listing, and signed URL generation are denied.",
+          "why": "Frontend tests alone cannot prove RLS and Storage security.",
+          "outcome": "Evidence that the database and Storage layer isolate accounts."
+        },
+        {
+          "id": "P5-03",
+          "action": "Test account creation with both methods, same-email identity behavior, confirmation, expiry, rate limiting, session refresh, logout, and password recovery.",
+          "why": "Auth flow edge cases can create duplicate identities, orphaned profiles, or inaccessible accounts.",
+          "outcome": "Verified account lifecycle behavior."
+        },
+        {
+          "id": "P5-04",
+          "action": "Implement or document secure account deletion: verify the requesting user, remove their private Storage objects via Storage API, delete owned relational data through controlled cascades, then delete the Auth user using a server-only admin operation if required.",
+          "why": "Postgres cascade does not delete binary objects stored in Supabase Storage.",
+          "outcome": "A documented and tested data deletion lifecycle without exposing service credentials."
+        },
+        {
+          "id": "P5-05",
+          "action": "Run full build, lint, type checking and the test suite. Verify obsolete portfolio routes and APIs return 404 and no owner-only logic remains.",
+          "why": "The cleanup must not leave dead public access paths.",
+          "outcome": "Release candidate with recorded validation results."
+        },
+        {
+          "id": "P5-06",
+          "action": "Prepare staged rollout steps, Supabase dashboard settings, env var checklist, backup/rollback instructions, and known limitations. Do not deploy to production automatically.",
+          "why": "Public registration creates a real security and operational boundary; release must be deliberate.",
+          "outcome": "A manual production launch checklist ready for owner approval."
+        }
+      ],
+      "exit_criteria": [
+        "All privacy acceptance tests pass against staging Supabase.",
+        "Build, lint, type checks, and tests pass or known baseline failures are documented.",
+        "Production migrations/settings/deployment remain untouched until explicitly approved.",
+        "Obsolete routes and APIs return 404; no account has elevated privileges."
+      ]
+    }
+  ],
+  "security_invariants": [
+    "A Studio document is private unless a future, explicitly approved publishing feature changes the product decision.",
+    "A Studio asset is private unless a future, explicitly approved publishing feature copies it into a separately governed public-media system.",
+    "User A must never read, list, preview, edit, archive, delete, or download User B's Studio content or assets.",
+    "The owner ID and workspace ID for writes are derived from the verified authenticated user on the server; never accepted as authoritative client input.",
+    "Every Studio table has RLS enabled and no anon/public read policies.",
+    "Storage is a private bucket with owner-scoped Storage RLS policies. A private bucket alone is not considered sufficient proof of isolation.",
+    "No public API, server action, route, query, sitemap, public renderer, static generation, or cache may reveal Studio rows or paths.",
+    "Do not cache private workspace responses across users. Use per-request authenticated data access and explicit no-store/dynamic behavior where required by the current Next.js version.",
+    "Do not put service-role secrets or other privileged Supabase credentials into NEXT_PUBLIC variables or client bundles.",
+    "Do not claim end-to-end encryption. A privileged project administrator or server-side service-role operation can technically access database contents; explain this distinction in privacy language if needed.",
+    "Do not expose signed bearer URLs for Studio previews as a substitute for user-bound authorization. Prefer authenticated Storage requests or a same-origin route that re-checks the signed-in user on every request.",
+    "No account has elevated privileges: no owner, admin or hardcoded email anywhere in code, configuration or SQL.",
+    "No public data path exists: no public tables, public bucket, public API routes or public renderers."
+  ],
+  "acceptance_test_matrix": [
+    {
+      "id": "SEC-001",
+      "area": "Auth",
+      "test": "User A can register with email/password, verify email, log in, and enter /studio.",
+      "expected": "Pass; profile and exactly one personal workspace are created."
+    },
+    {
+      "id": "SEC-002",
+      "area": "Auth",
+      "test": "User B can register/sign in by numeric email OTP and enter /studio.",
+      "expected": "Pass; profile and exactly one personal workspace are created."
+    },
+    {
+      "id": "SEC-003",
+      "area": "Auth",
+      "test": "The same verified email can use password and OTP without creating separate app profiles/workspaces.",
+      "expected": "Both methods resolve to the same Auth identity; any Supabase configuration edge case is documented and fixed before release."
+    },
+    {
+      "id": "SEC-004",
+      "area": "Auth",
+      "test": "Unauthenticated visitor requests /studio/case-studies/[id].",
+      "expected": "Redirect to /studio/login; no document data is rendered."
+    },
+    {
+      "id": "SEC-005",
+      "area": "Database",
+      "test": "User A creates a document and User B requests its UUID through the UI and direct REST API.",
+      "expected": "User B receives no readable row; no document content is exposed."
+    },
+    {
+      "id": "SEC-006",
+      "area": "Database",
+      "test": "User B attempts to update/delete User A's document or insert a row with User A's owner_id/workspace_id.",
+      "expected": "Database/RLS rejects the operation."
+    },
+    {
+      "id": "SEC-007",
+      "area": "Database",
+      "test": "User A attempts to move an owned document or asset to User B's workspace by changing workspace_id.",
+      "expected": "RLS and relational constraints reject the operation."
+    },
+    {
+      "id": "SEC-008",
+      "area": "Storage",
+      "test": "User B requests, lists, overwrites, or deletes User A's private object by guessing its path.",
+      "expected": "Storage RLS denies every operation."
+    },
+    {
+      "id": "SEC-009",
+      "area": "Storage",
+      "test": "Anonymous visitor requests a Studio private media route or the raw private Storage object URL.",
+      "expected": "Denied; there is no public object URL or public read policy."
+    },
+    {
+      "id": "SEC-010",
+      "area": "Storage",
+      "test": "User A loads an owned asset through the authenticated Studio media route; User B and an anonymous visitor request the same asset ID/path.",
+      "expected": "A succeeds; B and anonymous requests are denied even when they know the asset ID/path. Do not rely on shareable signed URLs for private preview."
+    },
+    {
+      "id": "SEC-011",
+      "area": "Editor",
+      "test": "Studio editor saves and reloads every supported media/visual block.",
+      "expected": "Content persists; raw storage paths remain in document JSON; display URLs are resolved separately."
+    },
+    {
+      "id": "SEC-012",
+      "area": "Editor",
+      "test": "Studio editor renders all existing block types and responsive private preview.",
+      "expected": "All shared editor capabilities remain available without public publishing controls."
+    },
+    {
+      "id": "SEC-013",
+      "area": "Publishing",
+      "test": "Studio user searches for or calls publish/unpublish functionality.",
+      "expected": "No Studio public publish action or public document route exists."
+    },
+    {
+      "id": "SEC-014",
+      "area": "Cleanup",
+      "test": "Request /work, /work/[slug], /write, /write/login and the old public and owner API routes.",
+      "expected": "All return 404; no portfolio data or public media is reachable."
+    },
+    {
+      "id": "SEC-015",
+      "area": "Cleanup",
+      "test": "Look for any account with elevated access (the former ADMIN_EMAIL account included) and any owner-only code path.",
+      "expected": "None: every account is an ordinary user with access to its own workspace only."
+    },
+    {
+      "id": "SEC-016",
+      "area": "Lifecycle",
+      "test": "User deletes a case study.",
+      "expected": "Only that user's record is deleted; reusable private assets are detached or retained according to the media-library rule."
+    },
+    {
+      "id": "SEC-017",
+      "area": "Lifecycle",
+      "test": "User requests account deletion.",
+      "expected": "Their Studio storage objects and relational records are removed through a controlled deletion workflow; no other user's data is affected."
+    },
+    {
+      "id": "SEC-018",
+      "area": "Caching",
+      "test": "User A signs out and User B signs in in the same browser/session context.",
+      "expected": "No cached A workspace content is rendered for B."
+    }
+  ],
+  "release_and_rollback": {
+    "staging_first": [
+      "Run migrations in a local or staging Supabase project.",
+      "Configure Auth providers, templates, SMTP, redirect URLs, rate limits, CAPTCHA, and private storage in staging.",
+      "Create two independent test accounts and execute all acceptance tests.",
+      "Capture test evidence and migration status before requesting production approval.",
+      "Verify obsolete portfolio routes and APIs are gone."
+    ],
+    "production_prerequisites": [
+      "A fresh verified database backup and storage inventory.",
+      "Approved forward-only migrations and rollback instructions.",
+      "Production Site URL and exact callback URLs configured.",
+      "Custom SMTP configured for Supabase Auth.",
+      "Password and OTP providers enabled with email verification required.",
+      "Rate limits, CAPTCHA, OTP expiry, and email templates reviewed.",
+      "Private Studio bucket and storage policies verified.",
+      "Production environment variables configured without exposing service-role secrets.",
+      "A monitoring/logging plan that does not log document contents, signed URLs, OTP codes, passwords, or secrets."
+    ],
+    "rollback_principles": [
+      "Do not rollback by dropping Studio tables or deleting uploaded user data unless a separately approved data-retention plan requires it.",
+      "If the Studio app release is rolled back, keep new schema tables and private bucket in place until data is safely preserved and a rollback migration is explicitly designed.",
+      "Keep /studio routes disabled or unavailable safely if a critical security defect is found; do not fall back to public reads.",
+      "Document which deployment, schema, Auth, and Storage settings changed so they can be reverted independently.",
+      "Do not reintroduce the portfolio tables or public bucket as a rollback shortcut."
+    ],
+    "approval_gate": "The agent may create code and migrations and may test them locally/staging when credentials and permission are available. It must not apply migrations to production, change production Auth/Storage settings, or deploy production without explicit user approval."
+  },
+  "explicit_non_goals": [
+    "No public publishing of Studio case studies in this release.",
+    "No public profile or user directory.",
+    "No shareable document URLs or guest access.",
+    "No team workspaces, invitations, collaboration, comments, or shared editing.",
+    "No AI writing assistant or AI-generated case-study content in this foundation phase.",
+    "No templates marketplace, billing, subscriptions, or usage-based pricing.",
+    "No redesign or replacement of the Tiptap editor, custom block system, or Astryx UI system.",
+    "No personal portfolio site, owner CMS, side work, public case-study pages or lead capture.",
+    "No owner, admin or superuser role."
+  ],
+  "agent_execution_prompt": {
+    "role": "You are a senior full-stack engineer and application security engineer working inside the existing Write Studio repository. You are responsible for implementing the multi-user private Studio architecture described in this JSON plan.",
+    "mission": "Build and maintain a public-registration, private-by-default Case Study Studio with exactly one personal workspace per user. Support email/password and email OTP on one identity. Reuse the Tiptap editor and visual composition system as a single Studio-only editor. Remove the former single-owner portfolio subsystem and every hardcoded owner restriction.",
+    "execution_mode": "Implement in ordered phases, not as a single destructive rewrite. Inspect the full working repository first. Make coherent code changes and migrations in the current project. Run validation after each phase. Do not stop after writing a conceptual plan if the repository and environment permit implementation.",
+    "mandatory_preflight": [
+      "Inspect the complete repository and Git status before editing. The supplied ZIP is only a partial snapshot; verify actual config, lockfile, installed SDK versions, test tooling, and current application structure.",
+      "Read the Supabase migrations, READMEs, auth service, Express routes, proxy, server actions, queries, editor, media library, uploader, media URL resolver, Tiptap schema, node views and every import of storage or table names.",
+      "Record current build/lint/typecheck/test status before changes.",
+      "Identify whether the environment points to production, staging, or local Supabase. Never run a migration or destructive operation against production without explicit approval.",
+      "Never print, commit, or expose secrets. Do not request or place service_role credentials in NEXT_PUBLIC variables."
+    ],
+    "non_negotiable_rules": [
+      "All new user documents and media must use studio_case_studies, studio_assets, and studio-private-media.",
+      "All Studio user data must be private by default. Do not implement public publishing, public sharing, public routes, public search, public sitemap entries, or public profile discovery.",
+      "Apply PostgreSQL RLS to every Studio-owned table and Storage RLS to the private bucket. Frontend checks and route middleware are not sufficient.",
+      "Derive owner_id and workspace_id from the verified authenticated user on the server. Never trust client-supplied IDs for authorization.",
+      "Use the user's authenticated Supabase session for normal database and Storage operations. Do not use service_role for routine user requests.",
+      "Keep service-role operations, if needed for account deletion, server-only and narrowly scoped with explicit ownership verification.",
+      "Never store signed URLs in Tiptap JSON or database fields. Persist stable private paths and resolve temporary URLs only for rendering/download.",
+      "Use the existing Astryx UI conventions and preserve the current responsive visual/editor experience.",
+      "Do not claim security is complete until two-account direct API and Storage isolation tests pass against a real local/staging Supabase instance.",
+      "Do not use signed bearer URLs as the default Studio media-preview mechanism. Prefer authenticated Storage requests or a same-origin media endpoint that re-verifies the current user for every request.",
+      "Do not edit already-applied migrations; make every change, including removals, with a new forward-only migration.",
+      "Eliminate hardcoded single-owner restrictions: no ADMIN_EMAIL, owner role, owner-only route, hardcoded email in SQL or special-cased account.",
+      "Remove obsolete public data access and routes: no /work or /write, no public API routes, no public tables or bucket, no public renderer of user content.",
+      "Keep one editor and one schema; no portfolio mode, publish code or alternative persistence backends.",
+      "Never drop a table or bucket that still holds data; stop and report instead."
+    ],
+    "required_implementation_order": [
+      "Phase 0: Audit the repository, record baselines, confirm a backup and staging; remove the portfolio subsystem, owner restrictions and obsolete public routes.",
+      "Phase 1: Workspaces, Studio case studies and assets with ownership constraints, deny-all RLS, provisioning trigger; forward migration removing legacy portfolio data.",
+      "Phase 2: Password and OTP auth on one identity, password-add for OTP-first users, recovery, safe links, Studio route protection; no owner rules.",
+      "Phase 3: Private bucket, Studio uploader, metadata checks, same-origin authenticated media delivery, upload cleanup.",
+      "Phase 4: Dashboard, CRUD, autosave, archive, private preview; one Studio-only editor and media library.",
+      "Phase 5: Security tests, account deletion, caching checks, removal checks, release checklist."
+    ],
+    "implementation_quality_bar": [
+      "TypeScript types describe Studio records only (StudioCaseStudy, StudioAsset); no portfolio CaseStudy type remains.",
+      "Server actions must validate input shape, size, allowed status, slug, content JSON, and resource ownership.",
+      "Use generic auth error messages where detailed messages could enable account enumeration.",
+      "Ensure private workspace responses are not shared-cached across users. Follow the installed Next.js 16 request/caching conventions.",
+      "Keep media uploads compensating-cleanup-safe if metadata insertion fails.",
+      "Use generated storage object names and preserve original file names only as metadata.",
+      "Check the full document schema and every custom media node before implementing private URL resolution.",
+      "Keep migrations reviewable, commented, forward-only, and safe to run once in a clean staging project.",
+      "Do not introduce major new dependencies without a specific need; inspect the actual package manager and lockfile first.",
+      "If using a same-origin private media route, set private no-store headers, verify ownership on every request, and support video byte-range behavior where needed."
+    ],
+    "required_outputs": [
+      "Implemented code changes in the repository, if permitted by the available environment.",
+      "New forward-only SQL migrations for Studio accounts, workspaces, case studies, assets, RLS, and private Storage.",
+      "Updated Supabase setup documentation and environment/configuration checklist.",
+      "Studio auth routes and server actions supporting email/password and email OTP.",
+      "Studio workspace dashboard, document CRUD, autosave, private preview, and private media library.",
+      "One Studio-only editor with no portfolio mode or adapter layer.",
+      "Automated tests for auth, data isolation, storage isolation, editor save/preview, account deletion, caching, and the removal of obsolete routes and owner logic.",
+      "A final implementation report listing files added/changed, migrations added, commands run, tests passed/failed, manual Supabase dashboard steps, unresolved blockers, and explicit statement that production was not modified unless separately authorized."
+    ],
+    "failure_handling": "If a task depends on unavailable Supabase credentials, SMTP, staging project, or production configuration, implement the code/migration scaffolding where safe and provide an exact manual configuration/test procedure. Do not bypass security, substitute public storage, disable email verification, or claim that untested controls work.",
+    "completion_definition": "Complete when a normal user can register using either supported method, use both methods on the same account, receive one private personal workspace, create/edit/autosave/preview private case studies with private media, and cannot access another user's records or files through UI, guessed IDs, direct REST requests or Storage/media routes; and when no portfolio route, public data path or single-owner restriction remains."
+  },
+  "official_technical_references": [
+    {
+      "topic": "Supabase Auth overview",
+      "url": "https://supabase.com/docs/guides/auth",
+      "note": "Auth and authorization model, JWT identity, and integration with RLS."
+    },
+    {
+      "topic": "Supabase password auth",
+      "url": "https://supabase.com/docs/guides/auth/passwords",
+      "note": "Email/password signup, confirmation, reset, and custom SMTP guidance."
+    },
+    {
+      "topic": "Supabase signInWithOtp",
+      "url": "https://supabase.com/docs/reference/javascript/auth-signinwithotp",
+      "note": "Email OTP and magic-link behavior; email template variable determines which is sent."
+    },
+    {
+      "topic": "Supabase SSR auth",
+      "url": "https://supabase.com/docs/guides/auth/server-side",
+      "note": "Cookie-based SSR session handling and PKCE considerations."
+    },
+    {
+      "topic": "Supabase Row Level Security",
+      "url": "https://supabase.com/docs/guides/database/postgres/row-level-security",
+      "note": "auth.uid(), user-scoped policies, and policy safety."
+    },
+    {
+      "topic": "Supabase private buckets",
+      "url": "https://supabase.com/docs/guides/storage/buckets/fundamentals",
+      "note": "Private bucket access behavior and signed URL options."
+    },
+    {
+      "topic": "Supabase Storage access control",
+      "url": "https://supabase.com/docs/guides/storage/security/access-control",
+      "note": "Storage RLS policies and authenticated object ownership."
+    },
+    {
+      "topic": "Supabase Storage helper functions",
+      "url": "https://supabase.com/docs/guides/storage/schema/helper-functions",
+      "note": "storage.foldername() for per-user path policies."
+    },
+    {
+      "topic": "Supabase production security checklist",
+      "url": "https://supabase.com/docs/guides/security/production-checklist",
+      "note": "Email verification, OTP expiry, SMTP, and production security controls."
+    }
+  ]
+}
