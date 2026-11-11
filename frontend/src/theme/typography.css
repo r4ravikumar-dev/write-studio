@@ -221,3 +221,7 @@ body {
   .cs-prose img[data-size='medium'],
   .cs-prose img[data-size='small'] { inline-size: 100%; }
 }
+.cs-prose img[data-radius='sm'] { border-radius: var(--radius-8); }
+.cs-prose img[data-radius='md'] { border-radius: var(--radius-16); }
+.cs-prose img[data-radius='lg'] { border-radius: var(--radius-24); }
+.cs-prose .cs-credit { color: var(--text-gray-tertiary); }

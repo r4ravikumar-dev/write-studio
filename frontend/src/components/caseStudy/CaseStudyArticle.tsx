@@ -71,9 +71,14 @@ export function CaseStudyArticle({content}: {content: JSONContent}) {
     options: {
       nodeMapping: {
         // Tables scroll sideways inside the column when they're wider than it.
-        table: ({children}: RenderProps) => (
+        table: ({node, children}: RenderProps) => (
           <figure className="tableWrapper cs-table-wrap">
-            <table className="cs-table">
+            <table
+              className="cs-table"
+              data-tablestyle={String(node.attrs?.tableStyle ?? 'grid')}
+              data-striped={String(Boolean(node.attrs?.striped))}
+              data-density={String(node.attrs?.density ?? 'comfortable')}
+              data-mobile={String(node.attrs?.mobile ?? 'scroll')}>
               <tbody>{children}</tbody>
             </table>
           </figure>
@@ -125,20 +130,35 @@ export function CaseStudyArticle({content}: {content: JSONContent}) {
         image: ({node}: RenderProps) => {
           const src = safeSrc(node.attrs?.src);
           if (!src) return null;
-          const caption = typeof node.attrs?.title === 'string' ? node.attrs.title : '';
+          const attrs = node.attrs ?? {};
+          const caption = typeof attrs.title === 'string' ? attrs.title : '';
+          const credit = typeof attrs.credit === 'string' ? attrs.credit.trim() : '';
+          const ratio = typeof attrs.ratio === 'string' ? attrs.ratio : '';
+          const text = (value: unknown) => (typeof value === 'string' && value ? value : undefined);
           return (
             <figure className="cs-media">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 className="cs-image"
                 src={src}
-                alt={String(node.attrs?.alt ?? '')}
-                width={Number(node.attrs?.width) || undefined}
-                height={Number(node.attrs?.height) || undefined}
+                // Decorative images get an empty alt, so screen readers skip them.
+                alt={attrs.decorative ? '' : String(attrs.alt ?? '')}
+                width={Number(attrs.width) || undefined}
+                height={Number(attrs.height) || undefined}
+                data-size={text(attrs.size)}
+                data-align={text(attrs.align)}
+                data-ratio={ratio || undefined}
+                data-radius={text(attrs.radius)}
+                style={ratio ? {aspectRatio: ratio, objectPosition: text(attrs.focus) ?? 'center'} : undefined}
                 loading="lazy"
                 decoding="async"
               />
-              {caption && <figcaption className="cs-caption">{caption}</figcaption>}
+              {(caption || credit) && (
+                <figcaption className="cs-caption">
+                  {caption}
+                  {credit && <span className="cs-credit">{caption ? ' · ' : ''}{credit}</span>}
+                </figcaption>
+              )}
             </figure>
           );
         },

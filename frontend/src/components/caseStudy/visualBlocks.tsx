@@ -1,6 +1,6 @@
 'use client';
 
-import type {CSSProperties, ReactNode} from 'react';
+import {useRef, useState, type CSSProperties, type ReactNode} from 'react';
 import {VStack, HStack} from '@astryxdesign/core/Layout';
 import {Text} from '@astryxdesign/core/Text';
 import {Button} from '@astryxdesign/core/Button';
@@ -115,6 +115,7 @@ export function ImageGrid({config, edit}: {config: ImageGridConfig; edit?: EditH
         className="vb-grid"
         data-arrangement={config.arrangement}
         data-gap={config.gap}
+        data-mobile-columns={config.mobileColumns ?? 2}
         style={{['--vb-columns' as string]: config.columns}}>
         {config.items.map((item, index) => (
           <MediaView
@@ -154,7 +155,65 @@ function Side({side, ratio, onPick, tone}: {side: ComparisonSide; ratio: Ratio; 
   );
 }
 
+/**
+ * Before/after slider: the "after" picture with the "before" picture over it, clipped at the
+ * divider. A real range input drives it, so it works with a keyboard and screen readers.
+ */
+function ComparisonSlider({config}: {config: ComparisonConfig}) {
+  const [reveal, setReveal] = useState(50);
+  const before = config.left.label || 'Before';
+  const after = config.right.label || 'After';
+  const media = config.left.media ?? config.right.media;
+  const ratio = ratioValue(config.ratio) ?? (media?.width && media?.height ? `${media.width} / ${media.height}` : '16 / 10');
+  return (
+    <figure className="vb vb-compare vb-compare--slider">
+      <div className="vb-slider" style={{aspectRatio: ratio, ['--vb-reveal' as string]: `${reveal}%`}}>
+        <MediaView media={config.right.media} ratio={config.ratio === 'auto' ? undefined : config.ratio} className="vb-slider-media" />
+        <div className="vb-slider-before">
+          <MediaView media={config.left.media} ratio={config.ratio === 'auto' ? undefined : config.ratio} className="vb-slider-media" />
+        </div>
+        <span className="vb-slider-label" data-side="before" aria-hidden="true">
+          {before}
+        </span>
+        <span className="vb-slider-label" data-side="after" aria-hidden="true">
+          {after}
+        </span>
+        <span className="vb-slider-handle" aria-hidden="true" />
+        <input
+          type="range"
+          className="vb-slider-input"
+          min={0}
+          max={100}
+          value={reveal}
+          onChange={event => setReveal(Number(event.target.value))}
+          aria-label={`Compare ${before} and ${after}: ${before} is shown on the left of the divider`}
+          aria-valuetext={`${reveal}% ${before}`}
+        />
+      </div>
+      {(config.left.text || config.right.text) && (
+        <div className="vb-compare-grid">
+          {[config.left, config.right].map((side, index) => (
+            <VStack key={index} gap={2}>
+              <Text type="supporting" style={{...EYEBROW_STYLE, color: index ? 'var(--color-brand-text)' : 'var(--color-text-secondary)'}}>
+                {side.label}
+              </Text>
+              {side.text && (
+                <Text color="secondary" textWrap="pretty">
+                  {side.text}
+                </Text>
+              )}
+            </VStack>
+          ))}
+        </div>
+      )}
+      <Caption>{config.caption}</Caption>
+    </figure>
+  );
+}
+
 export function Comparison({config, edit}: {config: ComparisonConfig; edit?: EditHooks}) {
+  // The slider needs both pictures; until then (or when editing them) it shows side by side.
+  if (config.display === 'slider' && config.left.media && config.right.media) return <ComparisonSlider config={config} />;
   return (
     <figure className="vb vb-compare" data-split={config.split}>
       <div className="vb-compare-grid">
@@ -212,16 +271,84 @@ function DeviceFrame({device, onPick}: {device: Device; onPick?: () => void}) {
   );
 }
 
-export function DeviceMockup({config, edit, selectedId}: {config: DeviceMockupConfig; edit?: EditHooks; selectedId?: string}) {
+export function DeviceMockup({
+  config,
+  edit,
+  selectedId,
+  onMoveDevice,
+}: {
+  config: DeviceMockupConfig;
+  edit?: EditHooks;
+  selectedId?: string;
+  /** Editor only: drag a device on the stage; called once when it's dropped (x, y in %). */
+  onMoveDevice?: (id: string, x: number, y: number) => void;
+}) {
   const spread = SPACING[config.spacing] ?? 1;
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  // The device being dragged and where it is now (local until dropped: one change, one undo).
+  const [drag, setDrag] = useState<{id: string; x: number; y: number} | null>(null);
+  // Set when a press turned into a drag, so the click that ends it doesn't open the picker.
+  const dragged = useRef(false);
+
+  const startDrag = (event: React.PointerEvent, id: string) => {
+    if (!onMoveDevice || event.button !== 0) return;
+    // Keeps the editor from treating the press as text selection or a block drag.
+    event.preventDefault();
+    event.stopPropagation();
+    dragged.current = false;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const device = config.devices.find(d => d.id === id);
+    const stageAtStart = stageRef.current?.getBoundingClientRect();
+    if (!device || !stageAtStart) return;
+    // Where the pointer is in stage %, so the device keeps the point you grabbed under the pointer.
+    const toStage = (clientX: number, clientY: number, stage: DOMRect) => ({
+      x: 50 + (((clientX - stage.left) / stage.width) * 100 - 50) / spread,
+      y: ((clientY - stage.top) / stage.height) * 100,
+    });
+    const grab = toStage(startX, startY, stageAtStart);
+    const offset = {x: grab.x - device.x, y: grab.y - device.y};
+    let last: {x: number; y: number} | null = null;
+    const move = (e: PointerEvent) => {
+      const stage = stageRef.current?.getBoundingClientRect();
+      if (!stage) return;
+      if (!dragged.current && Math.hypot(e.clientX - startX, e.clientY - startY) < 4) return;
+      dragged.current = true;
+      const clamp = (value: number) => Math.round(Math.min(100, Math.max(0, value)));
+      const point = toStage(e.clientX, e.clientY, stage);
+      last = {x: clamp(point.x - offset.x), y: clamp(point.y - offset.y)};
+      setDrag({id, ...last});
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      if (last) onMoveDevice(id, last.x, last.y);
+      setDrag(null);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
   return (
     <figure className="vb vb-devices" data-surface={config.surface} data-shadow={config.shadow || undefined} data-mobile={config.mobile}>
-      <div className="vb-stage" style={{aspectRatio: ratioValue(config.stageRatio) ?? '16 / 9'}}>
-        {config.devices.map(d => (
+      <div ref={stageRef} className="vb-stage" style={{aspectRatio: ratioValue(config.stageRatio) ?? '16 / 9'}}>
+        {config.devices.map(device => {
+          const d = drag?.id === device.id ? {...device, x: drag.x, y: drag.y} : device;
+          const canDrag = Boolean(onMoveDevice) && !device.locked;
+          return (
           <div
             key={d.id}
             className="vb-device-slot"
             data-selected={selectedId === d.id || undefined}
+            data-draggable={canDrag || undefined}
+            data-dragging={drag?.id === d.id || undefined}
+            onPointerDown={canDrag ? event => startDrag(event, d.id) : undefined}
+            onClickCapture={event => {
+              if (!dragged.current) return;
+              dragged.current = false;
+              event.stopPropagation();
+              event.preventDefault();
+            }}
             style={{
               left: `${50 + (d.x - 50) * spread}%`,
               top: `${d.y}%`,
@@ -231,7 +358,8 @@ export function DeviceMockup({config, edit, selectedId}: {config: DeviceMockupCo
             }}>
             <DeviceFrame device={d} onPick={edit ? () => edit.pickMedia(`device:${d.id}`, 'any') : undefined} />
           </div>
-        ))}
+          );
+        })}
       </div>
       <Caption>{config.caption}</Caption>
     </figure>

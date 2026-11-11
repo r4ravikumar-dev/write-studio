@@ -68,12 +68,13 @@ export function findSelectedBlock(editor: Editor): {name: string; pos: number; n
   const {$from} = selection;
   for (let depth = $from.depth; depth > 0; depth -= 1) {
     const node = $from.node(depth);
-    if (node.type.name in VISUAL_BLOCKS) return {name: node.type.name, pos: $from.before(depth), node};
+    // Visual blocks, and tables (the Table inspector), when the cursor is inside them.
+    if (node.type.name in VISUAL_BLOCKS || node.type.name === 'table') return {name: node.type.name, pos: $from.before(depth), node};
   }
   return null;
 }
 
-export const blockLabel = (name: string) => (VISUAL_BLOCKS as Record<string, string>)[name] ?? (name === 'image' ? 'Image' : name);
+export const blockLabel = (name: string) => (VISUAL_BLOCKS as Record<string, string>)[name] ?? ({image: 'Image', table: 'Table'} as Record<string, string>)[name] ?? name;
 
 export const isVisualBlock = (name: string): name is VisualBlockName => name in VISUAL_BLOCKS;
 

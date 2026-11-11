@@ -167,7 +167,13 @@ function DeviceMockupView(props: ReactNodeViewProps) {
   });
   return (
     <BlockFrame props={props}>
-      <DeviceMockup config={config} edit={edit} />
+      <DeviceMockup
+        config={config}
+        edit={edit}
+        onMoveDevice={(id, x, y) =>
+          props.updateAttributes({config: {...config, preset: 'custom', devices: config.devices.map(d => (d.id === id ? {...d, x, y} : d))}})
+        }
+      />
     </BlockFrame>
   );
 }

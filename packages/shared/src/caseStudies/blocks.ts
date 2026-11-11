@@ -58,6 +58,8 @@ export type ImageGridConfig = {
   gap: Gap;
   items: MediaRef[];
   caption: string;
+  /** Columns on phones (below 768px): 2 (default; 1 below 480px) or always 1. */
+  mobileColumns?: 1 | 2;
 };
 export const defaultImageGrid = (): ImageGridConfig => ({
   columns: 2,
@@ -74,6 +76,8 @@ export const defaultImageGrid = (): ImageGridConfig => ({
 export type ComparisonSide = {media: MediaRef | null; label: string; text: string};
 export type ComparisonConfig = {
   mode: 'before-after' | 'old-new' | 'custom';
+  /** side-by-side (default) or slider: one picture over the other with a draggable divider. */
+  display?: 'side-by-side' | 'slider';
   split: '50-50' | '60-40' | '40-60';
   ratio: Ratio;
   left: ComparisonSide;
@@ -87,6 +91,7 @@ export const COMPARISON_LABELS = {
 } as const;
 export const defaultComparison = (): ComparisonConfig => ({
   mode: 'before-after',
+  display: 'side-by-side',
   split: '50-50',
   ratio: 'auto',
   left: {media: null, label: 'Before', text: ''},
@@ -140,6 +145,8 @@ export type Device = {
   rotate: number;
   /** Layer order: higher sits on top. */
   z: number;
+  /** Locked devices can't be dragged on the canvas (Inspector 2.0). */
+  locked?: boolean;
 };
 export type DevicePreset = 'single' | 'dual-overlap' | 'triple-stack' | 'multi-device' | 'custom';
 export type DeviceMockupConfig = {
@@ -210,6 +217,12 @@ export const defaultDeviceMockup = (): DeviceMockupConfig => ({
 });
 
 export const newDevice = (type: DeviceType, z: number) => device(type, 50, 50, 1, 0, z);
+
+/** A copy of a device, nudged down and right so both stay visible, on top of the others. */
+export const duplicateDevice = (source: Device, z: number): Device => ({
+  ...device(source.type, Math.min(source.x + 6, 95), Math.min(source.y + 6, 95), source.scale, source.rotate, z),
+  media: source.media,
+});
 
 // ----------------------------------------------------------------------------
 // 5. Split editorial layout (its text is the node's content)

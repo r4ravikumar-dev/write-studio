@@ -3288,6 +3288,36 @@ dialog.astryx-dialog::backdrop {
 .write-prose td > p {
   margin: 0;
 }
+/* Table inspector options (data-* on <table>). */
+:is(.cs-prose, .write-prose) table[data-tablestyle='rows'] :is(th, td) {
+  border-inline: 0;
+}
+:is(.cs-prose, .write-prose) table[data-tablestyle='minimal'] :is(th, td) {
+  border: 0;
+}
+:is(.cs-prose, .write-prose) table[data-tablestyle='minimal'] th {
+  background: transparent;
+  border-block-end: var(--border-width-200) solid var(--border-gray-intense);
+}
+:is(.cs-prose, .write-prose) table[data-striped='true'] tr:nth-child(even) td {
+  background: var(--bg-gray-subtle);
+}
+:is(.cs-prose, .write-prose) table[data-density='compact'] :is(th, td) {
+  padding: var(--space-6) var(--space-8);
+  font-size: var(--body-lg-size);
+}
+@media (max-width: 767.98px) {
+  /* "Fit to screen": columns shrink to the screen instead of scrolling sideways. */
+  :is(.cs-prose, .write-prose) table[data-mobile='fit'] {
+    table-layout: auto;
+    font-size: var(--body-lg-size);
+  }
+  :is(.cs-prose, .write-prose) table[data-mobile='fit'] :is(th, td) {
+    min-inline-size: 0;
+    padding: var(--space-6);
+    overflow-wrap: anywhere;
+  }
+}
 .write-prose .selectedCell::after {
   content: '';
   position: absolute;
@@ -4109,6 +4139,102 @@ dialog.astryx-dialog::backdrop {
 }
 @media (max-width: 399.98px) {
   .vb-metrics-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Image grid: "Columns on phones" (Inspector 2.0). */
+@media (max-width: 767.98px) {
+  .vb-grid[data-mobile-columns='1'] { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 479.98px) {
+  .vb-grid[data-mobile-columns='2'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Comparison slider: "after" underneath, "before" clipped at the divider. */
+.vb-slider {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-12);
+  background: var(--surface-container-high);
+}
+.vb-slider .vb-slider-media {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+.vb-slider-before {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 calc(100% - var(--vb-reveal, 50%)) 0 0);
+}
+.vb-slider-handle {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: var(--vb-reveal, 50%);
+  inline-size: var(--border-width-200);
+  transform: translateX(-50%);
+  background: var(--color-base-white);
+  box-shadow: var(--elevation-200);
+  pointer-events: none;
+}
+.vb-slider-handle::after {
+  content: '↔';
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  inline-size: var(--size-40);
+  block-size: var(--size-40);
+  border-radius: var(--radius-round);
+  background: var(--color-base-white);
+  color: var(--text-brand-primary);
+  font-weight: 600;
+  box-shadow: var(--elevation-300);
+}
+.vb-slider:has(.vb-slider-input:focus-visible) .vb-slider-handle::after {
+  outline: var(--border-width-200) solid var(--border-brand-normal);
+  outline-offset: var(--space-2);
+}
+.vb-slider-label {
+  position: absolute;
+  inset-block-start: var(--space-12);
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-round);
+  background: color-mix(in oklab, var(--bg-gray-dark) calc(var(--opacity-70) * 100%), transparent);
+  color: var(--text-gray-inverse);
+  font-size: var(--overline-sm-size);
+  font-weight: 600;
+  letter-spacing: var(--overline-sm-tracking);
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.vb-slider-label[data-side='before'] { inset-inline-start: var(--space-12); }
+.vb-slider-label[data-side='after'] { inset-inline-end: var(--space-12); }
+.vb-slider-input {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+}
+.vb-compare--slider .vb-compare-grid {
+  margin-block-start: var(--space-16);
+}
+
+/* Device mockups in the editor: drag a device on the stage (unless it's locked). */
+.vb-device-slot[data-draggable] {
+  cursor: grab;
+  touch-action: none;
+}
+.vb-device-slot[data-dragging] {
+  cursor: grabbing;
+  outline: var(--border-width-200) dashed var(--border-brand-normal);
+  outline-offset: var(--space-4);
 }
 
 /* =====================================================================

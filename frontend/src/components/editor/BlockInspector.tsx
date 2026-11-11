@@ -47,6 +47,7 @@ import {
   newPhase,
   newStep,
   newFlowNode,
+  duplicateDevice,
 } from '@/lib/caseStudies/blocks';
 import type {MediaRef} from '@studio/shared';
 import {studioMediaUrl} from '@studio/shared';
@@ -152,6 +153,10 @@ function ImageGridInspector({config, onChange}: Props<ImageGridConfig>) {
         />
         {config.arrangement !== 'masonry' && ratioSelector(config.ratio, value => onChange({...config, ratio: value as ImageGridConfig['ratio']}))}
         <Selector label="Gap" options={GAPS} value={config.gap} onChange={value => onChange({...config, gap: value as ImageGridConfig['gap']})} size="sm" />
+        <SegmentedControl label="Columns on phones" value={String(config.mobileColumns ?? 2)} onChange={value => onChange({...config, mobileColumns: Number(value) as 1 | 2})} size="sm" layout="fill">
+          <SegmentedControlItem value="2" label="2 columns" />
+          <SegmentedControlItem value="1" label="1 column" />
+        </SegmentedControl>
       </Section>
       <Divider />
       <Section title={`Images (${config.items.length})`}>
@@ -206,6 +211,15 @@ function ComparisonInspector({config, onChange}: Props<ComparisonConfig>) {
   return (
     <VStack gap={6}>
       <Section title="Layout">
+        <SegmentedControl label="Display" value={config.display ?? 'side-by-side'} onChange={display => onChange({...config, display: display as ComparisonConfig['display']})} size="sm" layout="fill">
+          <SegmentedControlItem value="side-by-side" label="Side by side" />
+          <SegmentedControlItem value="slider" label="Slider" />
+        </SegmentedControl>
+        {config.display === 'slider' && (!config.left.media || !config.right.media) && (
+          <Text type="supporting" color="secondary">
+            Choose both pictures to use the slider. Until then it shows side by side.
+          </Text>
+        )}
         <Selector
           label="Kind"
           options={[
@@ -361,9 +375,21 @@ function DeviceInspector({config, onChange}: Props<DeviceMockupConfig>) {
             <Slider label="Top to bottom" min={0} max={100} value={selected.y} onChange={(y: number) => update({y})} formatValue={v => `${v}%`} />
             <Slider label="Size" min={40} max={160} value={Math.round(selected.scale * 100)} onChange={(v: number) => update({scale: v / 100})} formatValue={v => `${v}%`} />
             <Slider label="Rotation" min={-30} max={30} value={selected.rotate} onChange={(rotate: number) => update({rotate})} formatValue={v => `${v}°`} />
+            <Switch label="Lock position" description="Stops it being dragged on the canvas. The sliders still work." value={Boolean(selected.locked)} onChange={locked => update({locked})} size="sm" />
             <HStack gap={2} wrap="wrap">
               <Button label="Bring to front" size="sm" variant="ghost" onClick={() => update({z: maxZ + 1})} icon={<Icon icon={BringToFront} size="sm" color="inherit" />} />
               <Button label="Send to back" size="sm" variant="ghost" onClick={() => update({z: minZ - 1})} icon={<Icon icon={SendToBack} size="sm" color="inherit" />} />
+              <Button
+                label="Duplicate device"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  const copy = duplicateDevice(selected, maxZ + 1);
+                  setSelectedId(copy.id);
+                  onChange({...config, preset: 'custom', devices: [...config.devices, copy]});
+                }}
+                icon={<Icon icon={Copy} size="sm" color="inherit" />}
+              />
               <Button
                 label="Remove device"
                 size="sm"
@@ -657,6 +683,76 @@ function FlowInspector({config, onChange}: Props<FlowDiagramConfig>) {
 }
 
 // ----------------------------------------------------------------------------
+/** Table properties (Inspector 2.0): look, headers, cell alignment, phones, rows and columns. */
+function TableInspector({editor, pos, node}: {editor: Editor; pos: number; node: PMNode}) {
+  const attrs = node.attrs as {tableStyle: string; striped: boolean; density: string; mobile: string};
+  const set = (next: Record<string, unknown>) => setBlockAttrs(editor, pos, next);
+  const chain = () => editor.chain().focus();
+  const firstRow = node.firstChild;
+  const hasHeaderRow = Boolean(firstRow && firstRow.childCount && [...Array(firstRow.childCount).keys()].every(i => firstRow.child(i).type.name === 'tableHeader'));
+  const hasHeaderColumn = node.childCount > 0 && [...Array(node.childCount).keys()].every(i => node.child(i).firstChild?.type.name === 'tableHeader');
+  const columns = firstRow?.childCount ?? 0;
+  return (
+    <VStack gap={6}>
+      <Text type="supporting" color="secondary">
+        {node.childCount} rows × {columns} columns. Changes to rows, columns and alignment apply where the cursor is in the table.
+      </Text>
+      <Section title="Look">
+        <Selector
+          label="Borders"
+          options={[
+            {value: 'grid', label: 'Grid (every cell)'},
+            {value: 'rows', label: 'Rows only'},
+            {value: 'minimal', label: 'Minimal (header line only)'},
+          ]}
+          value={attrs.tableStyle}
+          onChange={tableStyle => set({tableStyle})}
+          size="sm"
+        />
+        <SegmentedControl label="Density" value={attrs.density} onChange={density => set({density})} size="sm" layout="fill">
+          <SegmentedControlItem value="comfortable" label="Comfortable" />
+          <SegmentedControlItem value="compact" label="Compact" />
+        </SegmentedControl>
+        <Switch label="Striped rows" value={Boolean(attrs.striped)} onChange={striped => set({striped})} size="sm" />
+      </Section>
+      <Divider />
+      <Section title="Headers">
+        <Switch label="Header row" description="The first row labels the columns for screen readers." value={hasHeaderRow} onChange={() => chain().toggleHeaderRow().run()} size="sm" />
+        <Switch label="Header column" description="The first column labels the rows." value={hasHeaderColumn} onChange={() => chain().toggleHeaderColumn().run()} size="sm" />
+      </Section>
+      <Divider />
+      <Section title="Cells">
+        <SegmentedControl
+          label="Text alignment in this cell"
+          value={(['center', 'right'] as const).find(a => editor.isActive({textAlign: a})) ?? 'left'}
+          onChange={align => chain().setTextAlign(align).run()}
+          size="sm"
+          layout="fill">
+          <SegmentedControlItem value="left" label="Left" />
+          <SegmentedControlItem value="center" label="Centre" />
+          <SegmentedControlItem value="right" label="Right" />
+        </SegmentedControl>
+        <HStack gap={2} wrap="wrap">
+          <Button label="Add row" size="sm" variant="secondary" icon={<Icon icon={Plus} size="sm" color="inherit" />} onClick={() => chain().addRowAfter().run()} />
+          <Button label="Add column" size="sm" variant="secondary" icon={<Icon icon={Plus} size="sm" color="inherit" />} onClick={() => chain().addColumnAfter().run()} />
+        </HStack>
+        <HStack gap={2} wrap="wrap">
+          <Button label="Delete row" size="sm" variant="destructive" onClick={() => chain().deleteRow().run()} />
+          <Button label="Delete column" size="sm" variant="destructive" onClick={() => chain().deleteColumn().run()} />
+        </HStack>
+      </Section>
+      <Divider />
+      <Section title="On phones">
+        <SegmentedControl label="Wide tables" value={attrs.mobile} onChange={mobile => set({mobile})} size="sm" layout="fill">
+          <SegmentedControlItem value="scroll" label="Scroll sideways" />
+          <SegmentedControlItem value="fit" label="Fit to screen" />
+        </SegmentedControl>
+      </Section>
+    </VStack>
+  );
+}
+
+// ----------------------------------------------------------------------------
 /** Image properties (spec A7): replace, decorative, alt text, caption, size, alignment, shape. */
 const IMAGE_SIZES = [
   {value: 'full', label: 'Full width'},
@@ -674,7 +770,7 @@ const IMAGE_RATIOS = [
 
 function ImageInspector({editor, pos, node}: {editor: Editor; pos: number; node: PMNode}) {
   const picker = useMedia();
-  const attrs = node.attrs as {src: string; alt?: string; title?: string; decorative?: boolean; size?: string | null; align?: string | null; ratio?: string | null; focus?: string | null};
+  const attrs = node.attrs as {src: string; alt?: string; title?: string; decorative?: boolean; size?: string | null; align?: string | null; ratio?: string | null; focus?: string | null; credit?: string | null; radius?: string | null};
   const set = (next: Record<string, unknown>) => setBlockAttrs(editor, pos, next);
   const size = attrs.size ?? 'full';
   return (
@@ -712,6 +808,7 @@ function ImageInspector({editor, pos, node}: {editor: Editor; pos: number; node:
         />
       )}
       <TextInput label="Caption" value={attrs.title ?? ''} onChange={title => set({title})} size="sm" width="100%" />
+      <TextInput label="Credit" description="Who made it or where it's from. For example: Photo: Jane Doe" value={attrs.credit ?? ''} onChange={credit => set({credit: credit || null})} size="sm" width="100%" />
       <Section title="Layout">
         <Selector label="Size" options={IMAGE_SIZES} value={size} onChange={value => set({size: value === 'full' ? null : value, align: value === 'full' ? null : attrs.align ?? 'center'})} size="sm" />
         {size !== 'full' && (
@@ -723,6 +820,12 @@ function ImageInspector({editor, pos, node}: {editor: Editor; pos: number; node:
         )}
         <Selector label="Shape" description="Crops the image to this shape." options={IMAGE_RATIOS} value={attrs.ratio ?? 'original'} onChange={value => set({ratio: value === 'original' ? null : value})} size="sm" />
         {attrs.ratio && <Selector label="Keep in view when cropped" options={FOCUS_POINTS} value={attrs.focus ?? 'center'} onChange={focus => set({focus})} size="sm" />}
+        <SegmentedControl label="Corners" value={attrs.radius ?? 'none'} onChange={radius => set({radius: radius === 'none' ? null : radius})} size="sm" layout="fill">
+          <SegmentedControlItem value="none" label="Square" />
+          <SegmentedControlItem value="sm" label="Small" />
+          <SegmentedControlItem value="md" label="Medium" />
+          <SegmentedControlItem value="lg" label="Large" />
+        </SegmentedControl>
       </Section>
     </VStack>
   );
@@ -804,6 +907,9 @@ export function BlockInspector({editor, block}: {editor: Editor; block: {name: s
       break;
     case 'flowDiagram':
       body = <FlowInspector config={config} onChange={setConfig} />;
+      break;
+    case 'table':
+      body = <TableInspector editor={editor} pos={pos} node={node} />;
       break;
     case 'image':
       body = <ImageInspector editor={editor} pos={pos} node={node} />;

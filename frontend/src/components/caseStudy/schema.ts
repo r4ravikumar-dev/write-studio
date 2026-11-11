@@ -219,6 +219,10 @@ const StoredImage = Image.extend({
       },
       /** What stays in view when cropped to a ratio (CSS object-position). */
       focus: {default: null, rendered: false},
+      /** Shown after the caption in the preview ("Photo: …"); not stored in the image itself. */
+      credit: {default: null, rendered: false},
+      /** none | sm | md | lg corner rounding. */
+      radius: dataAttr('radius'),
     };
   },
 });
@@ -450,9 +454,30 @@ const SectionKey = Extension.create({
   },
 });
 
+/**
+ * Table presentation (Table inspector): border style, striped rows, density and phone
+ * behaviour, as data attributes on <table> that the stylesheet reads.
+ */
+export const TABLE_DEFAULTS = {tableStyle: 'grid', striped: false, density: 'comfortable', mobile: 'scroll'} as const;
+const TableAttributes = Extension.create({
+  name: 'tableAttributes',
+  addGlobalAttributes() {
+    const attr = (name: keyof typeof TABLE_DEFAULTS) => ({
+      default: TABLE_DEFAULTS[name],
+      parseHTML: (element: HTMLElement) => {
+        const value = element.getAttribute(`data-${name.toLowerCase()}`);
+        return name === 'striped' ? value === 'true' : value ?? TABLE_DEFAULTS[name];
+      },
+      renderHTML: (attributes: Record<string, unknown>) => ({[`data-${name.toLowerCase()}`]: String(attributes[name])}),
+    });
+    return [{types: ['table'], attributes: {tableStyle: attr('tableStyle'), striped: attr('striped'), density: attr('density'), mobile: attr('mobile')}}];
+  },
+});
+
 export const caseStudyExtensions: Extensions = [
   SectionKey,
   TextRoleAttribute,
+  TableAttributes,
   StarterKit.configure({
     heading: {levels: [1, 2, 3, 4]},
     link: {
