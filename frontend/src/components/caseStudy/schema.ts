@@ -174,6 +174,14 @@ export const PullQuoteNode = Node.create({
 });
 
 /** Images hold a storage path; shown through its public URL, with their pixel size. */
+/** An image's layout, as data attributes the stylesheet reads (typography.css). */
+const dataAttr = (name: string) => ({
+  default: null,
+  parseHTML: (element: HTMLElement) => element.getAttribute(`data-${name}`),
+  renderHTML: (attributes: Record<string, unknown>) =>
+    attributes[name] ? {[`data-${name}`]: String(attributes[name])} : {},
+});
+
 const StoredImage = Image.extend({
   addAttributes() {
     return {
@@ -184,7 +192,52 @@ const StoredImage = Image.extend({
       },
       width: {default: null},
       height: {default: null},
+      /** Decorative images get alt="" so screen readers skip them (W3C: text alternatives). */
+      decorative: {
+        default: false,
+        parseHTML: element => element.getAttribute('data-decorative') === 'true',
+        renderHTML: attributes => (attributes.decorative ? {'data-decorative': 'true', alt: ''} : {}),
+      },
+      /** full | large | medium | small (100, 75, 50, 33% of the text column). */
+      size: dataAttr('size'),
+      /** left | center | right (only matters below full width). */
+      align: dataAttr('align'),
+      /** 16/9 | 4/3 | 1/1 | 3/4, or null for the original shape. */
+      ratio: {
+        default: null,
+        parseHTML: element => element.getAttribute('data-ratio'),
+        renderHTML: attributes => (attributes.ratio ? {'data-ratio': attributes.ratio, style: `aspect-ratio: ${attributes.ratio}; object-position: ${attributes.focus ?? 'center'}`} : {}),
+      },
+      /** What stays in view when cropped to a ratio (CSS object-position). */
+      focus: {default: null, rendered: false},
     };
+  },
+});
+
+/**
+ * Paragraph text roles from the design system (Display, Lead, Small, Caption, Label), stored as
+ * an attribute and rendered as a class, so restyling the type scale restyles every document.
+ */
+export const TEXT_ROLES = ['display', 'lead', 'small', 'caption', 'label'] as const;
+export type TextRole = (typeof TEXT_ROLES)[number];
+const TextRoleAttribute = Extension.create({
+  name: 'textRole',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['paragraph'],
+        attributes: {
+          textRole: {
+            default: null,
+            parseHTML: element => {
+              const role = [...element.classList].find(name => name.startsWith('cs-text-'))?.slice(8);
+              return (TEXT_ROLES as readonly string[]).includes(role ?? '') ? role : null;
+            },
+            renderHTML: attributes => (attributes.textRole ? {class: `cs-text-${attributes.textRole}`} : {}),
+          },
+        },
+      },
+    ];
   },
 });
 
@@ -390,13 +443,15 @@ const SectionKey = Extension.create({
 
 export const caseStudyExtensions: Extensions = [
   SectionKey,
+  TextRoleAttribute,
   StarterKit.configure({
     heading: {levels: [1, 2, 3, 4]},
     link: {
       openOnClick: false,
       autolink: true,
       defaultProtocol: 'https',
-      HTMLAttributes: {rel: 'noopener noreferrer', target: '_blank'},
+      // Each link stores its own target (new tab or not); the link editor sets it.
+      HTMLAttributes: {rel: 'noopener noreferrer', target: null},
     },
   }),
   TextStyleKit,

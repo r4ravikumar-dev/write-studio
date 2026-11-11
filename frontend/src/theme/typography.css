@@ -167,3 +167,57 @@ body {
 .cs-prose :is(h1, h2, h3, h4, p):empty {
   display: none;
 }
+
+/* ---- Paragraph text roles (Text style picker): DNA web scale, mobile scale below 768px ---- */
+.cs-prose p.cs-text-display {
+  font-family: var(--font-display);
+  font-size: var(--display-sm-size);
+  font-weight: 600;
+  line-height: var(--display-leading);
+  letter-spacing: var(--display-tracking);
+  color: var(--text-gray-primary);
+  margin-block: 0.4em 0.5em;
+}
+.cs-prose p.cs-text-lead {
+  /* One step above body (the reading size is already body/xxl). */
+  font-size: var(--heading-lg-size);
+  font-weight: 400;
+  line-height: var(--body-xxl-leading);
+  color: var(--text-gray-primary);
+}
+.cs-prose p.cs-text-small {
+  font-size: var(--body-lg-size);
+  line-height: var(--body-leading);
+}
+.cs-prose p.cs-text-caption {
+  font-size: var(--caption-md-size);
+  line-height: var(--caption-leading);
+  color: var(--text-gray-tertiary);
+}
+.cs-prose p.cs-text-label {
+  font-size: var(--overline-lg-size);
+  font-weight: 600;
+  line-height: var(--overline-leading);
+  letter-spacing: var(--overline-lg-tracking);
+  text-transform: uppercase;
+  color: var(--text-brand-primary);
+}
+
+/* ---- Images: size, alignment and crop (Image inspector) ---- */
+.cs-prose img[data-size] {
+  display: block;
+  block-size: auto;
+}
+.cs-prose img[data-size='large'] { inline-size: 75%; }
+.cs-prose img[data-size='medium'] { inline-size: 50%; }
+.cs-prose img[data-size='small'] { inline-size: 33.333%; }
+.cs-prose img[data-align='center'] { margin-inline: auto; }
+.cs-prose img[data-align='right'] { margin-inline-start: auto; }
+.cs-prose img[data-ratio] {
+  object-fit: cover;
+}
+@media (max-width: 767px) {
+  /* Phones: small images still need to be readable. */
+  .cs-prose img[data-size='medium'],
+  .cs-prose img[data-size='small'] { inline-size: 100%; }
+}
