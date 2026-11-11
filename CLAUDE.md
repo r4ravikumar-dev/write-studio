@@ -146,7 +146,7 @@ RLS on + zero policies + no anon/authenticated grants on studio tables. `public.
 
 `scripts/security-suite.sh [django-console-log]`: static "no owner/portfolio code" grep, typecheck, lint,
 Express build, Django check + 26 tests; with the log: schema 33, auth-live 23, storage-live 30,
-documents-live 55, setup-live 35, sections-live 30, lifecycle-live 27 (all passing 2026-11-11). Map of SEC-001..018 in
+documents-live 55, setup-live 35, sections-live 30, review-live 16, lifecycle-live 27, review engine 8 (offline, tsx) (all passing 2026-11-11). Map of SEC-001..018 in
 `supabase/tests/README.md`. Live tests create/delete `@example.test` accounts (staging only).
 
 ## 8. Removed on 2026-11-10 (don't reintroduce)
@@ -181,7 +181,7 @@ Backup before removal: `/private/tmp/claude-501/-Users-visit--claude-spares-spar
 - **Toolbar 2.0 (Release 1, implemented; spec `docs/toolbar-2.0-spec.md`):** `Toolbar.tsx` is one row on desktop (Undo/Redo · Find · Text style · B/I/U, Link, Colour · Alignment, Lists · More ⋯ · Insert); below ~720px of column width Alignment/Lists fold into More; phones keep the bottom bar + ⌃ sheet (groups Text style / Format / Paragraph) + Insert FAB. Text styles = headings h1–h4 + paragraph `textRole` (display/lead/small/caption/label → `.cs-text-*` in typography.css). Find/replace: `search.ts` (ProseMirror decorations, never stored; replace all = one undo) + `FindReplace.tsx`, ⌘/Ctrl+F. Selection bubble: B/I/U/Link/Highlight/More, hidden in tables and while find is open. `TableBar.tsx`: anchored above the table. Link editor: address + text + new-tab switch; `safeHref()` allows only https/http/mailto/tel, `/`, `#`. Image node attrs: decorative, size, align, ratio, focus (Image inspector 2.0). Insert registry (`insertCommands.tsx`): six groups Text/Media/Visual/Data/Structure/Advanced + template sections via `insertMenuItems()`; `/` menu shows the same headings (name matches rank first).
 - **Insert 2.0 blocks (Release 2):** `timeline` (phases; across/down; line/cards), `screenSequence` (numbered screens with phone/browser/no frame, 2–4 columns, arrows), `annotatedImage` (click the screenshot in the editor to add a numbered marker; notes list is the accessible content; markers decorative), `flowDiagram` (start/step/decision/end shapes, labelled arrows). Configs/defaults in `packages/shared/src/caseStudies/blocks.ts`, nodes via `visualAtom` in schema.ts, renderers in `visualBlocks.tsx` (editor + preview), views in nodeViews.tsx, inspectors in BlockInspector.tsx, CSS `.vb-timeline/.vb-sequence/.vb-annotated/.vb-flow` in globals.css (list selectors are `.vb .vb-…-list` to beat `.cs-prose ol`). Horizontal layouts stack on phones; empty sequence steps are omitted in the preview. Media paths are covered by the generic `documentMediaPaths` walk.
 - **Inspector 2.0 (Release 3):** `findSelectedBlock` treats the table around the cursor as a block → `TableInspector` (borders grid/rows/minimal, striped, density, header row/column, cell alignment, rows/columns, phones scroll/fit; table attrs `tableStyle/striped/density/mobile` → `data-tablestyle…` via `TableAttributes`). Device mockups: drag on the canvas in the editor (`onMoveDevice`, window pointer listeners, keeps the grab offset, one update on drop; a drag suppresses the picker click), Duplicate device, `locked`. Images: `credit` (shown after the caption in the preview) and `radius`; the preview's image mapping now honours size/align/ratio/focus/decorative/radius. Comparison `display: 'slider'` (range-input divider, needs both pictures). Image grid `mobileColumns`.
-- Write Studio 2.0 blueprint: `docs/write-studio-2.0-blueprint.md`; Stage 0 audit done: `docs/stage-0-ux-audit.md`; Stage 1 done (`docs/stage-1-report.md`); Stage 2 done (`docs/stage-2-report.md`); next is Stage 3 (hybrid editor).
+- Write Studio 2.0 blueprint: `docs/write-studio-2.0-blueprint.md`; Stage 0 audit done: `docs/stage-0-ux-audit.md`; Stage 1 done (`docs/stage-1-report.md`); Stage 2 done (`docs/stage-2-report.md`); Stage 3 done (`docs/stage-3-report.md`); Stage 4 done (`docs/stage-4-report.md`); Stage 5 done (`docs/stage-5-report.md`); next is Stage 6 (closed beta).
 - **Stage 1, guided project creation (done 2026-11-11; report `docs/stage-1-report.md`):** frameworks are versioned,
   immutable data in `packages/shared/src/frameworks` (Product and UX design v1 = the 10 sections with purpose,
   act, prompts, evidence, visuals; Blank v1); never edit a released version, add one. `caseStudySections` now comes
@@ -209,3 +209,32 @@ Backup before removal: `/private/tmp/claude-501/-Users-visit--claude-spares-spar
   tab, the default: purpose, questions, evidence, "Add <visual>" at the end of the section, status, private note
   autosaved via `saveSectionNote`, previous/next). Preview wraps each section in `<section class="cs-section">`
   (`display: contents`). In dev, browser-pane screenshots can lag behind menus opening; check `aria-expanded`.
+- **Stage 3, hybrid editor (done 2026-11-11; `docs/stage-3-report.md`):** title + subtitle are plain text fields on the
+  sheet (`TitleFields.tsx`; Enter/↓ flows title → subtitle → story, ↑ back); the side panel's Headline fields are
+  gone (Summary group instead); tab title follows the title. Side panel tabs: Guide · Block · Media · Details
+  (`MediaPanel.tsx`: insert at cursor, drag onto the page via `ASSET_DRAG_TYPE` handled in `handleDrop`, upload).
+  Text bubble: two BubbleMenus (`studioTextBubble` above, `studioTextBubbleBelow` below when the selection is inside a
+  custom node, see `isInsideBlock`). BubbleMenu only listens to WINDOW scroll and its React wrapper drops the first
+  options update (so `scrollTarget` set after mount never applies): the editor listens to `.write-scroll` and
+  dispatches `tr.setMeta(<pluginKey>, 'updatePosition')`. A11y: skip links, landmarks via `role` on the stacks,
+  sr-only `<h1>`, `SectionLabels` (aria-label on empty section headings), named block-bar buttons, drawers take
+  focus and close on Escape, the save status isn't a live region. `.sr-only` lives in foundation.css.
+- **Stage 4, visual composition (done 2026-11-11; `docs/stage-4-report.md`):** `components/editor/presets.ts` holds
+  `BLOCK_PRESETS` (layout values only, never content; schematic = rects on 64×40 with kinds m/t/a/p/d; device presets
+  rebuild `devices` via `devicePreset(id, keep)` so pictures stay) and `isPresetActive`/`applyPreset`;
+  `PresetGallery.tsx` renders them at the top of BlockInspector (callout presets set node attrs tone/icon).
+  New optional config fields: `width?: BlockWidth` ('content'|'wide') on image grid, split, comparison;
+  `surface?` on image grid, split, metrics; metrics `size?`/`align?`; quote `align?`. Renderers emit
+  `data-block-width="wide"` / `data-block-surface` only for non-defaults (`layoutAttrs()` in visualBlocks.tsx).
+  The preview column is `--content-max` (720px), so wide uses `--block-wide-max` (64rem); in the editor
+  `.write-document` is an inline-size container and wide blocks use `100cqi`. Don't replace the whole doc with
+  `setContent` while React node views are mounted (React "removeChild" crash); edit with transactions.
+- **Stage 5, review & output (done 2026-11-11; `docs/stage-5-report.md`):** `reviewCaseStudy()` in shared
+  `caseStudies/review.ts` (checklist, warnings with `sectionId`/`nodeIndex`/`inDetails`, progress; tested by
+  `packages/shared/test/review.test.ts` via tsx). `ReviewDialog.tsx` (top bar "Review"; Go to section / block /
+  details). Migration `0012`: stored GENERATED columns `sections_total`/`sections_complete` (jsonpath over the doc);
+  never write them. `StudioPreview.tsx` restyled (`.preview-*` in surfaces.css; facts, contents, anchors
+  `#section-<sectionId>` set by the heading mapping); `CaseStudyArticle` fills an empty framework heading with its
+  title when the section has content and drops empty sections. `ExportMenu.tsx`: PDF = `window.print()` + `@media
+  print`/`@page` rules; HTML = client-side standalone file (styles from `document.styleSheets` with relative
+  `url()`s resolved against each sheet's href, fonts/images fetched as data URLs, ≤20 MB each).
