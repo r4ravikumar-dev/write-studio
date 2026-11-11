@@ -6,7 +6,10 @@ import {VStack} from '@astryxdesign/core/Layout';
 import {Text} from '@astryxdesign/core/Text';
 import {Button} from '@astryxdesign/core/Button';
 import {Icon} from '@astryxdesign/core/Icon';
-import {INSERT_GROUPS, type InsertCommand} from './insertCommands';
+import {INSERT_GROUPS, smartSections, type InsertCommand} from './insertCommands';
+
+/** One row: a command, under a section heading (top sections or its category). */
+type Entry = {section: string; command: InsertCommand};
 
 type Slash = {query: string; from: number; to: number; top: number; left: number};
 
@@ -21,16 +24,22 @@ export function SlashMenu({editor, commands}: {editor: Editor; commands: InsertC
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLElement | null>(null);
 
-  const matches = useMemo(() => {
+  const matches = useMemo((): Entry[] => {
     if (!slash) return [];
     const query = slash.query.toLowerCase();
-    // Unfiltered: in category order (Text, Media, Visual, Data, Structure, Advanced).
-    if (!query) return INSERT_GROUPS.flatMap(group => commands.filter(command => command.group === group));
+    // Unfiltered: the top sections (recommended, recent, frequent), then the categories in order.
+    if (!query) {
+      return [
+        ...smartSections(commands, editor).flatMap(section => section.commands.map(command => ({section: section.title, command}))),
+        ...INSERT_GROUPS.flatMap(group => commands.filter(command => command.group === group).map(command => ({section: group, command}))),
+      ];
+    }
     // Names that match come first, then keyword and category matches ("/flow" → Flow diagram first).
     const byName = commands.filter(command => command.label.toLowerCase().includes(query));
     const byKeyword = commands.filter(command => !byName.includes(command) && `${command.keywords} ${command.group}`.toLowerCase().includes(query));
-    return [...byName, ...byKeyword];
-  }, [commands, slash]);
+    return [...byName, ...byKeyword].map(command => ({section: '', command}));
+    // `slash` changes whenever the cursor moves, so the recommendations follow the section.
+  }, [commands, slash, editor]);
 
   // Watch the text: "/" + up to 24 non-space characters, alone in a paragraph, cursor at its end.
   useEffect(() => {
@@ -63,7 +72,8 @@ export function SlashMenu({editor, commands}: {editor: Editor; commands: InsertC
     };
   }, [editor]);
 
-  const choose = (command: InsertCommand | undefined) => {
+  const choose = (entry: Entry | undefined) => {
+    const command = entry?.command;
     if (!command || !slash) return;
     editor.chain().focus().deleteRange({from: slash.from, to: slash.to}).run();
     setSlash(null);
@@ -108,15 +118,15 @@ export function SlashMenu({editor, commands}: {editor: Editor; commands: InsertC
           Nothing matches “{slash.query}”
         </Text>
       ) : (
-        matches.map((command, index) => [
-          // Category headings while nothing is typed (presentation only: options stay one list).
-          !slash.query && command.group !== matches[index - 1]?.group ? (
-            <Text key={`group-${command.group}`} type="supporting" color="secondary" role="presentation" className="write-slash-group">
-              {command.group}
+        matches.map(({section, command}, index) => [
+          // Section headings while nothing is typed (presentation only: options stay one list).
+          section && section !== matches[index - 1]?.section ? (
+            <Text key={`section-${section}`} type="supporting" color="secondary" role="presentation" className="write-slash-group">
+              {section}
             </Text>
           ) : null,
           <Button
-            key={command.id}
+            key={`${section}-${command.id}`}
             role="option"
             aria-selected={index === active}
             data-active={index === active}
@@ -127,7 +137,7 @@ export function SlashMenu({editor, commands}: {editor: Editor; commands: InsertC
             icon={<Icon icon={command.icon} size="sm" color="inherit" />}
             onMouseEnter={() => setActive(index)}
             onMouseDown={event => event.preventDefault()}
-            onClick={() => choose(command)}
+            onClick={() => choose(matches[index])}
           />,
         ])
       )}

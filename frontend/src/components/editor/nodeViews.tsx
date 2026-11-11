@@ -1,13 +1,8 @@
 'use client';
 
 import {NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, type ReactNodeViewProps} from '@tiptap/react';
-import {HStack} from '@astryxdesign/core/Layout';
-import {Text} from '@astryxdesign/core/Text';
 import {Switch} from '@astryxdesign/core/Switch';
 import {TextInput} from '@astryxdesign/core/TextInput';
-import {IconButton} from '@astryxdesign/core/IconButton';
-import {Icon} from '@astryxdesign/core/Icon';
-import {ArrowDown, ArrowUp, Copy, GripVertical, SlidersHorizontal, Trash2} from 'lucide-react';
 import {
   Callout,
   ComparisonNode,
@@ -54,15 +49,13 @@ import {newAnnotation} from '@/lib/caseStudies/blocks';
 import {fileKind} from '@/lib/caseStudies/embeds';
 import type {StudioAsset as Asset} from '@studio/shared';
 import {studioMediaUrl} from '@studio/shared';
-import {blockLabel, deleteBlock, duplicateBlock, mediaFromAsset, moveBlock, selectBlock} from './blockOps';
+import {mediaFromAsset, selectBlock} from './blockOps';
 import {useMedia} from './MediaLibrary';
-import {EYEBROW_STYLE} from '@/theme/eyebrow';
 
 /**
- * Each block in the editor: its live preview (the same component the site
- * renders), framed by a bar with a drag handle, its name, move up / down,
- * duplicate, delete and "Properties" (which opens its settings in the side
- * panel). Pictures in a preview can be clicked to choose or replace them.
+ * Each block in the editor: its live preview (the same component the site renders). Moving,
+ * duplicating, deleting and Properties are on the universal block handle (editor spec §7, D5).
+ * Pictures in a preview can be clicked to choose or replace them.
  */
 function BlockFrame({
   props,
@@ -74,28 +67,9 @@ function BlockFrame({
   /** Blocks with editable text inside (split layout, quote, callout). */
   isContent?: boolean;
 }) {
-  const {editor, getPos, node, selected} = props;
-  /** The block's name for its buttons ("Move image grid up"), so each says what it acts on. */
-  const name = blockLabel(node.type.name).toLowerCase();
-  const at = (run: (pos: number) => void) => () => {
-    const pos = getPos();
-    if (typeof pos === 'number') run(pos);
-  };
+  const {selected} = props;
   return (
     <NodeViewWrapper className="write-block" data-selected={selected || undefined} data-content={isContent || undefined}>
-      <HStack gap={1} vAlign="center" className="write-block-bar">
-        <span className="write-block-grip" draggable data-drag-handle aria-hidden>
-          <Icon icon={GripVertical} size="sm" color="inherit" />
-        </span>
-        <Text type="supporting" style={{...EYEBROW_STYLE, color: 'var(--color-text-secondary)', flex: 1}}>
-          {blockLabel(node.type.name)}
-        </Text>
-        <IconButton label={`Properties of ${name}`} tooltip="Properties" size="sm" variant="ghost" onClick={at(pos => selectBlock(editor, pos))} icon={<Icon icon={SlidersHorizontal} size="sm" color="inherit" />} />
-        <IconButton label={`Move ${name} up`} tooltip="Move up" size="sm" variant="ghost" onClick={at(pos => moveBlock(editor, pos, -1))} icon={<Icon icon={ArrowUp} size="sm" color="inherit" />} />
-        <IconButton label={`Move ${name} down`} tooltip="Move down" size="sm" variant="ghost" onClick={at(pos => moveBlock(editor, pos, 1))} icon={<Icon icon={ArrowDown} size="sm" color="inherit" />} />
-        <IconButton label={`Duplicate ${name}`} tooltip="Duplicate" size="sm" variant="ghost" onClick={at(pos => duplicateBlock(editor, pos))} icon={<Icon icon={Copy} size="sm" color="inherit" />} />
-        <IconButton label={`Delete ${name}`} tooltip="Delete" size="sm" variant="destructive" onClick={at(pos => deleteBlock(editor, pos))} icon={<Icon icon={Trash2} size="sm" color="inherit" />} />
-      </HStack>
       {children}
     </NodeViewWrapper>
   );

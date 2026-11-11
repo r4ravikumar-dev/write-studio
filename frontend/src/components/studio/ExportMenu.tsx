@@ -1,8 +1,10 @@
 'use client';
 
-import {useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
+import {useRouter} from 'next/navigation';
 import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
 import {Button} from '@astryxdesign/core/Button';
+import {IconButton} from '@astryxdesign/core/IconButton';
 import {Icon} from '@astryxdesign/core/Icon';
 import {Download, FileCode2, FileText} from 'lucide-react';
 
@@ -66,9 +68,23 @@ const SLIDER_SCRIPT = `document.querySelectorAll('.vb-slider').forEach(function(
  *  - PDF: the browser's print dialog, with a print stylesheet (A4, no app chrome, no split blocks).
  *  - HTML: one self-contained file (styles, fonts and pictures embedded) that opens anywhere.
  */
-export function ExportMenu({title}: {title: string}) {
+export function ExportMenu({
+  title,
+  previewHref,
+  beforeOpen,
+  isIconOnly = false,
+}: {
+  title: string;
+  /** From the editor: export opens the private preview in a new tab and runs there. */
+  previewHref?: string;
+  /** Runs before the preview opens (the editor saves first). */
+  beforeOpen?: () => Promise<unknown>;
+  isIconOnly?: boolean;
+}) {
   const [isWorking, setIsWorking] = useState(false);
   const [message, setMessage] = useState('');
+  const hasAutoRun = useRef(false);
+  const router = useRouter();
 
   const exportHtml = async () => {
     const page = document.querySelector<HTMLElement>('.preview-page');
@@ -124,22 +140,64 @@ export function ExportMenu({title}: {title: string}) {
     }
   };
 
+  /**
+   * From the editor: open the tab straight away (inside the click, so it isn't blocked as a
+   * pop-up), save, then point it at the preview with ?export=pdf|html.
+   */
+  const openPreview = (kind: 'pdf' | 'html') => {
+    const tab = window.open('', '_blank');
+    void Promise.resolve(beforeOpen?.()).finally(() => {
+      const url = `${previewHref}?export=${kind}`;
+      if (tab) tab.location.href = url;
+      else router.push(url);
+    });
+  };
+
+  // On the preview page, ?export=pdf|html (from the editor) runs that export once everything has
+  // loaded, then removes the parameter so a reload doesn't repeat it.
+  useEffect(() => {
+    if (previewHref || hasAutoRun.current) return;
+    const kind = new URLSearchParams(window.location.search).get('export');
+    if (kind !== 'pdf' && kind !== 'html') return;
+    hasAutoRun.current = true;
+    const run = async () => {
+      await document.fonts.ready;
+      await Promise.all(
+        Array.from(document.images, image => (image.complete ? null : new Promise(resolve => image.addEventListener('load', resolve, {once: true})))),
+      );
+      const url = new URL(window.location.href);
+      url.searchParams.delete('export');
+      window.history.replaceState(null, '', url);
+      if (kind === 'pdf') window.print();
+      else await exportHtml();
+    };
+    void run();
+    // exportHtml reads only the DOM; running once on load is intended.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewHref]);
+
   return (
     <>
       <DropdownMenu
-        renderTrigger={props => <Button {...props} label="Export" size="sm" variant="ghost" isLoading={isWorking} icon={<Icon icon={Download} size="sm" color="inherit" />} />}
+        renderTrigger={props =>
+          isIconOnly ? (
+            <IconButton {...props} label="Export" tooltip="Export" size="sm" variant="ghost" isLoading={isWorking} icon={<Icon icon={Download} size="sm" color="inherit" />} />
+          ) : (
+            <Button {...props} label="Export" size="sm" variant="ghost" isLoading={isWorking} icon={<Icon icon={Download} size="sm" color="inherit" />} />
+          )
+        }
         items={[
           {
             label: 'Save as PDF',
             description: 'Opens the print dialog: choose Save as PDF',
             icon: <Icon icon={FileText} size="sm" color="inherit" />,
-            onClick: () => window.print(),
+            onClick: () => (previewHref ? openPreview('pdf') : window.print()),
           },
           {
             label: 'Download HTML',
             description: 'One file with the pictures included',
             icon: <Icon icon={FileCode2} size="sm" color="inherit" />,
-            onClick: () => void exportHtml(),
+            onClick: () => (previewHref ? openPreview('html') : void exportHtml()),
           },
         ]}
         menuWidth={280}

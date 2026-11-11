@@ -3,7 +3,7 @@
 import type {Editor} from '@tiptap/react';
 import type {JSONContent} from '@tiptap/core';
 import {Icon} from '@astryxdesign/core/Icon';
-import {caseStudySectionNodes, caseStudySections} from '@studio/shared';
+import {caseStudySectionNodes, caseStudySections, frameworkSection} from '@studio/shared';
 import {
   defaultComparison,
   defaultDeviceMockup,
@@ -45,11 +45,17 @@ import {
   Quote,
   Video,
   MonitorPlay,
+  Pilcrow,
+  Heading3,
+  TextQuote,
   type LucideIcon,
 } from 'lucide-react';
+import {frequentInserts, recentInserts, recordInsert} from './insertUsage';
+import {activeSectionIndex, outlineOf} from './sections';
+import {insertIdFor} from './blocks/registry';
 
-/** Insert and "/" menu categories, in menu order (docs/toolbar-2.0-spec.md, A8). */
-export const INSERT_GROUPS = ['Text', 'Media', 'Visual', 'Data', 'Structure', 'Advanced'] as const;
+/** Insert and "/" menu categories, in menu order (editor spec §8.1; D2 adds Embeds, Advanced retired). */
+export const INSERT_GROUPS = ['Text', 'Media', 'Visual', 'Data', 'Structure', 'Embeds'] as const;
 export type InsertGroup = (typeof INSERT_GROUPS)[number];
 
 /** One thing that can be added to a case study, from the Insert menu or by typing "/". */
@@ -79,7 +85,34 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
       .insertContent(content ? {type, attrs: {config}, content} : {type, attrs: {config}})
       .run();
   const text = (value: string): JSONContent[] => [{type: 'paragraph', content: [{type: 'text', text: value}]}];
-  return [
+  const commands: InsertCommand[] = [
+    {
+      id: 'paragraph',
+      group: 'Text',
+      label: 'Paragraph',
+      description: 'Body text',
+      icon: Pilcrow,
+      keywords: 'text body plain normal',
+      run: () => chain().insertContent({type: 'paragraph'}).run(),
+    },
+    {
+      id: 'heading',
+      group: 'Text',
+      label: 'Heading',
+      description: 'A heading inside a section',
+      icon: Heading3,
+      keywords: 'heading subheading h3 title',
+      run: () => chain().insertContent({type: 'heading', attrs: {level: 3}}).run(),
+    },
+    {
+      id: 'lead',
+      group: 'Text',
+      label: 'Lead paragraph',
+      description: 'A larger opening paragraph',
+      icon: TextQuote,
+      keywords: 'lead intro introduction large standfirst',
+      run: () => chain().insertContent({type: 'paragraph', attrs: {textRole: 'lead'}}).run(),
+    },
     {
       id: 'image-grid',
       group: 'Visual',
@@ -139,7 +172,7 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
     },
     {
       id: 'pull-quote',
-      group: 'Visual',
+      group: 'Text',
       label: 'Pull quote',
       description: 'A standout quote with attribution',
       icon: MessageSquareQuote,
@@ -169,7 +202,7 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
     },
     {
       id: 'video-link',
-      group: 'Media',
+      group: 'Embeds',
       label: 'Video link',
       description: 'Embed from YouTube, Vimeo or Loom',
       icon: MonitorPlay,
@@ -178,7 +211,7 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
     },
     {
       id: 'figma',
-      group: 'Media',
+      group: 'Embeds',
       label: 'Figma',
       description: 'Embed a Figma file, prototype or board',
       icon: Frame,
@@ -262,7 +295,7 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
     },
     {
       id: 'table',
-      group: 'Advanced',
+      group: 'Text',
       label: 'Table',
       description: 'A 3 × 3 table with a header row',
       icon: Table2,
@@ -271,7 +304,7 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
     },
     {
       id: 'code-block',
-      group: 'Advanced',
+      group: 'Text',
       label: 'Code block',
       description: 'Code shown in a fixed-width font',
       icon: SquareCode,
@@ -280,7 +313,7 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
     },
     {
       id: 'collapsible',
-      group: 'Advanced',
+      group: 'Text',
       label: 'Collapsible section',
       description: 'Content readers can open and close',
       icon: ListCollapse,
@@ -289,7 +322,7 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
     },
     {
       id: 'space',
-      group: 'Advanced',
+      group: 'Structure',
       label: 'Space',
       description: 'Extra space between parts',
       icon: MoveVertical,
@@ -333,13 +366,46 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
       run: block('flowDiagram', defaultFlowDiagram()),
     },
   ];
+  // Every insert is counted for Recently / Frequently used (ids only, this browser only).
+  return commands.map(command => ({...command, run: () => (recordInsert(command.id), command.run())}));
+}
+
+/** A titled group of insert commands (the top sections, then the categories). */
+export type InsertSection = {title: string; commands: InsertCommand[]};
+
+/**
+ * Smart Insert's top sections (editor spec §8.2): recommended for the section the cursor is in
+ * (from the framework's suggested visuals), recently used, and frequently used. Suggestions only:
+ * everything stays in its category below.
+ */
+export function smartSections(commands: InsertCommand[], editor: Editor): InsertSection[] {
+  const byId = new Map(commands.map(command => [command.id, command]));
+  const pick = (ids: (string | undefined)[]) => ids.map(id => (id ? byId.get(id) : undefined)).filter((command): command is InsertCommand => Boolean(command));
+  const sections: InsertSection[] = [];
+  const outline = outlineOf(editor.state.doc);
+  const current = outline[activeSectionIndex(outline, editor.state.selection.from)];
+  const framework = current ? frameworkSection(current.key) : undefined;
+  const recommended = framework ? pick(framework.suggestedVisuals.map(insertIdFor)).slice(0, 4) : [];
+  if (recommended.length) sections.push({title: `Recommended for “${current!.name}”`, commands: recommended});
+  const recent = pick(recentInserts(5));
+  if (recent.length) sections.push({title: 'Recently used', commands: recent});
+  const frequent = pick(frequentInserts(5, [...recent, ...recommended].map(command => command.id)));
+  if (frequent.length) sections.push({title: 'Frequently used', commands: frequent});
+  return sections;
 }
 
 /**
- * The Insert menu's sections (desktop Insert button and the phone floating button): the six
- * categories in order, then the framework's template sections under Structure.
+ * The Insert menu's sections (desktop Insert button and the phone floating button): the top
+ * sections, then the six categories in order, then the framework's template sections.
  */
 export function insertMenuItems(commands: InsertCommand[], editor: Editor) {
+  const toItem = (command: InsertCommand) => ({
+    label: command.label,
+    description: command.description,
+    icon: <Icon icon={command.icon} size="sm" color="inherit" />,
+    onClick: () => command.run(),
+  });
+  const top = smartSections(commands, editor).map(section => ({type: 'section' as const, title: section.title, items: section.commands.map(toItem)}));
   const sections = INSERT_GROUPS.map(group => ({
     type: 'section' as const,
     title: group,
@@ -353,6 +419,7 @@ export function insertMenuItems(commands: InsertCommand[], editor: Editor) {
       })),
   })).filter(section => section.items.length);
   return [
+    ...top,
     ...sections,
     {
       type: 'section' as const,

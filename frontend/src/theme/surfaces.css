@@ -1144,3 +1144,78 @@
     -webkit-print-color-adjust: exact;
   }
 }
+
+/* Editor header: the save status and draft label never wrap (they used to stack on tablets). */
+.studio-bar-save {
+  white-space: nowrap;
+}
+
+/* ── Universal block handle (editor spec §7, T2) ───────────────────────────────────────────── */
+.write-document {
+  position: relative;
+}
+.block-handle {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  block-size: 36px;
+  color: var(--icon-gray-intense);
+  animation: block-handle-in var(--glass-duration) ease;
+}
+@keyframes block-handle-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .block-handle { animation: none; }
+}
+.block-handle-grip {
+  display: grid;
+  place-items: center;
+  inline-size: 16px;
+  block-size: 28px;
+  border-radius: var(--radius-6);
+  color: var(--icon-gray-normal);
+  cursor: grab;
+}
+.block-handle-add {
+  display: grid;
+  place-items: center;
+  inline-size: 24px;
+  block-size: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-6);
+  background: none;
+  color: var(--icon-gray-normal);
+  cursor: pointer;
+}
+.block-handle-add:hover,
+.block-handle-add:focus-visible {
+  background: var(--bg-gray-moderate);
+  color: var(--icon-gray-intense);
+}
+.block-handle-add:focus-visible {
+  outline: var(--border-width-200) solid var(--border-brand-normal);
+  outline-offset: var(--space-2);
+}
+.block-handle-grip:hover {
+  background: var(--bg-gray-moderate);
+  color: var(--icon-gray-intense);
+}
+.block-handle-grip:active {
+  cursor: grabbing;
+}
+/* Narrow screens and touch: one ⋯ on the block with the cursor, on a small glass chip. */
+.block-handle[data-compact] {
+  padding: var(--space-2);
+  border-radius: var(--radius-round);
+  background: color-mix(in oklab, var(--surface-container) 85%, transparent);
+  box-shadow: var(--elevation-200);
+  backdrop-filter: blur(var(--glass-blur));
+}
+@media print {
+  .block-handle { display: none; }
+}

@@ -12,7 +12,7 @@ import {Banner} from '@astryxdesign/core/Banner';
 import {Dialog, DialogHeader} from '@astryxdesign/core/Dialog';
 import {TextInput} from '@astryxdesign/core/TextInput';
 import {Icon} from '@astryxdesign/core/Icon';
-import {Archive, ArchiveRestore, ArrowLeft, ClipboardCheck, Bold, Code, Eye, Highlighter, Italic, Link2, ListTree, Monitor, MoreHorizontal, PanelRight, RemoveFormatting, Smartphone, Strikethrough, Tablet, Underline} from 'lucide-react';
+import {Archive, ArchiveRestore, ArrowLeft, ClipboardCheck, Redo2, Undo2, Bold, Code, Eye, Highlighter, Italic, Link2, ListTree, Monitor, MoreHorizontal, PanelRight, RemoveFormatting, Smartphone, Strikethrough, Tablet, Underline} from 'lucide-react';
 import {TextSelection} from '@tiptap/pm/state';
 import {Switch} from '@astryxdesign/core/Switch';
 import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
@@ -23,6 +23,11 @@ import {LatestDoc, SectionIds, SectionLabels, activeSectionIndex, outlineOf} fro
 import {StoryOutline} from './StoryOutline';
 import {SectionGuide} from './SectionGuide';
 import {TitleFields} from './TitleFields';
+import {RovingToolbar} from './RovingToolbar';
+import {BlockHandle} from './BlockHandle';
+import {currentTopLevelBlock, duplicateBlock, moveTopLevelBlock, turnBlockInto} from './blockOps';
+import {turnIntoTargets} from './blocks/registry';
+import {ExportMenu} from '@/components/studio/ExportMenu';
 import {ASSET_DRAG_TYPE, MediaPanel} from './MediaPanel';
 import {ReviewDialog} from './ReviewDialog';
 import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/SegmentedControl';
@@ -57,6 +62,28 @@ function isInsideBlock(selection: TextSelection) {
   for (let depth = $from.depth; depth > 0; depth -= 1) if (CUSTOM_NODES.has($from.node(depth).type.name)) return true;
   return false;
 }
+
+/** "Turn into" for the selection toolbar's More menu: the block with the selection, text types only. */
+function selectionTurnInto(editor: TiptapEditor) {
+  const block = currentTopLevelBlock(editor);
+  if (!block) return [];
+  const targets = turnIntoTargets(block.node).filter(target => !['showcase', 'image-grid', 'image'].includes(target.id));
+  if (!targets.length) return [];
+  return [
+    {
+      type: 'section' as const,
+      title: 'Turn into',
+      items: targets.map(target => ({
+        label: target.label,
+        icon: <Icon icon={target.icon} size="sm" color="inherit" />,
+        onClick: () => turnBlockInto(editor, block.pos, target.id),
+      })),
+    },
+  ];
+}
+
+/** The platform's command key, for tooltips (⌘ on Apple devices, Ctrl+ elsewhere). */
+const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl+';
 
 const TIME = new Intl.DateTimeFormat('en-IN', {timeStyle: 'short'});
 
@@ -196,8 +223,10 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
   // null = not chosen yet: docked open on wide screens, drawer closed below 1024px.
   const [panelChoice, setIsPanelOpen] = useState<boolean | null>(null);
   const isDrawer = useMediaQuery(DRAWER_QUERY, false);
+  const isHeaderCompact = useMediaQuery('(max-width: 1023.98px)', false);
   // From 768px only the story column scrolls (not the window): floating bars follow it.
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
+  const [documentElement, setDocumentElement] = useState<HTMLDivElement | null>(null);
   const isPanelOpen = panelChoice ?? !isDrawer;
   /** The link editor: address, displayed text, new tab, and the range it applies to. */
   const [linkDialog, setLinkDialog] = useState<LinkDraft | null>(null);
@@ -308,6 +337,23 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
           event.preventDefault();
           setIsFindOpen(true);
           return true;
+        }
+        // Blocks (editor spec §7, T2): ⌥⇧↑ / ⌥⇧↓ move the block with the cursor, ⌘D duplicates it.
+        if (event.altKey && event.shiftKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown') && editorRef.current) {
+          const block = currentTopLevelBlock(editorRef.current);
+          if (block) {
+            event.preventDefault();
+            moveTopLevelBlock(editorRef.current, block.pos, event.key === 'ArrowUp' ? -1 : 1);
+            return true;
+          }
+        }
+        if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === 'd' && editorRef.current) {
+          const block = currentTopLevelBlock(editorRef.current);
+          if (block) {
+            event.preventDefault();
+            duplicateBlock(editorRef.current, block.pos);
+            return true;
+          }
         }
         // Up from the very start of the story: into the subtitle above it.
         if (event.key === 'ArrowUp' && editorRef.current && editorRef.current.state.selection.from <= 1 && !event.shiftKey) {
@@ -449,6 +495,12 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
       isCancelled = true;
     };
   }, [study.id]);
+
+  // Undo / redo availability, for the header buttons.
+  const history = useEditorState({
+    editor,
+    selector: ({editor: e}) => ({canUndo: Boolean(e?.can().undo()), canRedo: Boolean(e?.can().redo())}),
+  }) ?? {canUndo: false, canRedo: false};
 
   // The story outline, worked out from the document, and the section the cursor is in.
   const outline = useEditorState({
@@ -654,29 +706,73 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
           />
           <Text
             type="supporting"
-            className="only-wide"
+            className="only-wide studio-bar-save"
             style={{...EYEBROW_STYLE, color: 'var(--color-text-secondary)'}}>
             {status === 'archived' ? 'Archived' : 'Private draft'}
           </Text>
           {/* Not a live region: it changes on every pause in typing. Failures show as an alert. */}
-          <Text type="supporting" color="secondary">
-            {saveLabel}
+          <Text type="supporting" color="secondary" className="studio-bar-save">
+            <span className="only-wide">{saveLabel}</span>
+            {/* Phones: without the time, so every header button fits at 375px. */}
+            <span className="only-narrow">{saveState === 'saved' && uploading === 0 ? 'Saved' : saveState === 'unsaved' ? 'Unsaved' : saveLabel}</span>
           </Text>
         </HStack>
         <HStack gap={2} vAlign="center">
           {/* Phones get the same actions as icon-only buttons (labels as tooltips). */}
           <span className="only-wide">
             <HStack gap={2} vAlign="center">
-              <Button label="Review" variant="ghost" size="sm" onClick={openReview} icon={<Icon icon={ClipboardCheck} size="sm" color="inherit" />} />
-              <Button label="Preview" variant="ghost" size="sm" onClick={openPreview} icon={<Icon icon={Eye} size="sm" color="inherit" />} />
-              <Button
-                label={archiveLabel}
-                variant={status === 'archived' ? 'primary' : 'destructive'}
-                size="sm"
-                isLoading={isArchiving}
-                onClick={() => setArchived(status !== 'archived')}
-                icon={<Icon icon={status === 'archived' ? ArchiveRestore : Archive} size="sm" color="inherit" />}
-              />
+              {/* Undo / redo (editor spec §4, T1). Phones keep them in the toolbar's ⌃ sheet. */}
+              <HStack gap={1} vAlign="center" className="studio-bar-history">
+                <IconButton
+                  label="Undo"
+                  tooltip={history.canUndo ? `Undo (${MOD}Z)` : 'Nothing to undo'}
+                  variant="ghost"
+                  size="sm"
+                  isDisabled={!history.canUndo || status === 'archived'}
+                  onClick={() => editor?.chain().focus().undo().run()}
+                  icon={<Icon icon={Undo2} size="sm" color="inherit" />}
+                />
+                <IconButton
+                  label="Redo"
+                  tooltip={history.canRedo ? `Redo (${MOD === '⌘' ? '⇧⌘' : 'Ctrl+Shift+'}Z)` : 'Nothing to redo'}
+                  variant="ghost"
+                  size="sm"
+                  isDisabled={!history.canRedo || status === 'archived'}
+                  onClick={() => editor?.chain().focus().redo().run()}
+                  icon={<Icon icon={Redo2} size="sm" color="inherit" />}
+                />
+              </HStack>
+              {/* 768–1023px: the same actions, icon-only (names in tooltips), so the bar fits. */}
+              {isHeaderCompact ? (
+                <>
+                  <IconButton label="Review" tooltip="Review" variant="ghost" size="sm" onClick={openReview} icon={<Icon icon={ClipboardCheck} size="sm" color="inherit" />} />
+                  <IconButton label="Preview" tooltip="Preview" variant="ghost" size="sm" onClick={openPreview} icon={<Icon icon={Eye} size="sm" color="inherit" />} />
+                  <ExportMenu isIconOnly title={meta.title.replace(/\*/g, '').trim() || 'Untitled case study'} previewHref={`/studio/case-studies/${study.id}/preview`} beforeOpen={saveNow} />
+                  <IconButton
+                    label={archiveLabel}
+                    tooltip={archiveLabel}
+                    variant={status === 'archived' ? 'primary' : 'destructive'}
+                    size="sm"
+                    isLoading={isArchiving}
+                    onClick={() => setArchived(status !== 'archived')}
+                    icon={<Icon icon={status === 'archived' ? ArchiveRestore : Archive} size="sm" color="inherit" />}
+                  />
+                </>
+              ) : (
+                <>
+                  <Button label="Review" variant="ghost" size="sm" onClick={openReview} icon={<Icon icon={ClipboardCheck} size="sm" color="inherit" />} />
+                  <Button label="Preview" variant="ghost" size="sm" onClick={openPreview} icon={<Icon icon={Eye} size="sm" color="inherit" />} />
+                  <ExportMenu title={meta.title.replace(/\*/g, '').trim() || 'Untitled case study'} previewHref={`/studio/case-studies/${study.id}/preview`} beforeOpen={saveNow} />
+                  <Button
+                    label={archiveLabel}
+                    variant={status === 'archived' ? 'primary' : 'destructive'}
+                    size="sm"
+                    isLoading={isArchiving}
+                    onClick={() => setArchived(status !== 'archived')}
+                    icon={<Icon icon={status === 'archived' ? ArchiveRestore : Archive} size="sm" color="inherit" />}
+                  />
+                </>
+              )}
             </HStack>
           </span>
           <span className="only-narrow">
@@ -770,7 +866,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                     !e.isActive('table') &&
                     isInsideBlock(s.selection) === (where === 'below')
                   }>
-                  <HStack gap={1} role="toolbar" aria-label="Selected text">
+                  <RovingToolbar gap={1} label="Selected text">
                   <IconButton label="Bold" tooltip="Bold" size="sm" variant={editor.isActive('bold') ? 'secondary' : 'ghost'} icon={<Icon icon={Bold} size="sm" color="inherit" />} onClick={() => editor.chain().focus().toggleBold().run()} />
                   <IconButton label="Italic" tooltip="Italic" size="sm" variant={editor.isActive('italic') ? 'secondary' : 'ghost'} icon={<Icon icon={Italic} size="sm" color="inherit" />} onClick={() => editor.chain().focus().toggleItalic().run()} />
                   <IconButton label="Underline" tooltip="Underline" size="sm" variant={editor.isActive('underline') ? 'secondary' : 'ghost'} icon={<Icon icon={Underline} size="sm" color="inherit" />} onClick={() => editor.chain().focus().toggleUnderline().run()} />
@@ -790,14 +886,22 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                   <DropdownMenu
                     renderTrigger={props => <IconButton {...props} label="More formatting" tooltip="More formatting" size="sm" variant="ghost" icon={<Icon icon={MoreHorizontal} size="sm" color="inherit" />} />}
                     items={[
-                      {label: 'Strikethrough', icon: <Icon icon={Strikethrough} size="sm" color="inherit" />, onClick: () => editor.chain().focus().toggleStrike().run()},
-                      {label: 'Inline code', icon: <Icon icon={Code} size="sm" color="inherit" />, onClick: () => editor.chain().focus().toggleCode().run()},
-                      {label: 'Clear formatting', icon: <Icon icon={RemoveFormatting} size="sm" color="inherit" />, onClick: () => editor.chain().focus().unsetAllMarks().run()},
+                      {
+                        type: 'section' as const,
+                        title: 'Format',
+                        items: [
+                          {label: 'Strikethrough', icon: <Icon icon={Strikethrough} size="sm" color="inherit" />, onClick: () => editor.chain().focus().toggleStrike().run()},
+                          {label: 'Inline code', icon: <Icon icon={Code} size="sm" color="inherit" />, onClick: () => editor.chain().focus().toggleCode().run()},
+                          {label: 'Clear formatting', icon: <Icon icon={RemoveFormatting} size="sm" color="inherit" />, onClick: () => editor.chain().focus().unsetAllMarks().run()},
+                        ],
+                      },
+                      // Turn the whole block into another type (editor spec §6, T2).
+                      ...selectionTurnInto(editor),
                     ]}
-                    menuWidth={200}
+                    menuWidth={220}
                     hasChevron={false}
                   />
-                </HStack>
+                  </RovingToolbar>
                 </BubbleMenu>
               ))}
               <SlashMenu editor={editor} commands={inserts} />
@@ -805,7 +909,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
           )}
           {/* Only the writing scrolls (tablet/desktop): its scrollbar starts below the toolbar. */}
           <div className="write-scroll" ref={setScrollElement}>
-            <div className="write-document">
+            <div className="write-document" ref={setDocumentElement}>
               <TitleFields
                 editor={editor}
                 title={meta.title}
@@ -814,6 +918,17 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                 onChange={patch => changeMeta(patch.title !== undefined && slugIsAuto.current ? {...patch, slug: slugify(patch.title) || meta.slug} : patch)}
               />
               <EditorContent editor={editor} />
+              {editor && (
+                <BlockHandle
+                  editor={editor}
+                  container={documentElement}
+                  isEditable={status !== 'archived'}
+                  onProperties={() => {
+                    setPanelTab('block');
+                    setIsPanelOpen(true);
+                  }}
+                />
+              )}
             </div>
           </div>
         </VStack>

@@ -49,6 +49,7 @@ import {
 import {TEXT_ROLES, type TextRole} from '@/components/caseStudy/schema';
 import type {InsertCommand} from './insertCommands';
 import {insertMenuItems} from './insertCommands';
+import {useRovingFocus} from './rovingFocus';
 
 // ---------------------------------------------------------------------------------------------
 // Options
@@ -256,7 +257,8 @@ type PhoneGroup = (typeof PHONE_GROUPS)[number];
 
 /**
  * The formatting toolbar (Toolbar 2.0, docs/toolbar-2.0-spec.md). Desktop: one row, no tabs:
- * history, find, text style, inline formatting, colour, alignment, lists, More, Insert. When the
+ * text style, inline formatting, colour, alignment, lists, More, Insert (undo/redo are in the
+ * editor header; find, underline and the rest are in More). When the
  * column is narrow, alignment and lists move into More. Phones: a bottom bar of quick tools; ⌃
  * opens a sheet with a group picker, undo/redo and that group's tools; Insert is a floating
  * button. Tables have their own bar (TableBar) and selected text its own bubble.
@@ -265,6 +267,8 @@ export function Toolbar({editor, onLink, onFind, inserts}: {editor: Editor; onLi
   const rootRef = useRef<HTMLDivElement | null>(null);
   const isPhone = useIsPhone();
   const isCompact = useIsCompact(rootRef);
+  // One tab stop; ← → Home End between controls (ARIA toolbar pattern, editor spec §5).
+  useRovingFocus(rootRef);
   const shortcut = useShortcut();
   const [isExpanded, setIsExpanded] = useState(false);
   const [phoneGroup, setPhoneGroup] = useState<PhoneGroup>('Format');
@@ -392,17 +396,19 @@ export function Toolbar({editor, onLink, onFind, inserts}: {editor: Editor; onLi
   const inline = [
     tool('Bold', Bold, state.bold, () => chain().toggleBold().run(), {shortcut: '⌘B'}),
     tool('Italic', Italic, state.italic, () => chain().toggleItalic().run(), {shortcut: '⌘I'}),
-    tool('Underline', Underline, state.underline, () => chain().toggleUnderline().run(), {shortcut: '⌘U'}),
     tool('Link', Link2, state.link, onLink, {shortcut: '⌘K'}),
     colour,
   ];
+  // Underline lives in the selection toolbar and here (editor spec §5, T1), not on the main row.
   const decoration = [
+    tool('Underline', Underline, state.underline, () => chain().toggleUnderline().run(), {shortcut: '⌘U'}),
     tool('Strikethrough', Strikethrough, state.strike, () => chain().toggleStrike().run(), {shortcut: '⇧⌘S'}),
     tool('Subscript', Subscript, state.subscript, () => chain().toggleSubscript().run(), {shortcut: '⌘,'}),
     tool('Superscript', Superscript, state.superscript, () => chain().toggleSuperscript().run(), {shortcut: '⌘.'}),
     tool('Inline code', Code, state.code, () => chain().toggleCode().run(), {shortcut: '⌘E'}),
   ];
   const editing = [
+    tool('Find and replace', Search, false, onFind, {shortcut: '⌘F'}),
     tool(painter ? 'Format painter: select text to apply' : 'Format painter', PaintbrushVertical, Boolean(painter), () => setPainter(current => (current ? null : editor.state.selection.$from.marks()))),
     tool('Clear formatting', RemoveFormatting, false, () => chain().unsetAllMarks().clearNodes().unsetTextAlign().run(), {shortcut: '⌘\\'}),
     tool('Remove link', Unlink, false, () => chain().extendMarkRange('link').unsetLink().run(), {isDisabled: !state.link, why: 'Put the cursor in a link to remove it'}),
@@ -550,11 +556,8 @@ export function Toolbar({editor, onLink, onFind, inserts}: {editor: Editor; onLi
   );
 
   return (
+    // Undo/Redo are in the editor header and Find is in More (editor spec §4–§5, T1).
     <HStack gap={1} vAlign="center" ref={rootRef} className="write-toolbar write-toolbar--row glass glass--panel" role="toolbar" aria-label="Formatting">
-      {history}
-      {separator('s1')}
-      {find}
-      {separator('s2')}
       {styleSelect}
       {separator('s3')}
       {inline}

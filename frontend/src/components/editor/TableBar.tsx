@@ -2,7 +2,7 @@
 
 import {useEditorState, type Editor} from '@tiptap/react';
 import {BubbleMenu} from '@tiptap/react/menus';
-import {HStack} from '@astryxdesign/core/Layout';
+import {RovingToolbar} from './RovingToolbar';
 import {IconButton} from '@astryxdesign/core/IconButton';
 import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
 import {Divider} from '@astryxdesign/core/Divider';
@@ -74,7 +74,7 @@ export function TableBar({editor}: {editor: Editor}) {
         return table ? {getBoundingClientRect: () => table.getBoundingClientRect()} : null;
       }}
       options={{placement: 'top-start', offset: 8}}>
-      <HStack gap={1} vAlign="center" role="toolbar" aria-label="Table">
+      <RovingToolbar gap={1} vAlign="center" label="Table">
         {button('Add row below', BetweenHorizontalEnd, () => chain().addRowAfter().run())}
         {button('Add column right', BetweenVerticalEnd, () => chain().addColumnAfter().run())}
         {button('Header row on or off', PanelTop, () => chain().toggleHeaderRow().run())}
@@ -116,7 +116,7 @@ export function TableBar({editor}: {editor: Editor}) {
           menuWidth={240}
           hasChevron={false}
         />
-      </HStack>
+      </RovingToolbar>
     </BubbleMenu>
   );
 }
