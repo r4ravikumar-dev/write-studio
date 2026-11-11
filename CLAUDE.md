@@ -133,7 +133,9 @@ Now contains only: `public.studio_workspaces` (owner_id unique; trigger on `djan
 creates it), `public.studio_case_studies` (draft|archived, slug unique per workspace, composite FK
 (workspace_id, owner_id), immutable owner/workspace triggers, 2 MB content check),
 `0010_studio_projects.sql` adds project_type, role, team, timeline, platform, objective, challenge,
-framework_id + framework_version, setup_state (jsonb, unfinished wizard). `public.studio_assets` (path pattern check, FK to own case study, `on delete set null (case_study_id)`),
+framework_id + framework_version, setup_state (jsonb, unfinished wizard). `0011_studio_sections.sql`:
+`studio_content_backups` (document before a schema migration) and `studio_section_notes` (private, unique per
+case study + section id); owner must match the case study (trigger); deny-all like the rest. `public.studio_assets` (path pattern check, FK to own case study, `on delete set null (case_study_id)`),
 bucket `studio-private-media` (private, 50 MB, no SVG, **no storage policies**), schema `django`.
 RLS on + zero policies + no anon/authenticated grants on studio tables. `public.touch_updated_at()`
 (from 0001) kept for triggers. Migration order in `supabase/README.md` (Django migrate between 0004 and 0005).
@@ -144,7 +146,7 @@ RLS on + zero policies + no anon/authenticated grants on studio tables. `public.
 
 `scripts/security-suite.sh [django-console-log]`: static "no owner/portfolio code" grep, typecheck, lint,
 Express build, Django check + 26 tests; with the log: schema 33, auth-live 23, storage-live 30,
-documents-live 55, setup-live 35, lifecycle-live 27 (all passing 2026-11-11). Map of SEC-001..018 in
+documents-live 55, setup-live 35, sections-live 30, lifecycle-live 27 (all passing 2026-11-11). Map of SEC-001..018 in
 `supabase/tests/README.md`. Live tests create/delete `@example.test` accounts (staging only).
 
 ## 8. Removed on 2026-11-10 (don't reintroduce)
@@ -179,7 +181,7 @@ Backup before removal: `/private/tmp/claude-501/-Users-visit--claude-spares-spar
 - **Toolbar 2.0 (Release 1, implemented; spec `docs/toolbar-2.0-spec.md`):** `Toolbar.tsx` is one row on desktop (Undo/Redo · Find · Text style · B/I/U, Link, Colour · Alignment, Lists · More ⋯ · Insert); below ~720px of column width Alignment/Lists fold into More; phones keep the bottom bar + ⌃ sheet (groups Text style / Format / Paragraph) + Insert FAB. Text styles = headings h1–h4 + paragraph `textRole` (display/lead/small/caption/label → `.cs-text-*` in typography.css). Find/replace: `search.ts` (ProseMirror decorations, never stored; replace all = one undo) + `FindReplace.tsx`, ⌘/Ctrl+F. Selection bubble: B/I/U/Link/Highlight/More, hidden in tables and while find is open. `TableBar.tsx`: anchored above the table. Link editor: address + text + new-tab switch; `safeHref()` allows only https/http/mailto/tel, `/`, `#`. Image node attrs: decorative, size, align, ratio, focus (Image inspector 2.0). Insert registry (`insertCommands.tsx`): six groups Text/Media/Visual/Data/Structure/Advanced + template sections via `insertMenuItems()`; `/` menu shows the same headings (name matches rank first).
 - **Insert 2.0 blocks (Release 2):** `timeline` (phases; across/down; line/cards), `screenSequence` (numbered screens with phone/browser/no frame, 2–4 columns, arrows), `annotatedImage` (click the screenshot in the editor to add a numbered marker; notes list is the accessible content; markers decorative), `flowDiagram` (start/step/decision/end shapes, labelled arrows). Configs/defaults in `packages/shared/src/caseStudies/blocks.ts`, nodes via `visualAtom` in schema.ts, renderers in `visualBlocks.tsx` (editor + preview), views in nodeViews.tsx, inspectors in BlockInspector.tsx, CSS `.vb-timeline/.vb-sequence/.vb-annotated/.vb-flow` in globals.css (list selectors are `.vb .vb-…-list` to beat `.cs-prose ol`). Horizontal layouts stack on phones; empty sequence steps are omitted in the preview. Media paths are covered by the generic `documentMediaPaths` walk.
 - **Inspector 2.0 (Release 3):** `findSelectedBlock` treats the table around the cursor as a block → `TableInspector` (borders grid/rows/minimal, striped, density, header row/column, cell alignment, rows/columns, phones scroll/fit; table attrs `tableStyle/striped/density/mobile` → `data-tablestyle…` via `TableAttributes`). Device mockups: drag on the canvas in the editor (`onMoveDevice`, window pointer listeners, keeps the grab offset, one update on drop; a drag suppresses the picker click), Duplicate device, `locked`. Images: `credit` (shown after the caption in the preview) and `radius`; the preview's image mapping now honours size/align/ratio/focus/decorative/radius. Comparison `display: 'slider'` (range-input divider, needs both pictures). Image grid `mobileColumns`.
-- Write Studio 2.0 blueprint: `docs/write-studio-2.0-blueprint.md`; Stage 0 audit done: `docs/stage-0-ux-audit.md`; Stage 1 done (`docs/stage-1-report.md`); next is Stage 2 (story structure & guidance).
+- Write Studio 2.0 blueprint: `docs/write-studio-2.0-blueprint.md`; Stage 0 audit done: `docs/stage-0-ux-audit.md`; Stage 1 done (`docs/stage-1-report.md`); Stage 2 done (`docs/stage-2-report.md`); next is Stage 3 (hybrid editor).
 - **Stage 1, guided project creation (done 2026-11-11; report `docs/stage-1-report.md`):** frameworks are versioned,
   immutable data in `packages/shared/src/frameworks` (Product and UX design v1 = the 10 sections with purpose,
   act, prompts, evidence, visuals; Blank v1); never edit a released version, add one. `caseStudySections` now comes
@@ -192,3 +194,18 @@ Backup before removal: `/private/tmp/claude-501/-Users-visit--claude-spares-spar
   empty state "Start your first case study", `AddNameForm` when the account has no name. The editor and preview
   redirect to `/setup` while `setup_state` is set. Express runs `tsx` without watch here: restart it after
   shared/Express changes.
+- **Stage 2, story structure & guidance (done 2026-11-11; `docs/stage-2-report.md`):** sections are **heading-based**
+  (user decision, not the blueprint's wrapper node): a section = a TOP-LEVEL level-2 heading ("Heading 1" in the
+  picker) and what follows until the next one. The heading carries `section` (framework key), `sectionId`
+  (`s` + 6–24 [a-z0-9], unique per doc) and `sectionStatus` (null|review|complete; "not started"/"in progress" are
+  derived, never stored); both new attrs are `rendered: false`. Shared `caseStudies/sections.ts`:
+  `CONTENT_SCHEMA_VERSION = 2`, `normaliseSections`, `migrateContent` (1→2 = clearUntouchedHints + ids),
+  `documentSections`. Express `currentCaseStudy()` migrates old docs ON READ (GET, duplicate) after copying the
+  original to `studio_content_backups`; every save is normalised and stored as v2. The editor and preview no longer
+  call `clearUntouchedHints`. Editor: `sections.ts` (outlineOf, move/duplicate/delete/rename/status/add,
+  `SectionIds` plugin keeps ids unique, `LatestDoc` gives the Placeholder callback the doc being applied, since
+  `editor.state` is still the old one then), `StoryOutline.tsx` (left; docked ≥1280px, drawer below; only the grip
+  is draggable, because a draggable row swallows its menu button's clicks), `SectionGuide.tsx` (side panel "Guide"
+  tab, the default: purpose, questions, evidence, "Add <visual>" at the end of the section, status, private note
+  autosaved via `saveSectionNote`, previous/next). Preview wraps each section in `<section class="cs-section">`
+  (`display: contents`). In dev, browser-pane screenshots can lag behind menus opening; check `aria-expanded`.

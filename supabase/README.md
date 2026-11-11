@@ -17,6 +17,7 @@ Django auth service). **Use a staging project first; never migrate production wi
 | SQL `0008_studio_private_storage.sql` | The private `studio-private-media` bucket (no policies) | |
 | SQL `0009_remove_portfolio.sql` | Drops the old portfolio tables, `is_cms_owner()` and the public bucket's policies; refuses if any still hold data | Then delete the empty `case-study-media` bucket (Storage → bucket → Delete, or `DELETE /storage/v1/bucket/case-study-media`) |
 | SQL `0010_studio_projects.sql` | Project details from setup, framework id + version, unfinished-setup state (additive) | Stage 1, guided project creation |
+| SQL `0011_studio_sections.sql` | `studio_content_backups` (documents before a schema migration) and `studio_section_notes` (private notes per section) | Stage 2, story structure & guidance |
 
 Run SQL files in Supabase → SQL Editor → New query → paste → Run. Afterwards check with:
 
