@@ -2,7 +2,7 @@
 
 import {redirect} from 'next/navigation';
 import {revalidatePath} from 'next/cache';
-import type {StudioCaseStudyDraft} from '@studio/shared';
+import type {StudioCaseStudyDraft, StudioSetup} from '@studio/shared';
 import {api, errorMessage} from '@/lib/api/express';
 import {requireStudioUser} from '@/lib/auth/current-user';
 
@@ -23,13 +23,39 @@ async function attempt(fn: () => Promise<{updatedAt?: string} | unknown>, fallba
   }
 }
 
-/** Starts a private draft and opens it. */
-export async function createStudioCaseStudy(formData?: FormData) {
+/**
+ * Project setup (the new case study wizard). `finish` creates the case study from the outline and
+ * opens it in the editor; otherwise the answers are kept as an unfinished setup and the user goes
+ * back to the workspace. `id` continues a setup saved earlier.
+ */
+export async function saveProjectSetup(setup: StudioSetup, {id, finish}: {id?: string; finish: boolean}): Promise<StudioResult> {
   await requireStudioUser();
-  const title = String(formData?.get('title') ?? '').trim();
-  const {id} = await api<{id: string}>('/api/app/case-studies', {method: 'POST', body: {title}, auth: true});
+  let target: string;
+  try {
+    if (id) {
+      await api(`/api/app/case-studies/${id}/setup`, {method: 'PUT', body: {setup, finish}, auth: true});
+      target = id;
+    } else {
+      target = (await api<{id: string}>('/api/app/case-studies', {method: 'POST', body: {setup, finish}, auth: true})).id;
+    }
+  } catch (error) {
+    return {ok: false, error: errorMessage(error, finish ? 'We couldn’t create your case study. Check your connection and try again.' : 'We couldn’t save your answers. Check your connection and try again.')};
+  }
   revalidatePath('/studio', 'layout');
-  redirect(`/studio/case-studies/${id}`);
+  redirect(finish ? `/studio/case-studies/${target}` : '/studio');
+}
+
+/** Copies one of the user's case studies into a new draft and opens it. */
+export async function duplicateStudioCaseStudy(id: string, title: string): Promise<StudioResult> {
+  await requireStudioUser();
+  let copy: string;
+  try {
+    copy = (await api<{id: string}>(`/api/app/case-studies/${id}/duplicate`, {method: 'POST', body: {title}, auth: true})).id;
+  } catch (error) {
+    return {ok: false, error: errorMessage(error, 'We couldn’t copy that case study. Try again.')};
+  }
+  revalidatePath('/studio', 'layout');
+  redirect(`/studio/case-studies/${copy}`);
 }
 
 export async function saveStudioCaseStudy(id: string, draft: StudioCaseStudyDraft, expectedUpdatedAt: string) {

@@ -1,7 +1,12 @@
 import {Router} from 'express';
 import {
   caseStudyTemplate,
+  cleanSetup,
+  getFramework,
+  isProjectType,
+  outlineDocument,
   slugify,
+  type StudioSetup,
   studioDraftProblems,
   type CaseStudyLayout,
   type StudioCaseStudy,
@@ -22,7 +27,7 @@ import {workspaceOf} from './app';
 export const appCaseStudiesRouter = Router();
 
 const CARD_FIELDS =
-  'id, workspace_id, owner_id, slug, title, subtitle, label, area, tags, summary, focus, thumbnail_path, thumbnail_alt, thumbnail_focus, cover_path, layout, content_schema_version, status, created_at, updated_at';
+  'id, workspace_id, owner_id, slug, title, subtitle, label, area, tags, summary, focus, thumbnail_path, thumbnail_alt, thumbnail_focus, cover_path, layout, project_type, role, team, timeline, platform, objective, challenge, framework_id, framework_version, setup_state, content_schema_version, status, created_at, updated_at';
 const LAYOUTS: CaseStudyLayout[] = ['wide', 'split', 'split-reverse'];
 const text = (value: unknown, max: number) => String(value ?? '').trim().slice(0, max);
 const noStore = (res: import('express').Response) => res.set('Cache-Control', 'private, no-store');
@@ -45,6 +50,13 @@ function toRow(draft: Partial<StudioCaseStudyDraft>, ownerId: string, workspaceI
     thumbnail_focus: text(draft.thumbnail_focus, 40) || 'center',
     cover_path: draft.cover_path ? String(draft.cover_path) : null,
     layout: LAYOUTS.includes(draft.layout as CaseStudyLayout) ? draft.layout : 'split',
+    project_type: isProjectType(draft.project_type) ? draft.project_type : null,
+    role: text(draft.role, 200),
+    team: text(draft.team, 500),
+    timeline: text(draft.timeline, 200),
+    platform: text(draft.platform, 200),
+    objective: text(draft.objective, 1000),
+    challenge: text(draft.challenge, 1000),
     content: draft.content,
   };
   const problems = studioDraftProblems(row as StudioCaseStudyDraft, ownerId, workspaceId);
@@ -76,27 +88,111 @@ appCaseStudiesRouter.get(
   }),
 );
 
-/** Starts a private draft from the storytelling template. */
+/**
+ * The columns a project setup fills, validated: the framework must exist, the outline must fit it,
+ * and the cover must be one of the user's own uploads. `finish` creates the document from the
+ * outline; otherwise the setup is kept for later (`setup_state`) and the document stays empty.
+ */
+function setupRow(body: unknown, ownerId: string, workspaceId: string, finish: boolean) {
+  const {setup, problems} = cleanSetup(body);
+  if (problems.length) throw new HttpError(422, problems.join(' '));
+  const content = finish ? outlineDocument(setup.outline, getFramework(setup.framework_id, setup.framework_version)) : {type: 'doc', content: []};
+  const pathProblems = studioDraftProblems({content, thumbnail_path: null, cover_path: setup.cover_path}, ownerId, workspaceId);
+  if (pathProblems.length) throw new HttpError(422, pathProblems.join(' '));
+  const state: Pick<StudioSetup, 'step' | 'start' | 'outline'> = {step: setup.step, start: setup.start, outline: setup.outline};
+  return {
+    title: setup.title || 'Untitled case study',
+    summary: setup.summary,
+    project_type: setup.project_type,
+    role: setup.role,
+    team: setup.team,
+    timeline: setup.timeline,
+    platform: setup.platform,
+    objective: setup.objective,
+    challenge: setup.challenge,
+    framework_id: setup.framework_id,
+    framework_version: setup.framework_version,
+    // The cover is also the card thumbnail until the user picks another one.
+    cover_path: setup.cover_path,
+    thumbnail_path: setup.cover_path,
+    thumbnail_alt: setup.cover_path ? setup.cover_alt : '',
+    content,
+    setup_state: finish ? null : state,
+  };
+}
+
+/** Inserts a new row with a unique slug (retries on the rare clash). */
+async function insertCaseStudy(ownerId: string, workspaceId: string, row: Record<string, unknown> & {title: string}) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const slug = `${slugify(row.title).slice(0, 60) || 'untitled'}-${crypto.randomUUID().slice(0, 6)}`;
+    const {data, error} = await supabase
+      .from('studio_case_studies')
+      .insert({...row, workspace_id: workspaceId, owner_id: ownerId, slug})
+      .select('id')
+      .single();
+    if (!error) return data.id as string;
+    if (error.code !== '23505') throw new HttpError(502, error.message);
+  }
+  throw new HttpError(409, 'We couldn’t create a unique short name. Try again.');
+}
+
+/**
+ * Starts a private draft. With `setup` (the wizard), from the user's answers and outline, or kept
+ * unfinished when `finish` is false; without it, from the default framework's sections.
+ */
 appCaseStudiesRouter.post(
   '/',
   handle(async (req, res) => {
     const workspace = await workspaceOf(req.user!.id);
-    const title = text((req.body ?? {}).title, 300) || 'Untitled case study';
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const slug = `${slugify(title).slice(0, 60) || 'untitled'}-${crypto.randomUUID().slice(0, 6)}`;
-      const {data, error} = await supabase
-        .from('studio_case_studies')
-        .insert({workspace_id: workspace.id, owner_id: req.user!.id, slug, title, content: caseStudyTemplate()})
-        .select('id')
-        .single();
-      if (!error) {
-        noStore(res);
-        res.status(201).json({id: data.id});
-        return;
-      }
-      if (error.code !== '23505') throw new HttpError(502, error.message);
+    const body = (req.body ?? {}) as {title?: unknown; setup?: unknown; finish?: unknown};
+    const row = body.setup
+      ? setupRow(body.setup, req.user!.id, workspace.id, body.finish !== false)
+      : {title: text(body.title, 300) || 'Untitled case study', content: caseStudyTemplate(), framework_id: 'product-ux', framework_version: 1};
+    const id = await insertCaseStudy(req.user!.id, workspace.id, row);
+    noStore(res);
+    res.status(201).json({id});
+  }),
+);
+
+/** Updates an unfinished setup, or finishes it (creates the document). Only while setup is unfinished. */
+appCaseStudiesRouter.put(
+  '/:id/setup',
+  handle(async (req, res) => {
+    const id = requireUuid(param(req, 'id'));
+    const current = await ownCaseStudy(id, req.user!.id, 'id, workspace_id, setup_state');
+    if (!current.setup_state) throw new HttpError(409, 'This case study has already been created. Open it to keep writing.');
+    const body = (req.body ?? {}) as {setup?: unknown; finish?: unknown};
+    const row = setupRow(body.setup, req.user!.id, current.workspace_id, body.finish !== false);
+    const {data, error} = await supabase
+      .from('studio_case_studies')
+      .update(row)
+      .eq('id', id)
+      .eq('owner_id', req.user!.id)
+      .not('setup_state', 'is', null)
+      .select('id')
+      .maybeSingle();
+    if (error) throw new HttpError(502, error.message);
+    if (!data) throw new HttpError(409, 'This case study has already been created. Open it to keep writing.');
+    noStore(res);
+    res.json({id});
+  }),
+);
+
+/** Copies one of the user's own case studies into a new private draft. */
+appCaseStudiesRouter.post(
+  '/:id/duplicate',
+  handle(async (req, res) => {
+    const source = await ownCaseStudy(requireUuid(param(req, 'id')), req.user!.id);
+    if (source.setup_state) throw new HttpError(409, 'Finish setting up this case study before copying it.');
+    const name = source.title.replace(/\*/g, '').trim() || 'Untitled case study';
+    const title = text((req.body ?? {}).title, 300) || `Copy of ${name}`.slice(0, 300);
+    const copy: Record<string, unknown> & {title: string} = {title};
+    for (const field of ['subtitle', 'label', 'area', 'tags', 'summary', 'focus', 'thumbnail_path', 'thumbnail_alt', 'thumbnail_focus', 'cover_path', 'layout', 'project_type', 'role', 'team', 'timeline', 'platform', 'objective', 'challenge', 'framework_id', 'framework_version', 'content', 'content_schema_version'] as const) {
+      copy[field] = source[field];
     }
-    throw new HttpError(409, 'We couldn’t create a unique short name. Try again.');
+    const id = await insertCaseStudy(req.user!.id, source.workspace_id, copy);
+    noStore(res);
+    res.status(201).json({id});
   }),
 );
 
@@ -118,7 +214,8 @@ appCaseStudiesRouter.put(
   '/:id',
   handle(async (req, res) => {
     const id = requireUuid(param(req, 'id'));
-    const current = await ownCaseStudy(id, req.user!.id, 'id, workspace_id, updated_at, status');
+    const current = await ownCaseStudy(id, req.user!.id, 'id, workspace_id, updated_at, status, setup_state');
+    if (current.setup_state) throw new HttpError(409, 'Finish setting up this case study before writing in it.');
     if (current.status === 'archived') throw new HttpError(409, 'This case study is archived. Restore it to keep editing.');
     const body = (req.body ?? {}) as Partial<StudioCaseStudyDraft> & {expected_updated_at?: string};
     const row = toRow(body, req.user!.id, current.workspace_id);

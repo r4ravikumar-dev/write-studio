@@ -1,5 +1,5 @@
 import type {Metadata} from 'next';
-import {notFound} from 'next/navigation';
+import {notFound, redirect} from 'next/navigation';
 import {NotConfigured} from '@/components/editor/NotConfigured';
 import {Editor} from '@/components/editor/Editor';
 import {isBackendConfigured} from '@/lib/api/env';
@@ -24,5 +24,7 @@ export default async function StudioEditorPage({params}: {params: Promise<{id: s
   await requireStudioUser();
   const study = await getStudioCaseStudy((await params).id);
   if (!study) notFound();
+  // Setup isn't finished: there's no document yet, so continue the setup.
+  if (study.setup_state) redirect(`/studio/case-studies/${study.id}/setup`);
   return <Editor study={study} />;
 }

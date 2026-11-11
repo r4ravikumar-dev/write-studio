@@ -115,6 +115,13 @@ function metaOf(study: StudioCaseStudy): StudioMeta {
     thumbnail_focus: study.thumbnail_focus,
     cover_path: study.cover_path,
     layout: study.layout,
+    project_type: study.project_type ?? null,
+    role: study.role ?? '',
+    team: study.team ?? '',
+    timeline: study.timeline ?? '',
+    platform: study.platform ?? '',
+    objective: study.objective ?? '',
+    challenge: study.challenge ?? '',
   };
 }
 

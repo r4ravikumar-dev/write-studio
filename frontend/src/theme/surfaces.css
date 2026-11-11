@@ -216,3 +216,288 @@
     transform: none;
   }
 }
+
+/* ── Project setup (the new case study wizard, Stage 1) ───────────────────────────────────────
+   Steps on the left (layer 0), the step on a layer-1 card. Phones: "Step 2 of 6" above the card. */
+.setup {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  gap: var(--space-32);
+  align-items: start;
+  max-inline-size: 60rem;
+}
+@media (max-width: 767px) {
+  .setup {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-12);
+  }
+}
+.setup-nav {
+  position: sticky;
+  inset-block-start: calc(56px + var(--space-24));
+}
+.setup-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+.setup-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  inline-size: 100%;
+  min-block-size: 40px;
+  padding: var(--space-6) var(--space-12) var(--space-6) var(--space-6);
+  border: 0;
+  border-radius: var(--radius-round);
+  background: transparent;
+  color: var(--text-gray-secondary);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.setup-step:hover:not(:disabled) {
+  background: var(--bg-gray-moderate);
+  color: var(--text-gray-primary);
+}
+.setup-step:disabled {
+  cursor: default;
+}
+.setup-step:not([aria-current]):disabled {
+  color: var(--text-gray-caption);
+}
+.setup-step[aria-current='step'] {
+  background: var(--bg-brand-light);
+  color: var(--text-brand-primary);
+}
+.setup-step:focus-visible {
+  outline: var(--border-width-200) solid var(--border-brand-normal);
+  outline-offset: var(--space-2);
+}
+.setup-step-number {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: var(--radius-round);
+  border: var(--border-width-100) solid var(--border-gray-intense);
+  background: var(--surface-container);
+}
+.setup-step[aria-current='step'] .setup-step-number {
+  border-color: var(--border-brand-normal);
+  background: var(--bg-brand-normal);
+  color: var(--text-brand-on-primary);
+}
+.setup-panel {
+  padding: var(--space-32);
+  background: var(--surface-container);
+  border: var(--border-width-100) solid var(--surface-outline);
+  border-radius: var(--surface-container-radius);
+  min-inline-size: 0;
+}
+@media (max-width: 767px) {
+  .setup-panel {
+    padding: var(--space-20) var(--space-16);
+  }
+}
+.setup-heading:focus {
+  outline: none;
+}
+.setup-actions {
+  padding-block-start: var(--space-20);
+  border-block-start: var(--border-width-100) solid var(--surface-outline);
+}
+.setup-text-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-link-brand);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+.setup-text-button:focus-visible {
+  outline: var(--border-width-200) solid var(--border-brand-normal);
+  outline-offset: var(--space-2);
+  border-radius: var(--radius-4);
+}
+
+/* Choice cards: native radios (arrow keys work), drawn as layer-2 cards; the chosen one is brand. */
+.setup-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: var(--space-12);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+.setup-choice {
+  position: relative;
+  display: flex;
+  gap: var(--space-12);
+  align-items: flex-start;
+  padding: var(--space-16);
+  border: var(--border-width-100) solid var(--border-gray-normal);
+  border-radius: var(--radius-12);
+  background: var(--surface-container);
+  cursor: pointer;
+  transition: border-color var(--glass-duration) ease, background var(--glass-duration) ease;
+}
+.setup-choice:hover {
+  border-color: var(--border-brand-normal);
+}
+.setup-choice:has(:checked) {
+  border-color: var(--border-brand-normal);
+  background: var(--bg-brand-subtle);
+  box-shadow: inset 0 0 0 1px var(--border-brand-normal);
+}
+.setup-choice:has(:focus-visible) {
+  outline: var(--border-width-200) solid var(--border-brand-normal);
+  outline-offset: var(--space-2);
+}
+.setup-choice-input {
+  flex: none;
+  inline-size: 18px;
+  block-size: 18px;
+  margin: var(--space-2) 0 0;
+  accent-color: var(--bg-brand-normal);
+}
+.setup-choice-text {
+  display: grid;
+  gap: var(--space-4);
+}
+.setup-choice-label {
+  color: var(--text-gray-primary);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  align-items: center;
+}
+.setup-choice-description {
+  color: var(--text-gray-secondary);
+}
+.setup-badge {
+  padding: var(--space-2) var(--space-8);
+  border-radius: var(--radius-round);
+  background: var(--bg-brand-light);
+  color: var(--text-brand-primary);
+}
+.setup-subpanel {
+  padding: var(--space-16);
+  border-radius: var(--radius-12);
+  background: var(--surface-container-high);
+}
+.setup-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: var(--space-16);
+}
+.setup-cover .write-image-field {
+  aspect-ratio: 16 / 9;
+}
+
+/* Framework preview: the story flow (acts), then the numbered sections with their purpose. */
+.setup-preview {
+  padding: var(--space-20);
+  border-radius: var(--radius-12);
+  background: var(--surface-container-high);
+}
+.setup-flow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8) var(--space-20);
+  align-items: center;
+}
+.setup-flow li {
+  padding: var(--space-6) var(--space-12);
+  border-radius: var(--radius-round);
+  background: var(--surface-container);
+  color: var(--text-brand-primary);
+}
+.setup-flow li {
+  position: relative;
+}
+.setup-flow li:not(:last-child)::after {
+  content: '→';
+  position: absolute;
+  inset-inline-end: calc(-1 * var(--space-16));
+  color: var(--text-gray-caption);
+}
+.setup-preview-sections {
+  list-style: decimal;
+  margin: 0;
+  padding-inline-start: var(--space-24);
+  display: grid;
+  gap: var(--space-12);
+}
+.setup-preview-sections li::marker {
+  color: var(--text-gray-caption);
+}
+.setup-preview-sections li > span {
+  display: block;
+}
+.setup-preview-title {
+  color: var(--text-gray-primary);
+}
+.setup-preview-purpose,
+.setup-preview-optional {
+  color: var(--text-gray-secondary);
+}
+
+/* Outline editor: number, title field (+ purpose), move/remove. */
+.setup-outline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-8);
+}
+.setup-outline-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-12);
+  align-items: start;
+  padding: var(--space-12);
+  border: var(--border-width-100) solid var(--border-gray-normal);
+  border-radius: var(--radius-12);
+  background: var(--surface-container);
+}
+.setup-outline-number {
+  display: grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  margin-block-start: var(--space-4);
+  border-radius: var(--radius-round);
+  background: var(--surface-container-high);
+  color: var(--text-gray-secondary);
+}
+@media (max-width: 639px) {
+  .setup-outline-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .setup-outline-actions {
+    grid-column: 2;
+  }
+}
+.setup-outline-empty {
+  padding: var(--space-20);
+  border-radius: var(--radius-12);
+  background: var(--surface-container-high);
+}
+
+/* The once-only "What should we call you?" prompt on the workspace home. */
+.studio-name-prompt {
+  padding: var(--space-20);
+  border-radius: var(--surface-container-radius);
+  background: var(--bg-brand-subtle);
+  border: var(--border-width-100) solid var(--border-brand-light);
+}

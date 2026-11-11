@@ -6,3 +6,5 @@ export * from './caseStudies/embeds';
 export * from './caseStudies/template';
 export * from './studio';
 export * from './auth';
+export * from './frameworks';
+export * from './caseStudies/setup';

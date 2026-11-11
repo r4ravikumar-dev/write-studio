@@ -28,7 +28,7 @@ export default async function StudioCaseStudiesPage({searchParams}: {searchParam
       <StudioCaseStudyList
         studies={studies}
         emptyTitle={isArchived ? 'Nothing archived' : 'No case studies yet'}
-        emptyText={isArchived ? 'Archive a case study to put it away without deleting it. You can restore it at any time.' : 'Select New case study to start one.'}
+        emptyText={isArchived ? 'Archive a case study to put it away without deleting it. You can restore it at any time.' : 'Select New case study to set one up.'}
       />
     </VStack>
   );

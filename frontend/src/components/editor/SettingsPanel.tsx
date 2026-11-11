@@ -11,7 +11,7 @@ import {Button} from '@astryxdesign/core/Button';
 import {Divider} from '@astryxdesign/core/Divider';
 import {Icon} from '@astryxdesign/core/Icon';
 import {ImageUp, Trash2} from 'lucide-react';
-import {slugify, studioMediaUrl, type StudioMeta} from '@studio/shared';
+import {PROJECT_TYPES, slugify, studioMediaUrl, type ProjectType, type StudioMeta} from '@studio/shared';
 import {useMedia} from './MediaLibrary';
 import {EYEBROW_STYLE} from '@/theme/eyebrow';
 
@@ -42,7 +42,7 @@ function Group({title, hint, children}: {title: string; hint?: string; children:
 }
 
 /** An image field: shows the picture, chooses one from the media library (or uploads), or clears it. */
-function ImageField({
+export function ImageField({
   label,
   url,
   focus,
@@ -177,6 +177,23 @@ export function SettingsPanel({
           width="100%"
         />
         <TextInput label="Focus" description="For example: Onboarding · Mobile experience" value={meta.focus} onChange={value => onChange({focus: value})} width="100%" />
+      </Group>
+
+      <Divider />
+
+      <Group title="Project" hint="From project setup. All optional.">
+        <Selector
+          label="Project type"
+          options={[{value: '', label: 'Not set'}, ...Object.entries(PROJECT_TYPES).map(([value, type]) => ({value, label: type.label}))]}
+          value={meta.project_type ?? ''}
+          onChange={value => onChange({project_type: (value || null) as ProjectType | null})}
+        />
+        <TextInput label="Your role" description="For example: Lead product designer" value={meta.role} onChange={value => onChange({role: value})} width="100%" />
+        <TextInput label="Team" description="Who you worked with." value={meta.team} onChange={value => onChange({team: value})} width="100%" />
+        <TextInput label="Timeline" description="For example: March to June 2025" value={meta.timeline} onChange={value => onChange({timeline: value})} width="100%" />
+        <TextInput label="Platform" description="For example: iOS and Android app" value={meta.platform} onChange={value => onChange({platform: value})} width="100%" />
+        <TextArea label="Objective" description="What the project set out to achieve." value={meta.objective} onChange={value => onChange({objective: value})} rows={2} width="100%" />
+        <TextArea label="Main challenge" description="The biggest problem you had to solve." value={meta.challenge} onChange={value => onChange({challenge: value})} rows={2} width="100%" />
       </Group>
 
       <Divider />

@@ -1,26 +1,15 @@
 import type {JSONContent} from './json';
+import {DEFAULT_FRAMEWORK, frameworkSection, type FrameworkSection} from '../frameworks';
 
 /**
- * The case-study storytelling framework. Every new case study starts with
- * these sections: a heading and an empty paragraph. The hint is never stored
- * in the document: the editor shows it as a placeholder in the empty
- * paragraph under its heading (see sectionHint) and it disappears as soon as
- * you type. Rename, reorder, remove or add sections freely.
+ * The default storytelling framework's sections (Product and UX design, v1; see
+ * ../frameworks). Every section is stored as a heading and an empty paragraph. The hint is never
+ * stored in the document: the editor shows it as a placeholder in the empty paragraph under its
+ * heading (see sectionOf) and it disappears as soon as you type.
  */
-export const caseStudySections = [
-  {key: 'opening', title: 'Opening', hint: 'The project title and one strong visual.'},
-  {key: 'overview', title: 'Overview', hint: 'What the project is about, in a few sentences.'},
-  {key: 'context', title: 'The context', hint: 'What was happening: the product, the people, the moment.'},
-  {key: 'challenge', title: 'The challenge', hint: 'What needed to be improved, and why it mattered.'},
-  {key: 'contribution', title: 'My contribution', hint: 'Your responsibilities, and who you worked with.'},
-  {key: 'exploration', title: 'Exploration', hint: 'Flows, iterations and the alternatives you tried.'},
-  {key: 'decisions', title: 'Key decisions', hint: 'Why particular solutions were chosen over others.'},
-  {key: 'experience', title: 'The experience', hint: 'The final product: screens and interactions.'},
-  {key: 'outcome', title: 'Outcome', hint: 'Verified results, or the design improvements it made.'},
-  {key: 'reflection', title: 'Reflection', hint: 'What you learned, and what you’d do differently.'},
-] as const;
+export const caseStudySections: readonly FrameworkSection[] = DEFAULT_FRAMEWORK.sections;
 
-export type CaseStudySection = (typeof caseStudySections)[number];
+export type CaseStudySection = FrameworkSection;
 
 /**
  * One framework section as stored: an EMPTY heading tagged with its section key, then an empty
@@ -36,7 +25,6 @@ export function caseStudyTemplate(): JSONContent {
   return {type: 'doc', content: caseStudySections.flatMap(caseStudySectionNodes)};
 }
 
-const BY_KEY = new Map<string, CaseStudySection>(caseStudySections.map(section => [section.key, section]));
 const BY_TITLE = new Map<string, CaseStudySection>(
   caseStudySections.map(section => [section.title.toLowerCase(), section]),
 );
@@ -44,7 +32,8 @@ const BY_TITLE = new Map<string, CaseStudySection>(
 /** The framework section a heading belongs to: by its section key, else by its text (older drafts). */
 export function sectionOf(heading: {attrs?: Record<string, unknown> | null; textContent?: string}): CaseStudySection | undefined {
   const key = heading.attrs?.section;
-  if (typeof key === 'string' && BY_KEY.has(key)) return BY_KEY.get(key);
+  const tagged = frameworkSection(key);
+  if (tagged) return tagged;
   return heading.textContent ? BY_TITLE.get(heading.textContent.trim().toLowerCase()) : undefined;
 }
 

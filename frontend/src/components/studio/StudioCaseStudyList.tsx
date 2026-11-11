@@ -8,11 +8,11 @@ import {Heading} from '@astryxdesign/core/Heading';
 import {Text} from '@astryxdesign/core/Text';
 import {IconButton} from '@astryxdesign/core/IconButton';
 import {Icon} from '@astryxdesign/core/Icon';
-import {ArchiveRestore, Eye, MoreHorizontal, PencilLine, Trash2} from 'lucide-react';
+import {ArchiveRestore, Eye, ListChecks, MoreHorizontal, PencilLine, Trash2} from 'lucide-react';
 import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
 import {Button} from '@astryxdesign/core/Button';
 import {AlertDialog} from '@astryxdesign/core/AlertDialog';
-import {studioMediaUrl, type StudioCaseStudyCard} from '@studio/shared';
+import {PROJECT_TYPES, studioMediaUrl, type StudioCaseStudyCard} from '@studio/shared';
 import {deleteStudioCaseStudy, restoreStudioCaseStudy} from '@/app/studio/case-study-actions';
 
 type Row = StudioCaseStudyCard & Record<string, unknown>;
@@ -20,7 +20,7 @@ type Row = StudioCaseStudyCard & Record<string, unknown>;
 const PAGE = 9;
 
 /** The signed-in user's own case studies (the API only ever returns theirs). */
-export function StudioCaseStudyList({studies, emptyTitle, emptyText}: {studies: StudioCaseStudyCard[]; emptyTitle: string; emptyText: string}) {
+export function StudioCaseStudyList({studies, emptyTitle, emptyText, emptyAction}: {studies: StudioCaseStudyCard[]; emptyTitle: string; emptyText: string; emptyAction?: React.ReactNode}) {
   const router = useRouter();
   const [toDelete, setToDelete] = useState<Row | null>(null);
   const [isWorking, startWork] = useTransition();
@@ -40,13 +40,20 @@ export function StudioCaseStudyList({studies, emptyTitle, emptyText}: {studies: 
       renderTrigger={props => (
         <IconButton {...props} label={`Actions for ${nameOf(row)}`} tooltip="Actions" size="sm" variant="ghost" icon={<Icon icon={MoreHorizontal} size="sm" color="inherit" />} />
       )}
-      items={[
-        row.status === 'archived'
-          ? {label: 'Restore', icon: <Icon icon={ArchiveRestore} size="sm" color="inherit" />, isDisabled: isWorking, onClick: () => restore(row)}
-          : {label: 'Edit', icon: <Icon icon={PencilLine} size="sm" color="inherit" />, href: `/studio/case-studies/${row.id}`},
-        {label: 'Preview', icon: <Icon icon={Eye} size="sm" color="inherit" />, href: `/studio/case-studies/${row.id}/preview`},
-        {label: 'Delete', icon: <Icon icon={Trash2} size="sm" color="inherit" />, variant: 'destructive' as const, onClick: () => setToDelete(row)},
-      ]}
+      items={
+        row.setup_state
+          ? [
+              {label: 'Continue setup', icon: <Icon icon={ListChecks} size="sm" color="inherit" />, href: hrefOf(row)},
+              {label: 'Delete', icon: <Icon icon={Trash2} size="sm" color="inherit" />, variant: 'destructive' as const, onClick: () => setToDelete(row)},
+            ]
+          : [
+              row.status === 'archived'
+                ? {label: 'Restore', icon: <Icon icon={ArchiveRestore} size="sm" color="inherit" />, isDisabled: isWorking, onClick: () => restore(row)}
+                : {label: 'Edit', icon: <Icon icon={PencilLine} size="sm" color="inherit" />, href: `/studio/case-studies/${row.id}`},
+              {label: 'Preview', icon: <Icon icon={Eye} size="sm" color="inherit" />, href: `/studio/case-studies/${row.id}/preview`},
+              {label: 'Delete', icon: <Icon icon={Trash2} size="sm" color="inherit" />, variant: 'destructive' as const, onClick: () => setToDelete(row)},
+            ]
+      }
       menuWidth={200}
     />
   );
@@ -56,6 +63,7 @@ export function StudioCaseStudyList({studies, emptyTitle, emptyText}: {studies: 
       <VStack gap={3} className="studio-empty">
         <Heading level={2}>{emptyTitle}</Heading>
         <Text color="secondary">{emptyText}</Text>
+        {emptyAction}
       </VStack>
     );
   }
@@ -88,11 +96,15 @@ export function StudioCaseStudyList({studies, emptyTitle, emptyText}: {studies: 
             <HStack gap={2} vAlign="start" justify="between" className="project-card-body">
               <VStack gap={1} className="project-card-text">
                 {/* The title link covers the whole card (one link per card for screen readers). */}
-                <NextLink href={`/studio/case-studies/${row.id}`} className="project-card-link">
+                <NextLink href={hrefOf(row)} className="project-card-link">
                   {nameOf(row)}
                 </NextLink>
                 <Text type="supporting" color="secondary">
-                  {row.status === 'archived' ? 'Archived · ' : ''}Edited <span suppressHydrationWarning>{relative(row.updated_at)}</span>
+                  {[row.setup_state ? 'Setup not finished' : null, row.status === 'archived' ? 'Archived' : null, row.project_type ? PROJECT_TYPES[row.project_type]?.label : null]
+                    .filter(Boolean)
+                    .map(part => `${part} · `)
+                    .join('')}
+                  Edited <span suppressHydrationWarning>{relative(row.updated_at)}</span>
                 </Text>
               </VStack>
               <span className="project-card-menu">{actionsMenu(row)}</span>
@@ -150,6 +162,11 @@ function relative(iso: string) {
     if (Math.abs(seconds) >= size) return RELATIVE.format(Math.round(seconds / size), unit);
   }
   return 'just now';
+}
+
+/** Where a card goes: the editor, or the setup when it isn't finished. */
+function hrefOf(row: StudioCaseStudyCard) {
+  return row.setup_state ? `/studio/case-studies/${row.id}/setup` : `/studio/case-studies/${row.id}`;
 }
 
 /** A case study's plain name for screen-reader labels ("Edit Booking redesign"). */

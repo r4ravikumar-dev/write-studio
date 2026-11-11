@@ -42,7 +42,7 @@ const TITLES: Record<MediaKind, string> = {image: 'Images', video: 'Videos', fil
  * (studio-private-media, the user's own). Provides useMedia() to the editor,
  * its blocks and the settings panel. New uploads go in this case study's folder.
  */
-export function MediaProvider({caseStudyId, children}: {caseStudyId: string; children: React.ReactNode}) {
+export function MediaProvider({caseStudyId, children}: {caseStudyId: string | null; children: React.ReactNode}) {
   const [kinds, setKinds] = useState<MediaKind[]>([]);
   const [kind, setKind] = useState<MediaKind | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);

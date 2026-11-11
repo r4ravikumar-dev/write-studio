@@ -1,6 +1,8 @@
 import type {JSONContent} from './caseStudies/json';
 import type {CaseStudyLayout} from './caseStudies/types';
 import {STUDIO_PATH} from './auth';
+import type {ProjectType} from './frameworks';
+import type {StudioSetupState} from './caseStudies/setup';
 
 /**
  * Studio case studies: private documents in a user's workspace
@@ -26,6 +28,19 @@ export type StudioCaseStudy = {
   thumbnail_focus: string;
   cover_path: string | null;
   layout: CaseStudyLayout;
+  /** Project details from setup (all optional; editable in the settings panel). */
+  project_type: ProjectType | null;
+  role: string;
+  team: string;
+  timeline: string;
+  platform: string;
+  objective: string;
+  challenge: string;
+  /** The framework (and its immutable version) the case study was set up with. */
+  framework_id: string | null;
+  framework_version: number | null;
+  /** Set while project setup is unfinished; null once the case study is created. */
+  setup_state: StudioSetupState | null;
   content: JSONContent;
   content_schema_version: number;
   status: StudioStatus;
@@ -52,6 +67,13 @@ export type StudioCaseStudyDraft = Pick<
   | 'thumbnail_focus'
   | 'cover_path'
   | 'layout'
+  | 'project_type'
+  | 'role'
+  | 'team'
+  | 'timeline'
+  | 'platform'
+  | 'objective'
+  | 'challenge'
   | 'content'
 >;
 
