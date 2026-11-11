@@ -1,5 +1,7 @@
 # Write Studio: editor toolbar specification (Toolbar 2.0)
 
+> **Superseded** on 2026-11-11 by `docs/editor-interaction-spec.md` (the single source of truth for the editor's tools). Kept as the record of Releases 1–3.
+
 > Status: **Release 1 (A1–A10) implemented on 2026-11-11**, using the recommended answers to the open decisions (text style names as in A2, new tab by default for links, replace included). **Release 2 (Insert 2.0) implemented on 2026-11-11:** process timeline, screen sequence, annotated screenshot and flow diagram. Inventory 3's other items are still future work.
 > It turns the product owner's "Editor Toolbar Architecture & Feature Specification" into three
 > inventories (Keep and reorganise, Add, Future-ready), checked against the code as it is today.

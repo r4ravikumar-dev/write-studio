@@ -238,3 +238,17 @@ Backup before removal: `/private/tmp/claude-501/-Users-visit--claude-spares-spar
   title when the section has content and drops empty sections. `ExportMenu.tsx`: PDF = `window.print()` + `@media
   print`/`@page` rules; HTML = client-side standalone file (styles from `document.styleSheets` with relative
   `url()`s resolved against each sheet's href, fonts/images fetched as data URLs, ≤20 MB each).
+- **Editor interaction spec (2026-11-11):** `docs/editor-interaction-spec.md` is the single source of truth for the
+  editor's six tool surfaces (header, formatting toolbar, selection toolbar, block toolbar/handle, inspector, Smart
+  Insert), the block registry (T5), composition tools (T6) and roadmap T1–T7; `toolbar-2.0-spec.md` is history.
+  T1 done 2026-11-11 (Undo/Redo + Export in the header; Underline and Find in More; roving focus via
+  `rovingFocus.ts` / `RovingToolbar.tsx`, which skips anything inside a popover/menu/dialog and re-applies on resize
+  because floating bars mount hidden; header goes icon-only 768–1023px). T2 done 2026-11-12: `BlockHandle.tsx` (universal handle; no new dependency:
+  `startBlockDrag` sets `view.dragging = {slice, move, node}` so ProseMirror completes the drop; wide = `+` + grip that
+  drags and opens the menu, compact chip on narrow/touch; ⌘/ menu, ⌥⇧↑/↓ move, ⌘D duplicate), `blocks/registry.ts`
+  (T5 start: block names, families, conversions, insert ids), `insertUsage.ts` (localStorage ids only),
+  `smartSections()` in insertCommands (Recommended for the cursor's section from framework `suggestedVisuals`,
+  Recently / Frequently used), categories Text/Media/Visual/Data/Structure/Embeds. Visual blocks' own bars removed.
+  Phone header shows "Saved" without the time so it fits 375px. Next: T3, continuing T5. Decisions D1–D6 taken as proposed (spec §15): Undo/Redo in the
+  header, an Embeds category, Table under Text, recents per browser, the universal handle replaces block bars,
+  Research insights + Chart first.
