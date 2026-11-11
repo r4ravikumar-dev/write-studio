@@ -27,7 +27,7 @@
   --space-chapter-gap: var(--space-48);
 }
 
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
   :root {
     --card-padding: var(--space-16);
     --section-gap: var(--space-48);
@@ -39,7 +39,7 @@
 .pill { border-radius: var(--radius-pill); }
 
 /* Show/hide by width (phones = below 768px, matching the mobile type scale). */
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
   .only-wide:not(#\#):not(#\#):not(#\#) { display: none; }
 }
 @media (min-width: 768px) {

@@ -780,7 +780,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
               ) : (
                 <>
                   <Button label="Review" variant="ghost" size="sm" onClick={openReview} icon={<Icon icon={ClipboardCheck} size="sm" color="inherit" />} />
-                  <Button label="History" aria-label="Version history" variant="ghost" size="sm" onClick={() => setIsHistoryOpen(true)} icon={<Icon icon={History} size="sm" color="inherit" />} />
+                  <Button label="History" variant="ghost" size="sm" onClick={() => setIsHistoryOpen(true)} icon={<Icon icon={History} size="sm" color="inherit" />} />
                   <Button label="Preview" variant="ghost" size="sm" onClick={openPreview} icon={<Icon icon={Eye} size="sm" color="inherit" />} />
                   <ExportMenu title={meta.title.replace(/\*/g, '').trim() || 'Untitled case study'} previewHref={`/studio/case-studies/${study.id}/preview`} beforeOpen={saveNow} />
                   <Button

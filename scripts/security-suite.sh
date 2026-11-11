@@ -47,5 +47,6 @@ step 'Project setup: frameworks, resume, duplicate, ownership (Stage 1)'; $PY -I
 step 'Sections: v2 migration + backup, section ids, private notes (Stage 2)'; $PY -I supabase/tests/test_studio_sections_live.py "$PWD" "$LOG"
 step 'Review: card progress, restyled preview (Stage 5)';  $PY -I supabase/tests/test_studio_review_live.py "$PWD" "$LOG"
 step 'History: versions, restore, isolation; new frameworks (T7)'; $PY -I supabase/tests/test_studio_history_live.py "$PWD" "$LOG"
+step 'Editor in a real browser: save path, reload, PDF and HTML export'; $PY -I supabase/tests/test_studio_editor_e2e.py "$PWD" "$LOG"
 step 'Lifecycle and caching (SEC-017/018)';                               $PY -I supabase/tests/test_studio_lifecycle_live.py "$PWD" "$LOG"
 echo; echo 'All checks passed.'

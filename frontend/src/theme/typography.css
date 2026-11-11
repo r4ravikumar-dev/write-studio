@@ -95,7 +95,7 @@
 }
 
 /* ---- Mobile scale (below 768px) ------------------------------------------- */
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
   :root {
     /* Display: Bricolage 600, −1%, LH 120% */
     --display-xl-size: 28px; --display-lg-size: 28px; --display-md-size: 24px;
@@ -216,7 +216,7 @@ body {
 .cs-prose img[data-ratio] {
   object-fit: cover;
 }
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
   /* Phones: small images still need to be readable. */
   .cs-prose img[data-size='medium'],
   .cs-prose img[data-size='small'] { inline-size: 100%; }

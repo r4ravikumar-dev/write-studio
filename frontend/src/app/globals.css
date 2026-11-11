@@ -312,7 +312,7 @@ html {
   font-weight: 600;
 }
 
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
   .step-row {
     column-gap: var(--spacing-5);
   }
@@ -470,7 +470,7 @@ html {
 /* Sections stack below 1024px; their illustration then leads, above the
    headline. Page heroes keep their text first. .section-split is a two-column
    section grid from 1024px. */
-@media (max-width: 1023px) {
+@media screen and (max-width: 1023px) {
   .section-art {
     order: -1;
   }
@@ -942,7 +942,7 @@ html {
   /* A solid hairline tinted with the brand blue, at 8%. */
   border-inline: 1px solid color-mix(in srgb, var(--color-brand-text) 8%, transparent);
 }
-@media (max-width: 1599.98px) {
+@media screen and (max-width: 1599.98px) {
   .page-frame::before {
     display: none;
   }
@@ -1019,7 +1019,7 @@ html {
 }
 /* Below 1080px there isn't room beside the centred name: the role would run
    into the résumé and LinkedIn icons, so the header keeps just the name. */
-@media (max-width: 1079.98px) {
+@media screen and (max-width: 1079.98px) {
   .portfolio-header-role {
     display: none;
   }
@@ -1086,7 +1086,7 @@ html {
   color: var(--color-text-primary);
 }
 /* Phones: the Menu cell, a 48px touch target flush with the frame's edge. */
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
   .portfolio-header-icon {
     inline-size: var(--size-element-lg);
   }
@@ -1191,7 +1191,7 @@ html {
    screen. The portrait takes the top part; the label, name, tagline and
    scroll cue spread evenly through the rest, the cue resting on the bottom
    edge. */
-@media (max-width: 1023.98px) {
+@media screen and (max-width: 1023.98px) {
   .portfolio-hero {
     --hero-photo-block: calc((100svh - var(--header-height)) * 0.45);
   }
@@ -1993,7 +1993,7 @@ html {
   border-block-start: 0;
 }
 /* Short screens: the illustration gives way so the card still fits. */
-@media (max-height: 700px) and (max-width: 1023px) {
+@media screen and (max-height: 700px) and (max-width: 1023px) {
   .deck-card-art .illustration {
     max-block-size: 18svh;
   }
@@ -2630,7 +2630,7 @@ html.lenis {
   gap: var(--space-block);
 }
 /* Stacked (below 1024px) every project opens with its picture. */
-@media (max-width: 1023.98px) {
+@media screen and (max-width: 1023.98px) {
   .work-feature-frame {
     order: -1;
   }
@@ -2793,7 +2793,7 @@ dialog.pass-dialog > * {
 /* Phones: a shorter ticket. The stub becomes one compact row (flight and
    seat beside the barcode) and the dialog scrolls if a screen is shorter
    still. */
-@media (max-width: 639.98px) {
+@media screen and (max-width: 639.98px) {
   dialog.pass-dialog {
     overflow-y: auto;
   }
@@ -3317,7 +3317,7 @@ dialog.astryx-dialog::backdrop {
   padding: var(--space-6) var(--space-8);
   font-size: var(--body-lg-size);
 }
-@media (max-width: 767.98px) {
+@media screen and (max-width: 767.98px) {
   /* "Fit to screen": columns shrink to the screen instead of scrolling sideways. */
   :is(.cs-prose, .write-prose) table[data-mobile='fit'] {
     table-layout: auto;
@@ -3552,7 +3552,7 @@ dialog.astryx-dialog::backdrop {
 .write-bubble {
   padding: var(--space-4);
 }
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
   .write-find {
     position: fixed;
     inset-block-start: calc(var(--glass-bar-height) + var(--space-8));
@@ -3593,7 +3593,7 @@ dialog.astryx-dialog::backdrop {
    - collapsed: quick tools (the Format group) in one swipeable row, ⌃ at the right;
    - expanded (⌃): a sheet that grows upward: header = tab picker ("Format ▾"), undo/redo, ⌄;
      body = that tab's tools, wrapped. Insert is the floating action button (.write-fab). */
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
   .write-toolbar:not(#\#):not(#\#):not(#\#) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -3735,7 +3735,7 @@ dialog.astryx-dialog::backdrop {
   max-block-size: calc(100svh - 57px);
   overflow-y: auto;
 }
-@media (max-width: 1023.98px) {
+@media screen and (max-width: 1023.98px) {
   .write-main {
     flex-direction: column;
   }
@@ -3899,11 +3899,11 @@ dialog.astryx-dialog::backdrop {
   break-inside: avoid;
   margin-block-end: var(--vb-gap);
 }
-@media (max-width: 767.98px) {
+@media screen and (max-width: 767.98px) {
   .vb-grid { grid-template-columns: repeat(min(var(--vb-columns, 2), 2), minmax(0, 1fr)); }
   .vb-grid[data-arrangement='masonry'] { columns: 2; }
 }
-@media (max-width: 479.98px) {
+@media screen and (max-width: 479.98px) {
   .vb-grid { grid-template-columns: minmax(0, 1fr); }
   .vb-grid[data-arrangement='asymmetric'] > :first-child { grid-column: auto; grid-row: auto; }
   .vb-grid[data-arrangement='masonry'] { columns: 1; }
@@ -3921,7 +3921,7 @@ dialog.astryx-dialog::backdrop {
 .vb-compare-side[data-tone='after'] .vb-media {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-brand-text) 45%, transparent);
 }
-@media (max-width: 639.98px) {
+@media screen and (max-width: 639.98px) {
   .vb-compare .vb-compare-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
@@ -4014,7 +4014,7 @@ dialog.astryx-dialog::backdrop {
   border-radius: 50%;
   background: var(--color-border-emphasized);
 }
-@media (max-width: 639.98px) {
+@media screen and (max-width: 639.98px) {
   .vb-devices[data-mobile='stack'] .vb-stage {
     aspect-ratio: auto !important;
     display: grid;
@@ -4060,7 +4060,7 @@ dialog.astryx-dialog::backdrop {
   min-inline-size: 0;
 }
 .vb-split-text > * { margin: 0; }
-@media (max-width: 767.98px) {
+@media screen and (max-width: 767.98px) {
   .vb-split { grid-template-columns: minmax(0, 1fr) !important; }
   .vb-split .vb-split-media { order: 0 !important; }
 }
@@ -4145,18 +4145,18 @@ dialog.astryx-dialog::backdrop {
   border-radius: var(--radius-container);
   background: var(--color-background-surface);
 }
-@media (max-width: 767.98px) {
+@media screen and (max-width: 767.98px) {
   .vb-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 399.98px) {
+@media screen and (max-width: 399.98px) {
   .vb-metrics-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Image grid: "Columns on phones" (Inspector 2.0). */
-@media (max-width: 767.98px) {
+@media screen and (max-width: 767.98px) {
   .vb-grid[data-mobile-columns='1'] { grid-template-columns: minmax(0, 1fr); }
 }
-@media (max-width: 479.98px) {
+@media screen and (max-width: 479.98px) {
   .vb-grid[data-mobile-columns='2'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
@@ -4348,7 +4348,7 @@ dialog.astryx-dialog::backdrop {
   inset-block: calc(var(--size-32) + var(--space-4)) calc(-1 * var(--space-24) + var(--space-4));
   border-inline-start: var(--border-width-200) solid var(--border-brand-light);
 }
-@media (max-width: 767.98px) {
+@media screen and (max-width: 767.98px) {
   .vb-timeline[data-layout='horizontal'] .vb-timeline-list {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -4430,7 +4430,7 @@ dialog.astryx-dialog::backdrop {
   font-size: var(--heading-md-size);
   color: var(--text-brand-primary);
 }
-@media (max-width: 767.98px) {
+@media screen and (max-width: 767.98px) {
   .vb .vb-sequence-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4579,7 +4579,7 @@ dialog.astryx-dialog::backdrop {
 .vb-flow[data-direction='vertical'] .vb-flow-arrow::after {
   content: '↓';
 }
-@media (max-width: 767.98px) {
+@media screen and (max-width: 767.98px) {
   .vb-flow .vb-flow-list,
   .vb-flow .vb-flow-item {
     flex-direction: column;
@@ -4646,7 +4646,7 @@ dialog.astryx-dialog::backdrop {
 .write-side-scrim {
   display: none;
 }
-@media (max-width: 1023.98px) {
+@media screen and (max-width: 1023.98px) {
   .write-side:not(#\#) {
     position: fixed;
     z-index: 40;
@@ -5097,7 +5097,7 @@ dialog.astryx-dialog::backdrop {
 /* T3 (editor spec §9.3): tablet and phone column overrides from the inspector's "Tablet and phone"
    group. The renderer sets --vb-columns-tablet / --vb-columns-phone and a data flag only when the
    person changed them; otherwise the automatic rules above apply. */
-@media (min-width: 768px) and (max-width: 1023.98px) {
+@media screen and (min-width: 768px) and (max-width: 1023.98px) {
   .vb-grid[data-columns-tablet],
   .vb-metrics-grid[data-columns-tablet],
   .vb .vb-sequence-list[data-columns-tablet] {
@@ -5105,7 +5105,7 @@ dialog.astryx-dialog::backdrop {
   }
   .vb-grid[data-arrangement='masonry'][data-columns-tablet] { columns: var(--vb-columns-tablet); }
 }
-@media (max-width: 767.98px) {
+@media screen and (max-width: 767.98px) {
   .vb-metrics-grid[data-columns-phone],
   .vb .vb-sequence-list[data-columns-phone] {
     grid-template-columns: repeat(var(--vb-columns-phone), minmax(0, 1fr));
@@ -5159,7 +5159,7 @@ dialog.astryx-dialog::backdrop {
 }
 .vb .vb-insight-evidence { font-size: var(--body-lg-size); line-height: 1.5; color: var(--text-gray-secondary); }
 .vb .vb-insight-source { font-size: var(--caption-md-size); color: var(--text-gray-tertiary); }
-@media (max-width: 767.98px) {
+@media screen and (max-width: 767.98px) {
   .vb .vb-insights-list { grid-template-columns: minmax(0, 1fr); }
 }
 
@@ -5386,6 +5386,6 @@ dialog.astryx-dialog::backdrop {
 }
 .history-doc-title { margin: 0 0 var(--space-8); font-family: var(--font-family-secondary); font-size: var(--heading-xxl-size); line-height: 1.2; }
 .history-doc-subtitle { margin: 0 0 var(--space-24); font-size: var(--body-xxl-size); color: var(--text-gray-secondary); }
-@media (max-width: 767.98px) {
+@media screen and (max-width: 767.98px) {
   .history[data-open] { grid-template-columns: minmax(0, 1fr); }
 }

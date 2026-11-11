@@ -82,7 +82,7 @@
 }
 /* Phones: no sheet. The document runs edge to edge on white with the mobile side margin
    (space/16), like Word / Docs on a phone. */
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
   .write-canvas {
     background: var(--surface-container);
   }
@@ -226,7 +226,7 @@
   align-items: start;
   max-inline-size: 60rem;
 }
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
   .setup {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-12);
@@ -298,7 +298,7 @@
   border-radius: var(--surface-container-radius);
   min-inline-size: 0;
 }
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
   .setup-panel {
     padding: var(--space-20) var(--space-16);
   }
@@ -480,7 +480,7 @@
   background: var(--surface-container-high);
   color: var(--text-gray-secondary);
 }
-@media (max-width: 639px) {
+@media screen and (max-width: 639px) {
   .setup-outline-row {
     grid-template-columns: auto minmax(0, 1fr);
   }
@@ -632,7 +632,7 @@
 .write-outline-scrim {
   display: none;
 }
-@media (max-width: 1279.98px) {
+@media screen and (max-width: 1279.98px) {
   .write-outline:not(#\#) {
     position: fixed;
     z-index: 40;
@@ -741,7 +741,7 @@
   margin-inline-start: calc(-1 * var(--space-12));
   inline-size: calc(100% + var(--space-12));
 }
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
   .write-title {
     font-size: var(--heading-xxl-size);
   }
@@ -934,7 +934,7 @@
 .review-bar > span[data-part='review'] { background: var(--bg-warning-normal); }
 .review-bar > span[data-part='in_progress'] { background: var(--bg-brand-normal); }
 .review-bar > span[data-part='empty'] { background: var(--border-gray-normal); }
-@media (max-width: 639px) {
+@media screen and (max-width: 639px) {
   .review { padding-inline: var(--space-16); }
   .review-item { grid-template-columns: auto minmax(0, 1fr); }
   .review-item > :last-child:not(.review-text) { grid-column: 2; justify-self: start; }
@@ -1081,10 +1081,20 @@
 .preview .cs-section-heading {
   scroll-margin-block-start: calc(var(--glass-bar-height) + var(--space-24));
 }
-@media (max-width: 767px) {
+@media screen and (max-width: 767px) {
   .preview-page { padding-block-start: var(--space-32); }
   .preview-title { font-size: var(--heading-xxl-size); }
   .preview-subtitle { font-size: var(--heading-md-size); }
+}
+
+/* The note that stands in for a video when printing (hidden on screen and in the HTML file). */
+.cs-video-note {
+  display: none;
+  margin: 0;
+  padding: var(--space-16);
+  border: 1px solid var(--border-gray-normal);
+  border-radius: var(--radius-12);
+  color: var(--text-gray-secondary);
 }
 
 /* ── Print / Save as PDF ─────────────────────────────────────────────────────────────────────── */
@@ -1135,6 +1145,24 @@
   .preview * {
     animation: none !important;
     transition: none !important;
+  }
+  /* White paper, whatever the screen's page colour (with "Background graphics" on too). */
+  html,
+  body,
+  .preview,
+  .preview-page {
+    background: var(--bg-gray-inverse) !important;
+  }
+  /* Soft shadows print as grey boxes in PDFs: devices go without them on paper. */
+  .preview .vb-devices[data-shadow] .vb-device {
+    box-shadow: none;
+  }
+  /* A video can't play on paper: a short note takes its place. */
+  .preview video {
+    display: none;
+  }
+  .preview .cs-video-note {
+    display: block;
   }
   .preview [data-block-surface],
   .preview .vb-devices,

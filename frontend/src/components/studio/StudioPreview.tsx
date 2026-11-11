@@ -1,7 +1,7 @@
 import {HStack} from '@astryxdesign/core/Layout';
 import {Text} from '@astryxdesign/core/Text';
 import {Button} from '@astryxdesign/core/Button';
-import {PROJECT_TYPES, documentSections, frameworkSection, studioMediaUrl, type StudioCaseStudy} from '@studio/shared';
+import {PROJECT_TYPES, documentSections, frameworkSection, hasContent, studioMediaUrl, type StudioCaseStudy} from '@studio/shared';
 import {CaseStudyArticle} from '@/components/caseStudy/CaseStudyArticle';
 import {Lines} from '@/components/storytelling/Lines';
 import {ExportMenu} from '@/components/studio/ExportMenu';
@@ -22,9 +22,9 @@ export function StudioPreview({study, isEmbedded}: {study: StudioCaseStudy; isEm
     ['Timeline', study.timeline],
     ['Platform', study.platform],
   ].filter(([, value]) => value?.trim()) as [string, string][];
-  // Contents: sections with something in them, by their title (or the framework's).
+  // Contents: the sections the page shows (written in, whatever their status), by their title (or the framework's).
   const contents = documentSections(study.content)
-    .filter(section => section.state !== 'empty')
+    .filter(section => section.title.trim() || section.body.some(hasContent))
     .map(section => ({id: section.id, name: section.title || frameworkSection(section.key)?.title || ''}))
     .filter(section => section.name && section.id);
 

@@ -146,7 +146,7 @@ RLS on + zero policies + no anon/authenticated grants on studio tables. `public.
 
 `scripts/security-suite.sh [django-console-log]`: static "no owner/portfolio code" grep, typecheck, lint,
 Express build, Django check + 26 tests; with the log: schema 33, auth-live 23, storage-live 30,
-documents-live 55, setup-live 35, sections-live 30, review-live 16, history-live 23, lifecycle-live 27, review engine 15 (offline, tsx) (all passing 2026-11-12). Map of SEC-001..018 in
+documents-live 55, setup-live 35, sections-live 30, review-live 16, history-live 23, lifecycle-live 27, editor-e2e 36 (headless Chrome via `scripts/e2e/`, no dependency), review engine 15 (offline, tsx) (all passing 2026-11-12). Map of SEC-001..018 in
 `supabase/tests/README.md`. Live tests create/delete `@example.test` accounts (staging only).
 
 ## 8. Removed on 2026-11-10 (don't reintroduce)
@@ -172,6 +172,13 @@ Backup before removal: `/private/tmp/claude-501/-Users-visit--claude-spares-spar
   RSC requests need a valid `_rsc` hash (307 otherwise).
 - Raw SQL inserts into `django.accounts_user` must set `session_version` (no DB default).
 - Python 3.9: `from __future__ import annotations` for `X | None`; Django 4.2 LTS.
+- **Print = desktop layout.** Width media queries (`max-width`, the tablet range) are `@media screen and (…)` in globals.css,
+  typography.css, surfaces.css and foundation.css: an A4 page is narrower than 768px, so without `screen` the PDF used the
+  phone layout (1-column grids, full-width images). Keep new breakpoints screen-only. Print also forces white paper, drops
+  device shadows (they print as grey boxes) and swaps videos for `.cs-video-note`.
+- **Astryx buttons with `aria-label` render as round icon buttons** (liquid-glass.css): never give a labelled `<Button>` an
+  aria-label (the History button was squeezed to "H").
+- The staging pooler allows 15 clients in session mode: if Django returns 500 "max clients reached", wait and retry.
 - zsh doesn't word-split `$var` into arguments; pass file lists explicitly.
 - `globals.css` (~4.3k lines) still holds styles for removed portfolio components (dead CSS, harmless; raw values there predate DNA).
 - ProseMirror attrs are null-prototype objects: anything sent to a server action must be plain JSON (`plainDocument()` in Editor.tsx). Live tests bypass server actions, so add a browser e2e test (Stage 3).
