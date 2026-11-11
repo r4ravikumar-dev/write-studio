@@ -170,7 +170,7 @@ The architecture must leave room for these without a rewrite. "Prepare now" is w
 
 1. **Toolbar 2.0 (P0):** A1–A10 above.
 2. **Insertion 2.0 (P1):** ✅ done: process timeline, screen sequence, annotated screenshot, flow diagram.
-3. **Inspector 2.0 (P1):** table inspector, device interactions, image crop, responsive block settings, presets.
+3. **Inspector 2.0 (P1):** ✅ done (2026-11-11): table inspector, device drag/duplicate/lock, image credit and corners, comparison slider, image grid columns on phones. Reusable presets moved to P2 (need private storage).
 4. **Advanced authoring (P2):** sources and footnotes, charts, version history, private notes, AI (only after guidance).
 
 ## Open decisions for the product owner
