@@ -61,8 +61,14 @@ export function Turnstile({siteKey, resetKey, action}: {siteKey: string; resetKe
           theme: 'light',
           size: 'flexible',
           appearance: 'interaction-only',
-          'error-callback': () => {
-            setProblem('The security check couldn’t run. Reload the page, or turn off any blocker for this site.');
+          'error-callback': (code?: string) => {
+            const id = code ? ` (error ${code})` : '';
+            // 1102xx: this address isn't one the widget is registered for.
+            setProblem(
+              String(code).startsWith('1102')
+                ? `The security check doesn’t work on this address${id}. Open the studio from its usual address and try again.`
+                : `The security check couldn’t run${id}. Reload the page, or turn off any blocker for this site.`,
+            );
             return true;
           },
           callback: () => setProblem(''),
