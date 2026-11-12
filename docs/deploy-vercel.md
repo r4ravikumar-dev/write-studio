@@ -11,29 +11,43 @@ deployed. The studio needs three Vercel projects from the same GitHub repo, all 
 | `write-studio-auth` (new) | `backend/django` | Django auth service (WSGI, Python 3.12) | `backend/django/vercel.json`, `.python-version` |
 
 Browsers only ever talk to the Next.js site; it calls the other two server-to-server.
-Do the steps in order. Nothing here touches the staging project.
+Do the steps in order.
 
-## 1. Production Supabase project
+## 1. Supabase (the existing project is production)
 
-1. Supabase → New project, region **Sydney (ap-southeast-2)**. Save the DB password in a password manager.
+Production uses the existing project `psfjngzdldqhvmabgvos` (Sydney), the one development used.
+It already has every migration this code needs (`0001`–`0014` and Django's), so **no migration
+runs**. The test accounts were removed on 2026-11-12.
+
+1. **Rotate the secrets first**: they were pasted in chat during development. Project Settings →
+   API Keys: create a new secret key and delete the old one; Database → reset the database password.
+   Then put the new values in `backend/express/.env` and `backend/django/.env` for local work.
 2. Authentication → Sign In / Providers: turn **off** "Allow new users to sign up" (Supabase Auth isn't used).
-3. SQL Editor: run `supabase/migrations/0001` … `0004` in order.
-4. Django tables (from your machine, with the **session pooler** URL, port 5432):
-   ```bash
-   cd backend/django && DATABASE_URL='<prod session pooler URL>' DJANGO_DEBUG=true .venv/bin/python manage.py migrate
-   ```
-5. SQL Editor: run `0005` … `0013` in order (the order and notes are in `supabase/README.md`).
-   On a fresh project `0009` has nothing to remove; the `case-study-media` bucket may not exist.
-6. Storage: confirm `studio-private-media` is the only bucket, private, with no policies.
-7. Note down: Project URL, the **secret** API key (`sb_secret_…`), and the **transaction pooler**
-   connection string (Connect → Transaction pooler, port **6543**) with the password filled in.
+3. Database → Backups: check daily backups are on (point-in-time recovery if your plan allows).
+4. Storage: confirm `studio-private-media` is the only bucket, private, with no policies.
+5. Note down: Project URL, the new **secret** API key (`sb_secret_…`), and the **transaction pooler**
+   connection string (Connect → Transaction pooler, port **6543**) with the new password filled in.
 
-## 2. Secrets (new, never the staging ones)
+### One database for development and production
+
+Anything run locally now writes to production:
+- **Never run the live tests** against it: `scripts/security-suite.sh <django-log>` and the
+  `supabase/tests/test_*_live.py` / `scripts/e2e/` suites create and delete accounts. The offline
+  form `scripts/security-suite.sh` (no argument) is safe.
+- A new migration takes effect for production as soon as you run it, so only run it together with
+  the code that needs it, after a backup, and keep the matching file in `supabase/rollback/`.
+- Locally you sign in as yourself and edit your real documents.
+
+If that becomes a problem, a separate free Supabase project for development is the fix; nothing
+in the code changes, only the `.env` files.
+
+## 2. Secrets (new, never the development ones)
 
 ```bash
 python3 -c "import secrets; print('JWT_SECRET', secrets.token_urlsafe(64)); print('AUTH_SERVICE_KEY', secrets.token_urlsafe(48)); print('DJANGO_SECRET_KEY', secrets.token_urlsafe(64))"
 ```
 `JWT_SECRET` must be identical in all three projects; `AUTH_SERVICE_KEY` in the site and auth projects.
+Changing `JWT_SECRET` signs everyone out once, which is fine before launch.
 
 ## 3. Email (Resend, Postmark or SES)
 
@@ -99,8 +113,7 @@ No Supabase keys or URLs here.
 
 ## Before opening sign-ups publicly
 
-From `docs/RELEASE.md`: add a CAPTCHA to sign-up and the code forms (only rate limits exist today),
-and rotate the **staging** Supabase secret key and DB password that were pasted in chat.
+From `docs/RELEASE.md`: add a CAPTCHA to sign-up and the code forms (only rate limits exist today).
 
 ## Notes
 
