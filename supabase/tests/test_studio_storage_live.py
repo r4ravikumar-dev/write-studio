@@ -31,10 +31,18 @@ def ok(name, cond, extra=''):
 
 def sign_in(email):
     S = {'X-Service-Key': dj['AUTH_SERVICE_KEY'], 'X-Client-IP': '203.0.113.40'}
-    call('POST', 'http://localhost:8000/api/auth/request-code', {'email': email}, S); time.sleep(0.6)
-    code = re.findall(r'is (\d{6})', quopri.decodestring(open(log, 'rb').read()).decode('utf-8', 'replace'))[-1]
-    s, b, _ = call('POST', 'http://localhost:8000/api/auth/verify-code', {'email': email, 'code': code}, S)
-    return json.loads(b)
+    # The staging pooler allows 15 clients. When Django answers 500 ("max clients reached") at either
+    # step, wait and start again: a server error never consumed a code or created anything.
+    for attempt in range(15):
+        s, _, _ = call('POST', 'http://localhost:8000/api/auth/request-code', {'email': email}, S)
+        if s < 500:
+            time.sleep(0.6)
+            code = re.findall(r'is (\d{6})', quopri.decodestring(open(log, 'rb').read()).decode('utf-8', 'replace'))[-1]
+            s, b, _ = call('POST', 'http://localhost:8000/api/auth/verify-code', {'email': email, 'code': code}, S)
+            if s < 500: return json.loads(b)
+        print(f'  (staging is busy: sign-in attempt {attempt + 1} got {s}; waiting 20 s)')
+        time.sleep(20)
+    raise SystemExit('Staging kept answering 500 at sign-in for five minutes (the pooler is full). Run the suite again later.')
 
 API = lambda tok, method, path, body=None, headers=None: call(method, 'http://localhost:4000' + path, body, {**({'Authorization': 'Bearer ' + tok} if tok else {}), **(headers or {})})
 WEB = lambda path, cookie=None, headers=None: call('GET', 'http://localhost:3000' + path, headers={**({'Cookie': cookie} if cookie else {}), **(headers or {})})
@@ -45,13 +53,13 @@ def put(signed_url, data, mime):
             f'--{bnd}\r\nContent-Disposition: form-data; name=""; filename="f"\r\nContent-Type: {mime}\r\n\r\n').encode() + data + f'\r\n--{bnd}--\r\n'.encode()
     return call('PUT', signed_url, raw=body, headers={'Content-Type': f'multipart/form-data; boundary={bnd}', 'x-upsert': 'false'})
 
-def upload(tok, data, mime, record=True, put_mime=None, case_study_id=None):
-    s, b, _ = API(tok, 'POST', '/api/app/assets/upload-url', {'mime': mime, 'size': len(data), 'case_study_id': case_study_id})
+def upload(tok, data, mime, record=True, put_mime=None, document_id=None):
+    s, b, _ = API(tok, 'POST', '/api/app/assets/upload-url', {'mime': mime, 'size': len(data), 'document_id': document_id})
     if s != 200: return s, json.loads(b), None
     t = json.loads(b); ps, pb, _ = put(t['signedUrl'], data, put_mime or mime)
     if ps != 200: return ps, {'put': pb[:120]}, t
     if not record: return 200, t, t
-    s, b, _ = API(tok, 'POST', '/api/app/assets', {'path': t['path'], 'width': 1, 'height': 1, 'alt': 'x', 'original_name': 'pixel.png', 'case_study_id': case_study_id})
+    s, b, _ = API(tok, 'POST', '/api/app/assets', {'path': t['path'], 'width': 1, 'height': 1, 'alt': 'x', 'original_name': 'pixel.png', 'document_id': document_id})
     reply = json.loads(b)
     return s, reply.get('asset', reply), t
 
@@ -89,7 +97,7 @@ s, b, _ = API(B['access'], 'GET', '/api/app/assets'); ok('B\'s library doesn\'t 
 s, _, _ = API(B['access'], 'PATCH', f"/api/app/assets/{asset['id']}", {'alt': 'pwned'}); ok('B can\'t edit A\'s alt text', s == 404, s)
 s, _, _ = API(B['access'], 'DELETE', f"/api/app/assets/{asset['id']}"); ok('B can\'t delete A\'s file (SEC-008)', s == 404 and stored(path), s)
 s, _, _ = API(B['access'], 'POST', '/api/app/assets', {'path': path}); ok('B can\'t claim A\'s uploaded path', s == 404, s)
-s, _, _ = API(B['access'], 'POST', '/api/app/assets/upload-url', {'mime': 'image/png', 'size': 10, 'case_study_id': str(uuid.uuid4())})
+s, _, _ = API(B['access'], 'POST', '/api/app/assets/upload-url', {'mime': 'image/png', 'size': 10, 'document_id': str(uuid.uuid4())})
 ok('B can\'t upload into a case study that isn\'t B\'s', s == 404, s)
 ps, _, _ = put(t['signedUrl'], PNG, 'image/png'); ok('an upload link works once (no overwrite)', ps >= 400 and stored(path), ps)
 

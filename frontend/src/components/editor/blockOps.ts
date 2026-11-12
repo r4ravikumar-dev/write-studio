@@ -3,7 +3,7 @@
 import type {Editor} from '@tiptap/react';
 import type {Node as PMNode} from '@tiptap/pm/model';
 import {NodeSelection, TextSelection} from '@tiptap/pm/state';
-import {convertMedia, convertText} from './blocks/registry';
+import {BLOCKS, convertMedia, convertText} from './blocks/registry';
 import type {MediaRef} from '@studio/shared';
 import type {StudioAsset as Asset} from '@studio/shared';
 import {VISUAL_BLOCKS, type VisualBlockName} from '@/lib/caseStudies/blocks';
@@ -64,18 +64,19 @@ export function findSelectedBlock(editor: Editor): {name: string; pos: number; n
   const {selection} = editor.state;
   if (selection instanceof NodeSelection) {
     const name = selection.node.type.name;
-    if (name in VISUAL_BLOCKS || name === 'image') return {name, pos: selection.from, node: selection.node};
+    if (name in VISUAL_BLOCKS || name === 'image' || BLOCKS[name]?.configurable) return {name, pos: selection.from, node: selection.node};
   }
   const {$from} = selection;
   for (let depth = $from.depth; depth > 0; depth -= 1) {
     const node = $from.node(depth);
     // Visual blocks, and tables (the Table inspector), when the cursor is inside them.
-    if (node.type.name in VISUAL_BLOCKS || node.type.name === 'table') return {name: node.type.name, pos: $from.before(depth), node};
+    // …and any other block with settings (code block, terminal, parameter table, testimonial).
+    if (node.type.name in VISUAL_BLOCKS || node.type.name === 'table' || BLOCKS[node.type.name]?.configurable) return {name: node.type.name, pos: $from.before(depth), node};
   }
   return null;
 }
 
-export const blockLabel = (name: string) => (VISUAL_BLOCKS as Record<string, string>)[name] ?? ({image: 'Image', table: 'Table'} as Record<string, string>)[name] ?? name;
+export const blockLabel = (name: string) => (VISUAL_BLOCKS as Record<string, string>)[name] ?? BLOCKS[name]?.label ?? name;
 
 export const isVisualBlock = (name: string): name is VisualBlockName => name in VISUAL_BLOCKS;
 

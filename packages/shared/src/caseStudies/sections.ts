@@ -1,5 +1,6 @@
 import type {JSONContent} from './json';
 import {clearUntouchedHints} from './template';
+import {isEmptyBlock} from '../blocks/contract';
 
 /**
  * Story structure (Stage 2). A section is a TOP-LEVEL level-2 heading ("Heading 1" in the style
@@ -13,7 +14,13 @@ import {clearUntouchedHints} from './template';
  * The outline is always derived from the document; there is no second copy of the structure.
  * Guidance (purpose, questions, evidence) comes from the framework and is never stored here.
  */
-export const CONTENT_SCHEMA_VERSION = 2;
+/**
+ * The stored document's shape. v2: section ids and statuses (Stage 2). v3 (multi-vertical Phase 3):
+ * the code block's title, line numbers and wrapping, and the Phase 3 blocks; nothing in a v2
+ * document changes, but an older version of the app opens a v3 document read-only instead of
+ * dropping attributes it doesn't know (block contract B4).
+ */
+export const CONTENT_SCHEMA_VERSION = 3;
 export const SECTION_LEVEL = 2;
 
 export type SectionStatus = 'review' | 'complete';
@@ -48,10 +55,9 @@ export const isSectionId = (value: unknown): value is string => typeof value ===
 
 /** Whether a node holds anything: text, or any block other than an empty paragraph. */
 export function hasContent(node: JSONContent): boolean {
-  if (node.type === 'text') return Boolean(node.text?.trim());
-  if (node.type === 'paragraph' || node.type === 'heading' || node.type === 'callout') return (node.content ?? []).some(hasContent);
-  if (node.type === 'hardBreak') return false;
-  return true;
+  // Each block says when it is empty (block contract): an image grid with no pictures, a divider or
+  // a chart with no figures doesn't make a section "in progress". Unknown types count, to be safe.
+  return !isEmptyBlock(node);
 }
 
 /** The state shown for a section: the user's status, else worked out from its content. */
@@ -114,6 +120,10 @@ export function migrateContent(doc: JSONContent, fromVersion: number): {content:
   if (version < 2) {
     content = normaliseSections(clearUntouchedHints(content));
     version = 2;
+  }
+  if (version < 3) {
+    // Additive: every v2 document is a valid v3 document as it is.
+    version = 3;
   }
   return {content, version};
 }

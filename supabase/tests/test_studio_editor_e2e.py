@@ -24,7 +24,7 @@ API, ok, sign_in, upload, results, call = ns['API'], ns['ok'], ns['sign_in'], ns
 SUPA, SKEY, BUCKET = ns['SUPA'], ns['SKEY'], ns['BUCKET']
 import psycopg
 j = lambda b: json.loads(b or b'{}')
-CS = '/api/app/case-studies'
+CS = '/api/app/documents'
 
 
 def png(width, height):
@@ -87,11 +87,11 @@ work = tempfile.mkdtemp(prefix='studio-e2e-out-')
 try:
     s, b, _ = API(ta, 'POST', CS, {'title': 'End-to-end test'}); cid = j(b)['id']
     ok('a case study to edit', s == 201, s)
-    s, image, _ = upload(ta, png(400, 250), 'image/png', case_study_id=cid); ok('a real picture is uploaded (400 × 250 PNG)', s == 201, s)
+    s, image, _ = upload(ta, png(400, 250), 'image/png', document_id=cid); ok('a real picture is uploaded (400 × 250 PNG)', s == 201, s)
     webm = os.path.join(work, 'clip.webm')
     made = node('video', webm, timeout=120)
     ok('Chrome records a real video (WebM)', made.get('ok') and made.get('bytes', 0) > 1000, made)
-    s, video, _ = upload(ta, open(webm, 'rb').read(), 'video/webm', case_study_id=cid); ok('the video is uploaded', s == 201, s)
+    s, video, _ = upload(ta, open(webm, 'rb').read(), 'video/webm', document_id=cid); ok('the video is uploaded', s == 201, s)
 
     spec = os.path.join(work, 'input.json')
     json.dump({'origin': 'http://localhost:3000', 'access': ta, 'refresh': A['refresh'], 'caseStudyId': cid, 'imagePath': image['path'], 'videoPath': video['path'], 'outDir': work}, open(spec, 'w'))
@@ -100,8 +100,14 @@ try:
 
     # ---- the editor save path ----
     ok('the editor opened with the case study', r.get('loadedTitle', '').startswith('Edit: End-to-end test'), r.get('loadedTitle'))
+    # ---- document-aware Insert (the "/" menu) ----
+    in_section, own = r.get('slashInSection') or {}, r.get('slashInOwnSection') or {}
+    ok('"/" in a template section recommends that section’s blocks first', (in_section.get('groups') or [''])[0] == 'Recommended for “Reflection”' and in_section.get('options') == ['Key takeaway', 'Pull quote'], in_section)
+    ok('"/" in a section of your own recommends the blocks for this kind of document', (own.get('groups') or [''])[0] == 'Recommended for this case study' and len(own.get('options') or []) == 4, own)
+    ok('…and every category is still offered below (recommendations never restrict)', all(g in (own.get('groups') or []) for g in ['Text', 'Media', 'Visual', 'Data', 'Structure', 'Embeds']), own.get('groups'))
+    ok('trying the menu leaves the document as it was', r.get('docAfterSlash') == {'blocks': 21, 'ownSections': False}, r.get('docAfterSlash'))
     ok('the autosave finished ("Saved · <time>")', (r.get('saveLabel') or '').startswith('Saved ·'), r.get('saveLabel'))
-    s, b, _ = API(ta, 'GET', f'{CS}/{cid}'); stored = j(b)['study']['content']
+    s, b, _ = API(ta, 'GET', f'{CS}/{cid}'); stored = j(b)['document']['content']
     editor_doc = r.get('editorDoc') or {}
     ok('the stored document is exactly what the editor had (every node, attribute and mark; null = not set)', not diff(without_nulls(stored), without_nulls(editor_doc)), diff(without_nulls(stored), without_nulls(editor_doc))[:6])
     ok('…and the editor shows the same after a reload', not diff(without_nulls(stored), without_nulls(r.get('reloadedDoc') or {})), diff(without_nulls(stored), without_nulls(r.get('reloadedDoc') or {}))[:6])
@@ -125,6 +131,10 @@ try:
     ok('table settings survive', table and {k: table[0]['attrs'].get(k) for k in ('tableStyle', 'striped', 'density', 'mobile')} == {'tableStyle': 'rows', 'striped': True, 'density': 'compact', 'mobile': 'fit'})
     status = find(stored, lambda n: n.get('type') == 'heading' and n.get('attrs', {}).get('sectionStatus') == 'complete')
     ok('a section status is stored on its heading', len(status) == 1)
+    # Block contract B3: what cleaning would change in the document the editor really saved (report-only).
+    scan_in = os.path.join(work, 'stored.json'); json.dump([stored], open(scan_in, 'w'))
+    scan = subprocess.run(['npx', 'tsx', f'{root}/scripts/report-cleaning.ts', scan_in], capture_output=True, text=True, timeout=120, cwd=root)
+    ok('cleaning the saved document would change nothing (every block’s rules accept what the editor writes)', scan.returncode == 0, scan.stdout.strip()[-300:])
     ok('no errors in the page while editing, saving and exporting', not r.get('errors'), (r.get('errors') or [])[:3])
 
     # ---- PDF ----
@@ -157,7 +167,7 @@ finally:
     # Files first (the API purges the owner's folder), then the account (the database cascades).
     API(ta, 'DELETE', '/api/app/account/storage')
     db.execute("delete from django.accounts_user where email = %s", (A['user']['email'],))
-    left = db.execute("select count(*) from public.studio_case_studies where owner_id = %s", (A['user']['id'],)).fetchone()[0]
+    left = db.execute("select count(*) from public.studio_documents where owner_id = %s", (A['user']['id'],)).fetchone()[0]
     s, b, _ = call('POST', f'{SUPA}/storage/v1/object/list/{BUCKET}', {'prefix': A['user']['id'], 'limit': 10}, {'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY})
     ok('everything created by the test is gone (rows and files)', left == 0 and s == 200 and json.loads(b) == [], (left, b[:80]))
     # The exported PDF and HTML stay only when asked for (E2E_KEEP=1), to look at by hand.

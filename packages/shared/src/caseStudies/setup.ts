@@ -1,21 +1,31 @@
 import type {JSONContent} from './json';
 import {newSectionId} from './sections';
+import {DEFAULT_FRAMEWORK, isProjectType, projectTypeFor, type Framework, type ProjectType} from '../frameworks';
 import {
-  CURRENT_FRAMEWORKS,
-  DEFAULT_FRAMEWORK,
-  getFramework,
-  isProjectType,
-  type Framework,
-  type ProjectType,
-} from '../frameworks';
+  DEFAULT_DOCUMENT_TYPE,
+  cleanMetadata,
+  defaultTemplate,
+  documentTypeOf,
+  getTemplate,
+  isDocumentType,
+  templatesFor,
+  type DocumentTemplate,
+  type DocumentType,
+} from '../templates';
 
 /**
- * Project setup (the "new case study" wizard, Stage 1). The answers become columns on the case
- * study; the outline becomes the first version of the document. While setup isn't finished
+ * Document setup (the "new document" wizard, Stage 1). The answers become columns on the
+ * document; the outline becomes the first version of its content. While setup isn't finished
  * ("Save and finish later"), the wizard's position and outline are kept in `setup_state`, and
  * the document stays empty until the user creates it.
  */
-export const SETUP_STEPS = ['start', 'type', 'details', 'framework', 'cover', 'outline'] as const;
+/**
+ * The Create Document flow: choose a template (by category or search, or blank, or a copy of your
+ * own document), its details, an optional cover, the outline. Until 2026-11-12 there were also
+ * `type` and `framework` steps; choosing the template now answers both, and a setup saved on one
+ * of them resumes at `start`.
+ */
+export const SETUP_STEPS = ['start', 'details', 'cover', 'outline'] as const;
 export type SetupStep = (typeof SETUP_STEPS)[number];
 
 /** One section in the outline. `key` links it to a framework section (null = the user's own). */
@@ -24,6 +34,8 @@ export type OutlineItem = {id: string; key: string | null; title: string};
 export type StudioSetup = {
   step: SetupStep;
   start: 'framework' | 'blank';
+  /** What kind of document this is. The server takes it from the template, not from this field. */
+  document_type: DocumentType;
   project_type: ProjectType | null;
   title: string;
   summary: string;
@@ -33,8 +45,10 @@ export type StudioSetup = {
   platform: string;
   objective: string;
   challenge: string;
-  framework_id: string;
-  framework_version: number;
+  template_id: string;
+  template_version: number;
+  /** The template's own details (its `metadata` fields), by field key. */
+  metadata: Record<string, string>;
   cover_path: string | null;
   cover_alt: string;
   outline: OutlineItem[];
@@ -69,11 +83,12 @@ export function outlineFor(framework: Framework): OutlineItem[] {
   return framework.sections.map(section => ({id: outlineId(), key: section.key, title: section.title}));
 }
 
-export function newSetup(start: StudioSetup['start'] = 'framework'): StudioSetup {
-  const framework = start === 'blank' ? getFramework('blank', 1)! : DEFAULT_FRAMEWORK;
+export function newSetup(start: StudioSetup['start'] = 'framework', documentType: DocumentType = DEFAULT_DOCUMENT_TYPE): StudioSetup {
+  const framework = (start === 'blank' ? getTemplate('blank', 1) : defaultTemplate(documentType)) ?? DEFAULT_FRAMEWORK;
   return {
     step: 'start',
     start,
+    document_type: documentTypeOf(framework, documentType),
     project_type: null,
     title: '',
     summary: '',
@@ -83,8 +98,9 @@ export function newSetup(start: StudioSetup['start'] = 'framework'): StudioSetup
     platform: '',
     objective: '',
     challenge: '',
-    framework_id: framework.id,
-    framework_version: framework.version,
+    template_id: framework.id,
+    template_version: framework.version,
+    metadata: {},
     cover_path: null,
     cover_alt: '',
     outline: outlineFor(framework),
@@ -116,15 +132,22 @@ const text = (value: unknown, max: number) => (typeof value === 'string' ? value
 
 /**
  * Cleans setup answers from the browser (the server never trusts them). Text is trimmed and capped;
- * the framework must exist; outline sections must belong to that framework or be the user's own.
+ * the template must exist and decides the document type; outline sections must belong to that
+ * template or be the user's own; template details are kept only for the template's own fields.
  * Returns the cleaned setup and anything that can't be accepted.
  */
 export function cleanSetup(input: unknown): {setup: StudioSetup; problems: string[]} {
   const raw = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
   const problems: string[] = [];
-  const framework = getFramework(raw.framework_id, raw.framework_version);
+  const framework = getTemplate(raw.template_id, raw.template_version);
   if (!framework) problems.push('Choose a framework from the list.');
+  const documentType = documentTypeOf(framework, raw.document_type);
+  if (framework && raw.document_type !== undefined && raw.document_type !== documentType) {
+    problems.push(isDocumentType(raw.document_type) ? 'That template is for a different kind of document. Choose the template again.' : 'Choose a kind of document from the list.');
+  }
   const step = (SETUP_STEPS as readonly string[]).includes(raw.step as string) ? (raw.step as SetupStep) : 'start';
+  // No answer: the template implies it. An answer that isn't a known project type is dropped, never guessed.
+  const projectType = isProjectType(raw.project_type) ? raw.project_type : raw.project_type == null ? projectTypeFor(framework) : null;
 
   const outlineRaw = Array.isArray(raw.outline) ? raw.outline : [];
   if (outlineRaw.length > SETUP_LIMITS.sections) problems.push(`An outline can have up to ${SETUP_LIMITS.sections} sections. Remove some, then try again.`);
@@ -146,7 +169,8 @@ export function cleanSetup(input: unknown): {setup: StudioSetup; problems: strin
     setup: {
       step,
       start: raw.start === 'blank' ? 'blank' : 'framework',
-      project_type: isProjectType(raw.project_type) ? raw.project_type : null,
+      document_type: documentType,
+      project_type: documentType === 'ux_case_study' ? projectType : null,
       title: text(raw.title, SETUP_LIMITS.title),
       summary: text(raw.summary, SETUP_LIMITS.summary),
       role: text(raw.role, SETUP_LIMITS.role),
@@ -155,8 +179,9 @@ export function cleanSetup(input: unknown): {setup: StudioSetup; problems: strin
       platform: text(raw.platform, SETUP_LIMITS.platform),
       objective: text(raw.objective, SETUP_LIMITS.objective),
       challenge: text(raw.challenge, SETUP_LIMITS.challenge),
-      framework_id: framework?.id ?? DEFAULT_FRAMEWORK.id,
-      framework_version: framework?.version ?? DEFAULT_FRAMEWORK.version,
+      template_id: framework?.id ?? DEFAULT_FRAMEWORK.id,
+      template_version: framework?.version ?? DEFAULT_FRAMEWORK.version,
+      metadata: cleanMetadata(framework, raw.metadata),
       cover_path: cover,
       cover_alt: text(raw.cover_alt, SETUP_LIMITS.coverAlt),
       outline,
@@ -164,7 +189,7 @@ export function cleanSetup(input: unknown): {setup: StudioSetup; problems: strin
   };
 }
 
-/** The frameworks a new case study can use (newest version of each). */
-export function setupFrameworks(): readonly Framework[] {
-  return CURRENT_FRAMEWORKS;
+/** The templates a new document of this type can start from (newest version of each, Blank last). */
+export function setupFrameworks(documentType: DocumentType = DEFAULT_DOCUMENT_TYPE): readonly DocumentTemplate[] {
+  return templatesFor(documentType);
 }

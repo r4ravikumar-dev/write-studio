@@ -1,6 +1,7 @@
 import type {JSONContent} from './json';
 import {newSectionId} from './sections';
-import {DEFAULT_FRAMEWORK, frameworkSection, type FrameworkSection} from '../frameworks';
+import {DEFAULT_FRAMEWORK, type FrameworkSection} from '../frameworks';
+import {frameworkSection} from '../templates';
 
 /**
  * The default storytelling framework's sections (Product and UX design, v1; see

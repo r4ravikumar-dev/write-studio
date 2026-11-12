@@ -16,6 +16,9 @@ import {Button} from '@astryxdesign/core/Button';
 import {IconButton} from '@astryxdesign/core/IconButton';
 import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
 import {Icon} from '@astryxdesign/core/Icon';
+import {CODE_LANGUAGES} from '@/components/caseStudy/highlight';
+import {ImageField} from '../SettingsPanel';
+import {SHELL_PROMPTS} from '@/components/caseStudy/structuredBlocks';
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -1184,6 +1187,93 @@ function ImageInspector({editor, pos, node}: NodeProps) {
   );
 }
 
+// ---- Phase 3 blocks (settings only, B6: their text is edited on the page) ------------------------
+function CodeBlockInspector({editor, pos, node}: NodeProps) {
+  return (
+    <Groups>
+      <Group name="content">
+        <Selector
+          label="Language"
+          description="Used for highlighting and in exports."
+          options={[{value: '', label: 'Not set'}, ...CODE_LANGUAGES.map(language => ({value: language.value, label: language.label}))]}
+          value={node.attrs.language ?? ''}
+          onChange={language => setBlockAttrs(editor, pos, {language: language || null})}
+          size="sm"
+        />
+      </Group>
+      <Group name="appearance">
+        <Switch label="Line numbers" value={Boolean(node.attrs.lineNumbers)} onChange={lineNumbers => setBlockAttrs(editor, pos, {lineNumbers})} size="sm" />
+        <Switch label="Wrap long lines" description="Off: long lines scroll sideways, as in a code editor." value={Boolean(node.attrs.wrap)} onChange={wrap => setBlockAttrs(editor, pos, {wrap})} size="sm" />
+      </Group>
+    </Groups>
+  );
+}
+
+const SHELLS = [
+  {value: 'bash', label: 'Bash'},
+  {value: 'zsh', label: 'Zsh'},
+  {value: 'sh', label: 'sh'},
+  {value: 'powershell', label: 'PowerShell'},
+  {value: 'cmd', label: 'Command Prompt'},
+];
+
+function TerminalInspector({editor, pos, node}: NodeProps) {
+  return (
+    <Groups>
+      <Group name="content">
+        <Selector
+          label="Shell"
+          options={SHELLS}
+          value={node.attrs.shell}
+          onChange={shell => setBlockAttrs(editor, pos, {shell, prompt: SHELL_PROMPTS[shell] ?? '$'})}
+          size="sm"
+        />
+        <TextInput
+          label="Prompt"
+          description="Shown before each command, never copied with it. Up to 12 characters."
+          value={node.attrs.prompt ?? ''}
+          onChange={prompt => setBlockAttrs(editor, pos, {prompt: prompt.replace(/[\n<>]/g, '').slice(0, 12)})}
+          size="sm"
+          width="100%"
+        />
+      </Group>
+    </Groups>
+  );
+}
+
+function ParameterTableInspector({editor, pos, node}: NodeProps) {
+  return (
+    <Groups>
+      <Group name="layout">
+        <Switch label="Show the Required column" value={node.attrs.showRequired !== false} onChange={showRequired => setBlockAttrs(editor, pos, {showRequired})} size="sm" />
+        <Switch label="Show the Default column" value={node.attrs.showDefault !== false} onChange={showDefault => setBlockAttrs(editor, pos, {showDefault})} size="sm" />
+      </Group>
+    </Groups>
+  );
+}
+
+function TestimonialInspector({editor, pos, node}: NodeProps) {
+  return (
+    <Groups>
+      <Group name="content">
+        <Selector
+          label="Permission to quote"
+          description="Use a customer’s words and name only once they have agreed. The review reminds you until this is approved."
+          options={[
+            {value: 'approved', label: 'Approved by them'},
+            {value: 'pending', label: 'Asked, waiting for a reply'},
+            {value: 'none', label: 'Not asked yet'},
+          ]}
+          value={node.attrs.consent}
+          onChange={consent => setBlockAttrs(editor, pos, {consent})}
+          size="sm"
+        />
+        <ImageField label="Photo (optional)" url={node.attrs.photo} onChange={path => setBlockAttrs(editor, pos, {photo: path || null})} />
+      </Group>
+    </Groups>
+  );
+}
+
 // ---- Registry ---------------------------------------------------------------------------------
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export type InspectorEntry =
@@ -1209,4 +1299,8 @@ export const INSPECTORS: Record<string, InspectorEntry> = {
   callout: {kind: 'node', Inspector: CalloutInspector},
   table: {kind: 'node', Inspector: TableInspector},
   image: {kind: 'node', Inspector: ImageInspector},
+  codeBlock: {kind: 'node', Inspector: CodeBlockInspector},
+  terminal: {kind: 'node', Inspector: TerminalInspector},
+  parameterTable: {kind: 'node', Inspector: ParameterTableInspector},
+  testimonial: {kind: 'node', Inspector: TestimonialInspector},
 };

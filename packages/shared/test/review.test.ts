@@ -96,8 +96,8 @@ check('research insights: no findings is a fix; findings without evidence a sugg
 check('an empty callout card is not content; framework v2 recommends the T4 cards, v1 is unchanged', () => {
   assert.equal(hasContent({type: 'callout', content: [{type: 'paragraph'}]}), false);
   assert.equal(hasContent({type: 'callout', content: [p('Drop-off was high.')]}), true);
-  assert.deepEqual(frameworkSection('outcome', getFramework('product-ux', 2))?.suggestedVisuals, ['resultsHighlights', 'metrics', 'chart', 'pullQuote']);
-  assert.deepEqual(frameworkSection('outcome', getFramework('product-ux', 1))?.suggestedVisuals, ['metrics', 'pullQuote']);
+  assert.deepEqual(frameworkSection('outcome', getFramework('product-ux', 2))?.suggestedBlocks, ['resultsHighlights', 'metrics', 'chart', 'pullQuote']);
+  assert.deepEqual(frameworkSection('outcome', getFramework('product-ux', 1))?.suggestedBlocks, ['metrics', 'pullQuote']);
   assert.equal(frameworkSection('outcome')?.title, frameworkSection('outcome', getFramework('product-ux', 2))?.title);
 });
 

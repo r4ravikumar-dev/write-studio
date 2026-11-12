@@ -26,7 +26,7 @@ export async function createStudioUploadUrl(input: {mime: string; size: number; 
     () =>
       api<{path: string; signedUrl: string}>('/api/app/assets/upload-url', {
         method: 'POST',
-        body: {mime: input.mime, size: input.size, case_study_id: input.caseStudyId ?? null},
+        body: {mime: input.mime, size: input.size, document_id: input.caseStudyId ?? null},
         auth: true,
       }),
     'We couldn’t start the upload. Try again.',
@@ -48,7 +48,7 @@ export async function recordStudioAsset(input: {
           method: 'POST',
           body: {
             path: input.path,
-            case_study_id: input.caseStudyId ?? null,
+            document_id: input.caseStudyId ?? null,
             width: input.width,
             height: input.height,
             alt: input.alt,

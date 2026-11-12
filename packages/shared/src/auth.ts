@@ -44,7 +44,8 @@ export type StudioAsset = {
   id: string;
   workspace_id: string;
   owner_id: string;
-  case_study_id: string | null;
+  /** The document it was uploaded for (null: straight into the library). */
+  document_id: string | null;
   path: string;
   kind: 'image' | 'video' | 'file';
   mime: string;

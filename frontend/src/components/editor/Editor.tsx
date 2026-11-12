@@ -34,11 +34,14 @@ import {HistoryDialog} from './HistoryDialog';
 import {SegmentedControl, SegmentedControlItem} from '@astryxdesign/core/SegmentedControl';
 import {caseStudyExtensions} from '@/components/caseStudy/schema';
 import {parseEmbed} from '@/lib/caseStudies/embeds';
-import {DEFAULT_FRAMEWORK, getFramework, reviewCaseStudy, sectionOf, slugify, type StoryReview} from '@studio/shared';
+import {DEFAULT_FRAMEWORK, STUDIO_STATUS_LABELS, unwrapUnknownBlocks, documentNoun, getFramework, reviewCaseStudy, sectionOf, slugify, untitledTitle, type StoryReview} from '@studio/shared';
 import type {StudioCaseStudy, StudioMeta, StudioStatus} from '@studio/shared';
-import {archiveStudioCaseStudy, getSectionNotes, restoreStudioCaseStudy, saveStudioCaseStudy} from '@/app/studio/case-study-actions';
+import {archiveStudioCaseStudy, getSectionNotes, restoreStudioCaseStudy, saveStudioCaseStudy, setStudioDocumentStatus} from '@/app/studio/document-actions';
+import {TemplateVersion} from './TemplateVersion';
 import {studioKindOfFile, uploadStudioAsset} from '@/lib/storage/studio-storage';
 import {editorNodes} from './nodeViews';
+import {RequirementIds, structuredPlaceholder} from './structuredViews';
+import {CodeHighlight} from '@/components/caseStudy/highlight';
 import {Toolbar} from './Toolbar';
 import {SlashMenu} from './SlashMenu';
 import {SettingsPanel} from './SettingsPanel';
@@ -137,7 +140,21 @@ export function safeHref(input: string): string | null {
  * A JSON round trip makes every object plain. Every save must go through this.
  */
 function plainDocument(editor: TiptapEditor) {
-  return JSON.parse(JSON.stringify(editor.getJSON())) as StudioCaseStudy['content'];
+  // Blocks from a newer version of the app go back exactly as they were (block contract B2).
+  return unwrapUnknownBlocks(JSON.parse(JSON.stringify(editor.getJSON()))) as StudioCaseStudy['content'];
+}
+
+/** The header's status button: the current private status, and the other working statuses to move to. */
+function StatusMenu({status, onChange}: {status: StudioStatus; onChange: (next: Exclude<StudioStatus, 'archived'>) => void}) {
+  return (
+    <DropdownMenu
+      renderTrigger={props => <Button {...props} label={`Status: ${STUDIO_STATUS_LABELS[status]}`} variant="ghost" size="sm" />}
+      items={(['draft', 'in_progress', 'ready_for_review'] as const)
+        .filter(option => option !== status)
+        .map(option => ({label: `Mark as ${STUDIO_STATUS_LABELS[option].toLowerCase()}`, onClick: () => onChange(option)}))}
+      menuWidth={240}
+    />
+  );
 }
 
 /** A case study's editable settings (everything but the body). */
@@ -196,10 +213,16 @@ function useMediaQuery(query: string, fallback: boolean) {
   );
 }
 
-export function Editor({study}: {study: StudioCaseStudy}) {
+/**
+ * `study.content` must come from `checkDocument` (blocks this version can't read are wrapped).
+ * `lockReason`: why the document can't be changed here at all (it was written by a newer version
+ * of the app); the editor then opens read-only and never saves. `wrapped`: how many blocks are
+ * shown as locked placeholders.
+ */
+export function Editor({study, lockReason, wrapped = 0}: {study: StudioCaseStudy; lockReason?: string; wrapped?: number}) {
   return (
     <MediaProvider caseStudyId={study.id}>
-      <EditorInner study={study} />
+      <EditorInner study={study} lockReason={lockReason} wrapped={wrapped} />
     </MediaProvider>
   );
 }
@@ -212,7 +235,7 @@ function calloutHint({tone, icon}: {tone: string; icon: string}) {
   return 'Write the note';
 }
 
-function EditorInner({study}: {study: StudioCaseStudy}) {
+function EditorInner({study, lockReason, wrapped}: {study: StudioCaseStudy; lockReason?: string; wrapped: number}) {
   const media = useMedia();
   const [panelTab, setPanelTab] = useState<PanelTab>('guide');
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -220,10 +243,12 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
   // null = not chosen: docked open on wide screens, a closed drawer below 1280px.
   const [outlineChoice, setOutlineChoice] = useState<boolean | null>(null);
   const isOutlineOpen = outlineChoice ?? isOutlineDocked;
-  const framework = getFramework(study.framework_id, study.framework_version) ?? DEFAULT_FRAMEWORK;
+  const framework = getFramework(study.template_id, study.template_version) ?? DEFAULT_FRAMEWORK;
   const [previewWidth, setPreviewWidth] = useState<keyof typeof PREVIEW_WIDTHS | null>(null);
   const [meta, setMeta] = useState<StudioMeta>(() => metaOf(study));
   const [status, setStatus] = useState<StudioStatus>(study.status);
+  /** Archived (restore to edit), or locked because a newer version of the app wrote it. */
+  const isReadOnly = status === 'archived' || Boolean(lockReason);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [savedAt, setSavedAt] = useState(study.updated_at);
   const [error, setError] = useState('');
@@ -259,6 +284,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
   /** Saves the current state now (and again afterwards if it changed meanwhile). */
   const saveNow = useCallback(async () => {
     window.clearTimeout(timer.current);
+    if (lockReason) return; // never save a document this version can't fully read
     const editor = editorRef.current;
     if (!editor) return;
     if (inFlight.current) await inFlight.current;
@@ -279,7 +305,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
       setError(result.error);
     }
     return result;
-  }, [study.id]);
+  }, [study.id, lockReason]);
 
   const scheduleSave = useCallback(() => {
     setSaveState('unsaved');
@@ -310,6 +336,8 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
     extensions: [
       ...caseStudyExtensions.filter(extension => !CUSTOM_NODES.has(extension.name)),
       ...editorNodes,
+      CodeHighlight,
+      RequirementIds,
       StudioSearch,
       SectionIds,
       SectionLabels,
@@ -323,11 +351,14 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
         placeholder: ({editor: e, node, pos, hasAnchor}) => {
           // An empty framework heading shows its title; the paragraph under it shows the hint.
           if (node.type.name === 'heading') return sectionOf(node)?.title ?? (hasAnchor ? 'Section heading' : '');
-          if (node.type.name !== 'paragraph') return '';
           // The doc being applied (see LatestDoc), not the editor's previous state.
           const doc = (e.storage as {latestDoc?: {doc: typeof e.state.doc | null}}).latestDoc?.doc ?? e.state.doc;
           if (pos > doc.content.size) return '';
           const $pos = doc.resolve(pos);
+          // The Phase 3 blocks say what goes in each empty part ("A command", "what should happen").
+          const structured = structuredPlaceholder(node, $pos.parent, $pos.index() === 0);
+          if (structured !== undefined) return structured;
+          if (node.type.name !== 'paragraph') return '';
           const before = $pos.index() > 0 ? $pos.parent.child($pos.index() - 1) : null;
           const hint = before?.type.name === 'heading' ? sectionOf(before)?.hint : undefined;
           // Content cards (T4): an empty callout says what goes in it, by its look.
@@ -340,9 +371,9 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
     ],
     // Always the current schema: the API migrates older documents (with a backup) before sending them.
     content: study.content,
-    editable: study.status !== 'archived',
+    editable: study.status !== 'archived' && !lockReason,
     editorProps: {
-      attributes: {class: 'cs-prose write-prose', 'aria-label': 'Case study text'},
+      attributes: {class: 'cs-prose write-prose', 'aria-label': 'Document text'},
       handleKeyDown: (_, event) => {
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
           event.preventDefault();
@@ -495,9 +526,9 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
 
   // The browser tab names the case study being edited, and follows the title as it changes.
   useEffect(() => {
-    const name = meta.title.replace(/\*/g, '').trim() || 'Untitled case study';
+    const name = meta.title.replace(/\*/g, '').trim() || untitledTitle(study.document_type);
     document.title = `Edit: ${name} · Case Study Studio`;
-  }, [meta.title]);
+  }, [meta.title, study.document_type]);
 
   // Private section notes (kept outside the document).
   useEffect(() => {
@@ -529,7 +560,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
   }) ?? {sections: [], active: -1};
 
   const changeMeta = (patch: Partial<StudioMeta>) => {
-    if (status === 'archived') return; // read-only until restored
+    if (isReadOnly) return; // read-only until restored, or locked
     setMeta(current => {
       const next = {...current, ...patch};
       metaRef.current = next;
@@ -573,7 +604,25 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
     }
   }
 
-  /** Archive (saving first) makes the case study read-only; restore makes it editable again. */
+  /** The private working status (draft, in progress, ready for review). Saves first; never public. */
+  const changeStatus = async (next: Exclude<StudioStatus, 'archived'>) => {
+    const saved = await saveNow();
+    if (saved && !saved.ok) return;
+    const result = await setStudioDocumentStatus(study.id, next);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    // The status change moves updated_at: the next save must expect the new value.
+    if (result.updatedAt) {
+      setSavedAt(result.updatedAt);
+      savedAtRef.current = result.updatedAt;
+    }
+    setStatus(next);
+    setError('');
+  };
+
+  /** Archive (saving first) makes the document read-only; restore makes it editable again. */
   const setArchived = async (archived: boolean) => {
     if (!editor) return;
     if (archived) {
@@ -595,7 +644,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
     setStatus(archived ? 'archived' : 'draft');
     setSaveState('saved');
     setError('');
-    editor.setEditable(!archived, false);
+    editor.setEditable(!archived && !lockReason, false);
   };
 
   /** Applies the link editor: sets or updates the link (and its text), or removes it. */
@@ -675,7 +724,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
     <VStack gap={0} className="write" data-panel={isPanelOpen ? 'open' : 'closed'}>
       {/* Top bar: back, where it stands, preview and archive. */}
       {/* Screen readers: the page's name, and ways past the bars to the story or the outline. */}
-      <h1 className="sr-only">Edit: {meta.title.replace(/\*/g, '').trim() || 'Untitled case study'}</h1>
+      <h1 className="sr-only">Edit: {meta.title.replace(/\*/g, '').trim() || untitledTitle(study.document_type)}</h1>
       <nav aria-label="Skip links" className="skip-links">
         <button type="button" className="skip-link" onClick={() => editor?.commands.focus()}>
           Skip to the story
@@ -694,7 +743,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
         <HStack gap={3} vAlign="center">
           <span className="only-wide">
             <Button
-              label="Your case studies"
+              label="My documents"
               variant="ghost"
               size="sm"
               className="back-cta"
@@ -704,8 +753,8 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
           </span>
           <span className="only-narrow">
             <IconButton
-              label="Back to your case studies"
-              tooltip="Your case studies"
+              label="Back to My documents"
+              tooltip="My documents"
               variant="ghost"
               size="sm"
               className="back-cta"
@@ -722,12 +771,16 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
             onClick={() => setOutlineChoice(!isOutlineOpen)}
             icon={<Icon icon={ListTree} size="sm" color="inherit" />}
           />
-          <Text
-            type="supporting"
-            className="only-wide studio-bar-save"
-            style={{...EYEBROW_STYLE, color: 'var(--color-text-secondary)'}}>
-            {status === 'archived' ? 'Archived' : 'Private draft'}
-          </Text>
+          {status === 'archived' ? (
+            <Text type="supporting" className="only-wide studio-bar-save" style={{...EYEBROW_STYLE, color: 'var(--color-text-secondary)'}}>
+              Archived
+            </Text>
+          ) : (
+            /* The private working status. Every state is private: this is the author's own marker. */
+            <span className="only-wide">
+              <StatusMenu status={status} onChange={changeStatus} />
+            </span>
+          )}
           {/* Not a live region: it changes on every pause in typing. Failures show as an alert. */}
           <Text type="supporting" color="secondary" className="studio-bar-save">
             <span className="only-wide">{saveLabel}</span>
@@ -746,7 +799,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                   tooltip={history.canUndo ? `Undo (${MOD}Z)` : 'Nothing to undo'}
                   variant="ghost"
                   size="sm"
-                  isDisabled={!history.canUndo || status === 'archived'}
+                  isDisabled={!history.canUndo || isReadOnly}
                   onClick={() => editor?.chain().focus().undo().run()}
                   icon={<Icon icon={Undo2} size="sm" color="inherit" />}
                 />
@@ -755,7 +808,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                   tooltip={history.canRedo ? `Redo (${MOD === '⌘' ? '⇧⌘' : 'Ctrl+Shift+'}Z)` : 'Nothing to redo'}
                   variant="ghost"
                   size="sm"
-                  isDisabled={!history.canRedo || status === 'archived'}
+                  isDisabled={!history.canRedo || isReadOnly}
                   onClick={() => editor?.chain().focus().redo().run()}
                   icon={<Icon icon={Redo2} size="sm" color="inherit" />}
                 />
@@ -766,7 +819,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                   <IconButton label="Review" tooltip="Review" variant="ghost" size="sm" onClick={openReview} icon={<Icon icon={ClipboardCheck} size="sm" color="inherit" />} />
                   <IconButton label="Version history" tooltip="Version history" variant="ghost" size="sm" onClick={() => setIsHistoryOpen(true)} icon={<Icon icon={History} size="sm" color="inherit" />} />
                   <IconButton label="Preview" tooltip="Preview" variant="ghost" size="sm" onClick={openPreview} icon={<Icon icon={Eye} size="sm" color="inherit" />} />
-                  <ExportMenu isIconOnly title={meta.title.replace(/\*/g, '').trim() || 'Untitled case study'} previewHref={`/studio/case-studies/${study.id}/preview`} beforeOpen={saveNow} />
+                  <ExportMenu isIconOnly title={meta.title.replace(/\*/g, '').trim() || untitledTitle(study.document_type)} previewHref={`/studio/documents/${study.id}/preview`} beforeOpen={saveNow} />
                   <IconButton
                     label={archiveLabel}
                     tooltip={archiveLabel}
@@ -782,7 +835,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                   <Button label="Review" variant="ghost" size="sm" onClick={openReview} icon={<Icon icon={ClipboardCheck} size="sm" color="inherit" />} />
                   <Button label="History" variant="ghost" size="sm" onClick={() => setIsHistoryOpen(true)} icon={<Icon icon={History} size="sm" color="inherit" />} />
                   <Button label="Preview" variant="ghost" size="sm" onClick={openPreview} icon={<Icon icon={Eye} size="sm" color="inherit" />} />
-                  <ExportMenu title={meta.title.replace(/\*/g, '').trim() || 'Untitled case study'} previewHref={`/studio/case-studies/${study.id}/preview`} beforeOpen={saveNow} />
+                  <ExportMenu title={meta.title.replace(/\*/g, '').trim() || untitledTitle(study.document_type)} previewHref={`/studio/documents/${study.id}/preview`} beforeOpen={saveNow} />
                   <Button
                     label={archiveLabel}
                     variant={status === 'archived' ? 'primary' : 'destructive'}
@@ -824,10 +877,22 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
         </HStack>
       </HStack>
 
+      {lockReason && (
+        <Banner status="warning" title="This document is read-only here" description={lockReason} container="section" collapsible={false} />
+      )}
+      {!lockReason && wrapped > 0 && (
+        <Banner
+          status="info"
+          title={wrapped === 1 ? 'One block needs a newer version of Case Study Studio' : `${wrapped} blocks need a newer version of Case Study Studio`}
+          description="They’re shown locked and kept exactly as they are. Reload the page later to edit them. Everything else can be edited as usual."
+          container="section"
+          collapsible={false}
+        />
+      )}
       {status === 'archived' && (
         <Banner
           status="info"
-          title="This case study is archived"
+          title={`This ${documentNoun(study.document_type)} is archived`}
           description="It’s read-only and still private. Restore it to keep editing."
           container="section"
           collapsible={false}
@@ -848,7 +913,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
             sections={outline.sections}
             active={outline.active}
             framework={framework}
-            isEditable={status !== 'archived'}
+            isEditable={!isReadOnly}
             onNavigate={() => {
               setPanelTab('guide');
               if (!isOutlineDocked) setOutlineChoice(false);
@@ -934,7 +999,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                 editor={editor}
                 title={meta.title}
                 subtitle={meta.subtitle}
-                isEditable={status !== 'archived'}
+                isEditable={!isReadOnly}
                 onChange={patch => changeMeta(patch.title !== undefined && slugIsAuto.current ? {...patch, slug: slugify(patch.title) || meta.slug} : patch)}
               />
               <EditorContent editor={editor} />
@@ -942,7 +1007,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                 <BlockHandle
                   editor={editor}
                   container={documentElement}
-                  isEditable={status !== 'archived'}
+                  isEditable={!isReadOnly}
                   onProperties={() => {
                     setPanelTab('block');
                     setIsPanelOpen(true);
@@ -983,7 +1048,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                     inserts={inserts}
                     notes={notes}
                     onNoteSaved={(sectionId, body) => setNotes(current => ({...current, [sectionId]: body}))}
-                    isEditable={status !== 'archived'}
+                    isEditable={!isReadOnly}
                   />
                 )}
               </VStack>
@@ -991,7 +1056,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
               <VStack gap={0} className="write-settings">
                 <MediaPanel
                   caseStudyId={study.id}
-                  isEditable={status !== 'archived'}
+                  isEditable={!isReadOnly}
                   onInsert={asset => editor?.chain().focus().insertContent(nodeFor(asset)).run()}
                 />
               </VStack>
@@ -1009,7 +1074,21 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                 )}
               </VStack>
             ) : (
-              <SettingsPanel meta={meta} onChange={changeMeta} />
+              <SettingsPanel
+                meta={meta}
+                onChange={changeMeta}
+                isCaseStudy={study.document_type === 'ux_case_study'}
+                template={
+                  <TemplateVersion
+                    documentId={study.id}
+                    documentType={study.document_type}
+                    templateId={study.template_id}
+                    templateVersion={study.template_version}
+                    isReadOnly={isReadOnly}
+                    beforeUpdate={saveNow}
+                  />
+                }
+              />
             )}
           </VStack>
         )}
@@ -1032,7 +1111,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
                 <SegmentedControlItem value="tablet" label="Tablet" icon={<Icon icon={Tablet} size="sm" color="inherit" />} />
                 <SegmentedControlItem value="mobile" label="Mobile" icon={<Icon icon={Smartphone} size="sm" color="inherit" />} />
               </SegmentedControl>
-              <Button label="Open preview in a new tab" size="sm" variant="ghost" href={`/studio/case-studies/${study.id}/preview`} target="_blank" />
+              <Button label="Open preview in a new tab" size="sm" variant="ghost" href={`/studio/documents/${study.id}/preview`} target="_blank" />
             </HStack>
           }
         />
@@ -1042,7 +1121,7 @@ function EditorInner({study}: {study: StudioCaseStudy}) {
               key={previewWidth}
               className="write-preview-frame"
               title={`Preview at ${previewWidth} width`}
-              src={`/studio/case-studies/${study.id}/preview?embed=1`}
+              src={`/studio/documents/${study.id}/preview?embed=1`}
               style={{inlineSize: `min(100%, ${PREVIEW_WIDTHS[previewWidth]}px)`}}
             />
           </VStack>

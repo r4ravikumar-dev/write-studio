@@ -6,7 +6,7 @@ import {requireUser} from './middleware/auth';
 import {errorHandler, notFound} from './middleware/errors';
 import {appRouter} from './routes/app';
 import {appAssetsRouter, appMediaRouter} from './routes/appAssets';
-import {appCaseStudiesRouter} from './routes/appCaseStudies';
+import {appDocumentsRouter} from './routes/appDocuments';
 import {appAccountRouter} from './routes/appAccount';
 
 /**
@@ -15,7 +15,7 @@ import {appAccountRouter} from './routes/appAccount';
  * and files. There are no public routes and no special accounts.
  *
  *   /api/app/workspace      the user's personal workspace
- *   /api/app/case-studies   their private case studies
+ *   /api/app/documents      their private documents, of every type
  *   /api/app/assets         their private media library
  *   /api/app/media          streams one of their files (for /studio/files)
  *   /api/app/account        account lifecycle (storage purge before deletion)
@@ -27,7 +27,7 @@ export function createApp() {
   app.set('trust proxy', 1);
   app.use(helmet());
   app.use(cors({origin: env.corsOrigins, credentials: false}));
-  // Case-study documents are JSON and can be large; files never come through here.
+  // Documents are JSON and can be large; files never come through here.
   app.use(express.json({limit: '5mb'}));
 
   app.get('/health', (_req, res) => {
@@ -35,7 +35,7 @@ export function createApp() {
   });
 
   app.use('/api/app/account', requireUser, appAccountRouter);
-  app.use('/api/app/case-studies', requireUser, appCaseStudiesRouter);
+  app.use('/api/app/documents', requireUser, appDocumentsRouter);
   app.use('/api/app/assets', requireUser, appAssetsRouter);
   app.use('/api/app/media', requireUser, appMediaRouter);
   app.use('/api/app', requireUser, appRouter);

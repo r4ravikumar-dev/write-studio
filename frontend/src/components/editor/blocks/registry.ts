@@ -33,70 +33,105 @@ import {
   ChartColumnBig,
   FileText,
   ScanSearch,
+  SquareTerminal,
+  TableProperties,
+  ClipboardList,
+  UserRound,
+  BadgeCheck,
+  MessageSquareHeart,
+  Footprints,
+  Library,
   type LucideIcon,
 } from 'lucide-react';
-import {CONTENT_CARDS, SECTION_LEVEL, VISUAL_BLOCKS, defaultImageGrid, defaultShowcase, type ContentCardName, type MediaRef, type SuggestedVisual} from '@studio/shared';
+import {
+  BLOCK_CATALOG,
+  BLOCK_NAMES,
+  CONTENT_CARDS,
+  SECTION_LEVEL,
+  VISUAL_BLOCKS,
+  defaultImageGrid,
+  defaultShowcase,
+  type BlockFamily,
+  type BlockName,
+  type ContentCardName,
+  type MediaRef,
+  type SuggestedBlock,
+} from '@studio/shared';
 
 /**
- * The block registry (editor spec §10, T5, started with T2). One description per block type that
- * the block handle, Turn into, the inspector's name, and Smart Insert's recommendations read,
- * instead of each keeping its own list. Stored JSON is unchanged.
+ * The editor's half of the block registry (editor spec §10; multi-vertical Phase 3). What a block
+ * IS (id, version, family, name, description, search terms, document types) lives once in the
+ * shared catalogue, `packages/shared/src/blocks/catalog.ts`; this adds what only the editor
+ * knows: its icon, whether it has an inspector, and the Insert command that adds it. The block
+ * handle, Turn into, the inspector's name and Smart Insert's recommendations all read this.
+ *
+ * `EDITOR` must have an entry for every catalogue block (typecheck fails otherwise), so a block
+ * can't be catalogued without an editor experience.
  */
-export type BlockFamily = 'text' | 'container' | 'media' | 'visual' | 'structure';
+export type {BlockFamily};
 
 export type BlockDefinition = {
   /** The ProseMirror node name. */
-  type: string;
+  type: BlockName;
   label: string;
+  description: string;
   icon: LucideIcon;
   family: BlockFamily;
+  /** Extra words the "/" menu matches on. */
+  searchTerms: readonly string[];
   /** Has an inspector (Properties). */
   configurable: boolean;
   /** The Insert command that adds it, for recommendations. */
-  insertId?: string;
+  insertId: string;
 };
 
-const def = (type: string, label: string, icon: LucideIcon, family: BlockFamily, configurable = false, insertId?: string): BlockDefinition => ({
-  type,
-  label,
-  icon,
-  family,
-  configurable,
-  insertId,
-});
+const EDITOR: Record<BlockName, {icon: LucideIcon; insertId: string; configurable?: boolean}> = {
+  paragraph: {icon: Pilcrow, insertId: 'paragraph'},
+  heading: {icon: Heading3, insertId: 'heading'},
+  codeBlock: {icon: SquareCode, insertId: 'code-block', configurable: true},
+  blockquote: {icon: Quote, insertId: 'quote'},
+  callout: {icon: Lightbulb, insertId: 'callout', configurable: true},
+  pullQuote: {icon: MessageSquareQuote, insertId: 'pull-quote', configurable: true},
+  bulletList: {icon: List, insertId: 'bullets'},
+  orderedList: {icon: ListOrdered, insertId: 'numbers'},
+  taskList: {icon: ListChecks, insertId: 'checklist'},
+  details: {icon: ListCollapse, insertId: 'collapsible'},
+  table: {icon: Table2, insertId: 'table', configurable: true},
+  horizontalRule: {icon: Minus, insertId: 'divider'},
+  spacer: {icon: MoveVertical, insertId: 'space'},
+  image: {icon: ImageIcon, insertId: 'image', configurable: true},
+  videoFile: {icon: Video, insertId: 'video-file'},
+  fileAttachment: {icon: FileText, insertId: 'file'},
+  embed: {icon: MonitorPlay, insertId: 'video-link'},
+  imageGrid: {icon: LayoutGrid, insertId: 'image-grid', configurable: true},
+  comparison: {icon: Columns2, insertId: 'comparison', configurable: true},
+  showcase: {icon: GalleryHorizontalEnd, insertId: 'showcase', configurable: true},
+  deviceMockup: {icon: Smartphone, insertId: 'devices', configurable: true},
+  splitLayout: {icon: PanelsLeftRight, insertId: 'split', configurable: true},
+  metrics: {icon: BarChart3, insertId: 'metrics', configurable: true},
+  timeline: {icon: Milestone, insertId: 'timeline', configurable: true},
+  screenSequence: {icon: GalleryVerticalEnd, insertId: 'screen-sequence', configurable: true},
+  annotatedImage: {icon: MessageSquareDot, insertId: 'annotated-image', configurable: true},
+  flowDiagram: {icon: Workflow, insertId: 'flow-diagram', configurable: true},
+  researchInsights: {icon: ScanSearch, insertId: 'research-insights', configurable: true},
+  chart: {icon: ChartColumnBig, insertId: 'chart', configurable: true},
+  // Phase 3 blocks: their Insert commands are generated from the catalogue (insertCommands.tsx).
+  terminal: {icon: SquareTerminal, insertId: 'terminal', configurable: true},
+  parameterTable: {icon: TableProperties, insertId: 'parameter-table', configurable: true},
+  requirementList: {icon: ClipboardList, insertId: 'requirement-list'},
+  userStory: {icon: UserRound, insertId: 'user-story'},
+  acceptanceCriteria: {icon: BadgeCheck, insertId: 'acceptance-criteria'},
+  testimonial: {icon: MessageSquareHeart, insertId: 'testimonial', configurable: true},
+  procedureSteps: {icon: Footprints, insertId: 'procedure-steps'},
+  referenceList: {icon: Library, insertId: 'reference-list'},
+};
 
 export const BLOCKS: Record<string, BlockDefinition> = Object.fromEntries(
-  [
-    def('paragraph', 'Paragraph', Pilcrow, 'text', false, 'paragraph'),
-    def('heading', 'Heading', Heading3, 'text', false, 'heading'),
-    def('codeBlock', 'Code block', SquareCode, 'text', false, 'code-block'),
-    def('blockquote', 'Quote', Quote, 'container', false, 'quote'),
-    def('callout', 'Callout', Lightbulb, 'container', true, 'callout'),
-    def('pullQuote', 'Pull quote', MessageSquareQuote, 'container', true, 'pull-quote'),
-    def('bulletList', 'Bulleted list', List, 'container', false, 'bullets'),
-    def('orderedList', 'Numbered list', ListOrdered, 'container', false, 'numbers'),
-    def('taskList', 'Checklist', ListChecks, 'container', false, 'checklist'),
-    def('details', 'Collapsible section', ListCollapse, 'container', false, 'collapsible'),
-    def('table', 'Table', Table2, 'structure', true, 'table'),
-    def('horizontalRule', 'Divider', Minus, 'structure', false, 'divider'),
-    def('spacer', 'Space', MoveVertical, 'structure', false, 'space'),
-    def('image', 'Image', ImageIcon, 'media', true, 'image'),
-    def('videoFile', 'Video', Video, 'media', false, 'video-file'),
-    def('fileAttachment', 'File', FileText, 'media', false, 'file'),
-    def('embed', 'Embed', MonitorPlay, 'media', false, 'video-link'),
-    def('imageGrid', 'Image grid', LayoutGrid, 'visual', true, 'image-grid'),
-    def('comparison', 'Comparison', Columns2, 'visual', true, 'comparison'),
-    def('showcase', 'Showcase', GalleryHorizontalEnd, 'visual', true, 'showcase'),
-    def('deviceMockup', 'Device mockups', Smartphone, 'visual', true, 'devices'),
-    def('splitLayout', 'Split layout', PanelsLeftRight, 'visual', true, 'split'),
-    def('metrics', 'Metrics', BarChart3, 'visual', true, 'metrics'),
-    def('timeline', 'Process timeline', Milestone, 'visual', true, 'timeline'),
-    def('screenSequence', 'Screen sequence', GalleryVerticalEnd, 'visual', true, 'screen-sequence'),
-    def('annotatedImage', 'Annotated screenshot', MessageSquareDot, 'visual', true, 'annotated-image'),
-    def('flowDiagram', 'Flow diagram', Workflow, 'visual', true, 'flow-diagram'),
-    def('researchInsights', 'Research insights', ScanSearch, 'visual', true, 'research-insights'),
-    def('chart', 'Chart', ChartColumnBig, 'visual', true, 'chart'),
-  ].map(block => [block.type, block]),
+  BLOCK_NAMES.map(type => {
+    const {label, description, family, searchTerms} = BLOCK_CATALOG[type];
+    const {icon, insertId, configurable = false} = EDITOR[type];
+    return [type, {type, label, description, family, searchTerms, icon, insertId, configurable}];
+  }),
 );
 
 /** A block's name as people read it ("Section heading", "Heading", "Image grid"). */
@@ -117,13 +152,13 @@ const CARD_INSERT_IDS: Record<ContentCardName, string> = {
 };
 
 /** Which Insert command adds a recommended block or card (framework recommendations use names). */
-export function insertIdFor(name: SuggestedVisual): string | undefined {
+export function insertIdFor(name: SuggestedBlock): string | undefined {
   return BLOCKS[name]?.insertId ?? CARD_INSERT_IDS[name as ContentCardName];
 }
 
 /** A recommended block's or card's name, as people read it. */
-export function suggestionLabel(name: SuggestedVisual): string {
-  return (VISUAL_BLOCKS as Record<string, string>)[name] ?? (CONTENT_CARDS as Record<string, string>)[name] ?? name;
+export function suggestionLabel(name: SuggestedBlock): string {
+  return (VISUAL_BLOCKS as Record<string, string>)[name] ?? (CONTENT_CARDS as Record<string, string>)[name] ?? BLOCKS[name]?.label ?? name;
 }
 
 // ---- Turn into (editor spec §7.3: compatible conversions only) --------------------------------

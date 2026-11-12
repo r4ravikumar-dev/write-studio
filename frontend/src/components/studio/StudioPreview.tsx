@@ -1,7 +1,7 @@
 import {HStack} from '@astryxdesign/core/Layout';
 import {Text} from '@astryxdesign/core/Text';
 import {Button} from '@astryxdesign/core/Button';
-import {PROJECT_TYPES, documentSections, frameworkSection, hasContent, studioMediaUrl, type StudioCaseStudy} from '@studio/shared';
+import {PROJECT_TYPES, documentNoun, documentSections, isUntitledTitle, untitledTitle, frameworkSection, hasContent, studioMediaUrl, type StudioCaseStudy} from '@studio/shared';
 import {CaseStudyArticle} from '@/components/caseStudy/CaseStudyArticle';
 import {Lines} from '@/components/storytelling/Lines';
 import {ExportMenu} from '@/components/studio/ExportMenu';
@@ -14,7 +14,8 @@ import {EYEBROW_STYLE} from '@/theme/eyebrow';
  * The same page is what PDF (print) and HTML export are made from.
  */
 export function StudioPreview({study, isEmbedded}: {study: StudioCaseStudy; isEmbedded: boolean}) {
-  const title = study.title.trim() && study.title !== 'Untitled case study' ? study.title : 'Untitled case study';
+  const noun = documentNoun(study.document_type);
+  const title = study.title.trim() && !isUntitledTitle(study.title) ? study.title : untitledTitle(study.document_type);
   const eyebrow = [study.project_type ? PROJECT_TYPES[study.project_type]?.label : null, study.label, study.area].filter(Boolean).join(' · ');
   const facts = [
     ['Role', study.role],
@@ -37,7 +38,7 @@ export function StudioPreview({study, isEmbedded}: {study: StudioCaseStudy; isEm
           </Text>
           <HStack gap={2} vAlign="center">
             <ExportMenu title={title.replace(/\*/g, '')} />
-            <Button label="Back to editing" size="sm" variant="secondary" href={`/studio/case-studies/${study.id}`} />
+            <Button label="Back to editing" size="sm" variant="secondary" href={`/studio/documents/${study.id}/edit`} />
           </HStack>
         </HStack>
       )}
@@ -69,8 +70,8 @@ export function StudioPreview({study, isEmbedded}: {study: StudioCaseStudy; isEm
           <div className="preview-intro">
             {study.summary && <p className="preview-summary">{study.summary}</p>}
             {contents.length > 2 && (
-              <nav className="preview-contents" aria-label="In this case study">
-                <p className="preview-contents-title">In this case study</p>
+              <nav className="preview-contents" aria-label={`In this ${noun}`}>
+                <p className="preview-contents-title">In this {noun}</p>
                 <ol>
                   {contents.map(section => (
                     <li key={section.id}>
