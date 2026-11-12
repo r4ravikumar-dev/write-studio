@@ -29,6 +29,7 @@ step 'Story review engine (offline)';           npx tsx packages/shared/test/rev
 step 'Documents, templates, block catalogue (offline)'; npx tsx packages/shared/test/documents.test.ts | tail -1
 step 'Block contract: cleaning, text, Markdown, fixtures (offline)'; npx tsx packages/shared/test/blocks.test.ts | tail -1
 step 'Editor and server agree on the document schema (offline)'; (cd frontend && npx tsx --tsconfig tsconfig.json test/schema.test.ts | tail -1)
+step 'ZIP bundle generator (offline)';              (cd frontend && npx tsx --tsconfig tsconfig.json test/zip.test.ts | tail -1)
 step 'Analytics taxonomy and privacy sanitisation (offline)'; npx tsx packages/shared/test/analytics.test.ts | tail -1
 step 'Express build';                           npm run build -w @studio/express-api --silent >/dev/null && echo ok
 step 'Django checks';                           (cd backend/django && .venv/bin/python manage.py check)
