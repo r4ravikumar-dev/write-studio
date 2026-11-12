@@ -84,6 +84,49 @@ export const TerminalOutputNode = Node.create({
 
 // ---- Parameter table --------------------------------------------------------------------------------
 
+export const ApiEndpointNode = Node.create({
+  name: 'apiEndpoint',
+  group: 'block',
+  content: 'paragraph*',
+  defining: true,
+  isolating: true,
+  draggable: true,
+  addAttributes: () => ({
+    method: stored('GET'),
+    path: stored(''),
+    summary: stored(''),
+    auth: stored('bearer'),
+    requestType: stored('application/json'),
+    requestBody: stored(''),
+    responseStatus: stored('200 OK'),
+    responseBody: stored(''),
+  }),
+  parseHTML: () => [{tag: 'div[data-block="apiEndpoint"]'}],
+  renderHTML: ({node, HTMLAttributes}) => {
+    const method = String(node.attrs.method || 'GET');
+    const path = String(node.attrs.path || '/');
+    const auth = String(node.attrs.auth || 'bearer');
+    const summary = String(node.attrs.summary || '');
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, {
+        'data-block': 'apiEndpoint',
+        class: 'cs-endpoint',
+        'data-method': method,
+      }),
+      [
+        'div',
+        {class: 'cs-endpoint-header'},
+        ['span', {class: `cs-endpoint-method cs-method-${method.toLowerCase()}`}, method],
+        ['code', {class: 'cs-endpoint-path'}, path],
+        ['span', {class: 'cs-endpoint-auth'}, auth === 'none' ? 'PUBLIC' : auth.toUpperCase()],
+      ],
+      ...(summary ? [['p', {class: 'cs-endpoint-summary'}, summary] as DOMOutputSpec] : []),
+      ['div', {class: 'cs-endpoint-content'}, 0],
+    ];
+  },
+});
+
 export const ParameterTableNode = Node.create({
   name: 'parameterTable',
   group: 'block',
@@ -305,6 +348,7 @@ export const structuredNodes = [
   TerminalNode,
   TerminalCommandNode,
   TerminalOutputNode,
+  ApiEndpointNode,
   ParameterTableNode,
   ParameterNode,
   RequirementListNode,

@@ -62,7 +62,7 @@ check('every block fixture loads in the editor schema and comes back unchanged',
   }
 });
 
-const future = {type: 'apiEndpoint', attrs: {config: {method: 'GET', path: '/v1/bookings', auth: 'bearer'}}};
+const future = {type: 'teleportBlock', attrs: {config: {target: 'room-3', auth: 'bearer'}}};
 const withFuture: JSONContent = {
   type: 'doc',
   content: [
@@ -101,7 +101,7 @@ check('B2: a document this version can’t read at all is refused, not opened em
 });
 
 check('B2: the server refuses unknown types, including the editor-only placeholder', () => {
-  assert.deepEqual(cleanDocument(withFuture, () => false).unknown.sort(), ['apiEndpoint', 'mark:futureMark']);
+  assert.deepEqual(cleanDocument(withFuture, () => false).unknown.sort(), ['mark:futureMark', 'teleportBlock']);
   assert.deepEqual(cleanDocument({type: 'doc', content: [{type: UNKNOWN_BLOCK, attrs: {original: future}}]}, () => false).unknown, [UNKNOWN_BLOCK]);
 });
 

@@ -9,7 +9,8 @@ import {Button} from '@astryxdesign/core/Button';
 import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
 import {AlertDialog} from '@astryxdesign/core/AlertDialog';
 import {Icon} from '@astryxdesign/core/Icon';
-import {ArrowDown, ArrowUp, Check, CheckCircle2, Circle, CircleDot, Copy, Eye, GripVertical, MoreHorizontal, PencilLine, Plus, Trash2, Undo2, X} from 'lucide-react';
+import {ArrowDown, ArrowUp, BookmarkPlus, Check, CheckCircle2, Circle, CircleDot, Copy, Eye, GripVertical, MoreHorizontal, PencilLine, Plus, Trash2, Undo2, X} from 'lucide-react';
+import {saveWorkspacePreset} from '@/lib/workspacePresets';
 import {SECTION_STATES, frameworkSection, type Framework, type SectionState} from '@studio/shared';
 import {
   addSection,
@@ -226,6 +227,29 @@ export function StoryOutline({
                       type: 'section' as const,
                       title: 'Suggested by the framework',
                       items: suggestions.map(section => ({label: section.title, description: section.hint, onClick: () => addSection(editor, after, section.key)})),
+                    },
+                  ]
+                : []),
+              ...(sections.length
+                ? [
+                    {
+                      label: 'Save outline as preset',
+                      description: 'Save section structure to workspace presets',
+                      icon: <Icon icon={BookmarkPlus} size="sm" color="inherit" />,
+                      onClick: () => {
+                        const name = window.prompt('Preset name:', `${framework?.name || 'Custom'} Outline`);
+                        if (name && name.trim()) {
+                          saveWorkspacePreset({
+                            name: name.trim(),
+                            description: `Saved from outline (${sections.length} sections)`,
+                            documentType: framework?.documentType === 'any' ? 'ux_case_study' : (framework?.documentType || 'ux_case_study'),
+                            templateId: framework?.id || 'blank',
+                            templateVersion: framework?.version || 1,
+                            sections: sections.map(s => ({key: s.key || null, title: s.title || s.name})),
+                          });
+                          setAnnouncement(`Outline saved as preset “${name.trim()}”.`);
+                        }
+                      },
                     },
                   ]
                 : []),

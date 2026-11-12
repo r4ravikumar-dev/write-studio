@@ -202,11 +202,11 @@ check('Markdown: visual and data blocks become text a reader can still use', () 
 
 check('Markdown: text is escaped, unsafe links are dropped, unknown blocks are named, never silently lost', () => {
   const tricky: JSONContent = {type: 'paragraph', content: [{type: 'text', text: '<img src=x> *not bold* [x](javascript:1)', marks: [{type: 'link', attrs: {href: 'javascript:alert(1)'}}]}]};
-  const markdown = documentMarkdown(doc(tricky, {type: 'apiEndpoint', attrs: {}}));
+  const markdown = documentMarkdown(doc(tricky, {type: 'unknownHologram', attrs: {}}));
   assert.equal(/(^|[^\\])<img/.test(markdown), false, 'the angle bracket is escaped: no HTML');
   assert.equal(/(^|[^\\])\]\(javascript/.test(markdown), false, 'no link to an unsafe address');
   assert.ok(markdown.includes('\\*not bold\\*'));
-  assert.ok(markdown.includes('_(apiEndpoint block not available in Markdown)_'));
+  assert.ok(markdown.includes('_(unknownHologram block not available in Markdown)_'));
 });
 
 check('review: the new blocks say what is unfinished, and requirement ids must be unique', () => {
@@ -233,6 +233,9 @@ check('review: the new blocks say what is unfinished, and requirement ids must b
 check('Markdown for the new blocks: commands and output apart, ids, Given/When/Then, a real table', () => {
   const md = (name: keyof typeof BLOCK_FIXTURES) => documentMarkdown(doc(fixture(name))).trim();
   assert.equal(md('terminal'), '```console\n$ npm install @clinic/sdk\nadded 12 packages in 2s\n$ npx clinic login\n```');
+  assert.ok(md('apiEndpoint').includes('### `POST` /v1/appointments'));
+  assert.ok(md('apiEndpoint').includes('#### Request (`application/json`)'));
+  assert.ok(md('apiEndpoint').includes('#### Response (`201 Created`)'));
   assert.equal(md('requirementList'), '- **FR-1** (Must) Patients can book a slot without an account.\n- **FR-2** The price is shown before the slot is chosen.');
   assert.equal(md('acceptanceCriteria'), '**Scenario: Booking without an account** (FR-1)\n- **Given** I am not signed in\n- **When** I choose a free slot\n- **Then** the slot is held for 10 minutes\n- **And** I am asked for a phone number');
   assert.equal(md('userStory'), 'As **a patient with a sick child**, I want **to book the earliest slot tonight**, so that **my child is seen before morning**.');

@@ -41,6 +41,7 @@ import {
   MessageSquareHeart,
   Footprints,
   Library,
+  Webhook,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -117,6 +118,7 @@ const EDITOR: Record<BlockName, {icon: LucideIcon; insertId: string; configurabl
   chart: {icon: ChartColumnBig, insertId: 'chart', configurable: true},
   // Phase 3 blocks: their Insert commands are generated from the catalogue (insertCommands.tsx).
   terminal: {icon: SquareTerminal, insertId: 'terminal', configurable: true},
+  apiEndpoint: {icon: Webhook, insertId: 'api-endpoint', configurable: true},
   parameterTable: {icon: TableProperties, insertId: 'parameter-table', configurable: true},
   requirementList: {icon: ClipboardList, insertId: 'requirement-list'},
   userStory: {icon: UserRound, insertId: 'user-story'},

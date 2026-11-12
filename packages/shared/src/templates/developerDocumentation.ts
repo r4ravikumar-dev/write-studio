@@ -210,7 +210,7 @@ const DEV_DOCS_SECTIONS: TemplateSection[] = [
       'Include sample request and response payloads.',
     ],
     suggestedEvidence: ['Interface signatures', 'Request/response payloads', 'Parameter table'],
-    suggestedBlocks: ['parameterTable', 'codeBlock', 'table', 'callout'],
+    suggestedBlocks: ['apiEndpoint', 'parameterTable', 'codeBlock', 'table', 'callout'],
   },
   {
     key: 'dev-error-handling',
@@ -285,6 +285,7 @@ export const developerDocsV1: DocumentTemplate = {
   recommendedBlocks: [
     'codeBlock',
     'terminal',
+    'apiEndpoint',
     'parameterTable',
     'procedureSteps',
     'callout',
