@@ -102,11 +102,17 @@ jobs:
         run: pip install -r backend/django/requirements.txt
 
       - name: Django System Checks
+        env:
+          DJANGO_DEBUG: 'true'
+          DJANGO_SECRET_KEY: 'ci-secret-key-write-studio-test'
         run: |
           cd backend/django
           python manage.py check
 
       - name: Django Auth Test Suite (In-Memory SQLite)
+        env:
+          DJANGO_DEBUG: 'true'
+          DJANGO_SECRET_KEY: 'ci-secret-key-write-studio-test'
         run: |
           cd backend/django
           python manage.py test accounts
@@ -150,6 +156,8 @@ jobs:
       - name: Run Database CI Suite (Migrations, Dry Run & Schema Lockdown)
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/studio_test
+          DJANGO_DEBUG: 'true'
+          DJANGO_SECRET_KEY: 'ci-secret-key-write-studio-test'
         run: bash scripts/db-ci-test.sh "$DATABASE_URL"
 
   ci-status:

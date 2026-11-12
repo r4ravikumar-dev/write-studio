@@ -7,6 +7,9 @@ cd "$(dirname "$0")/.."
 
 DATABASE_URL="${1:-${DATABASE_URL:-postgres://postgres:postgres@localhost:5432/studio_test}}"
 export DATABASE_URL
+export DJANGO_DEBUG="${DJANGO_DEBUG:-true}"
+export DJANGO_SECRET_KEY="${DJANGO_SECRET_KEY:-ci-secret-key-write-studio-test}"
+export DJANGO_ALLOWED_HOSTS="${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}"
 
 echo "== Database CI: Connecting to ${DATABASE_URL}"
 
