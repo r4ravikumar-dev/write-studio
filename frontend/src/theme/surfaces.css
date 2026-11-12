@@ -1183,6 +1183,82 @@
   margin: var(--space-4) 0 0;
   color: var(--text-gray-primary);
 }
+
+/* ── Presentation badges (multi-vertical Phase 6) ───────────────────────────────── */
+.preview-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  margin-block-start: var(--space-4);
+}
+.preview-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-4) var(--space-10);
+  border-radius: var(--radius-round);
+  font-size: var(--label-sm-size);
+  font-weight: 500;
+  line-height: 1;
+  background: var(--surface-container-high);
+  color: var(--text-gray-primary);
+  border: var(--border-width-100) solid var(--surface-outline);
+}
+.preview-badge-status {
+  text-transform: capitalize;
+  font-weight: 600;
+}
+.preview-badge-status[data-status='draft'],
+.preview-badge-status[data-status='proposed'] {
+  background: var(--bg-warning-subtle);
+  color: var(--text-warning-intense);
+  border-color: var(--border-warning-subtle);
+}
+.preview-badge-status[data-status='approved'],
+.preview-badge-status[data-status='accepted'],
+.preview-badge-status[data-status='shipped'] {
+  background: var(--bg-success-subtle);
+  color: var(--text-success-intense);
+  border-color: var(--border-success-subtle);
+}
+.preview-badge-status[data-status='in-review'],
+.preview-badge-status[data-status='in-development'] {
+  background: var(--bg-info-subtle);
+  color: var(--text-info-intense);
+  border-color: var(--border-info-subtle);
+}
+.preview-badge-version {
+  font-family: var(--font-family-code);
+  font-weight: 600;
+  background: var(--bg-brand-subtle);
+  color: var(--text-brand-primary);
+  border-color: var(--border-brand-subtle);
+}
+.preview-badge-id {
+  font-family: var(--font-family-code);
+  font-weight: 600;
+}
+.preview-badge-date,
+.preview-badge-meta {
+  color: var(--text-gray-secondary);
+}
+
+/* ── Presentation profile styling (multi-vertical Phase 6) ────────────────────────── */
+.preview-page[data-presentation='technical'] .preview-facts dt {
+  font-family: var(--font-family-code);
+  font-size: var(--overline-sm-size);
+}
+.preview-page[data-presentation='technical'] .preview-title {
+  letter-spacing: -0.01em;
+}
+.preview-page[data-presentation='changelog'] .preview-title {
+  font-size: var(--display-sm-size);
+}
+.preview-page[data-presentation='procedure'] .preview-facts {
+  background: var(--surface-container-lowest);
+  padding: var(--space-16);
+  border-radius: var(--radius-12);
+}
 .preview-cover {
   margin: 0 0 var(--space-48);
   inline-size: min(100vw - 2 * var(--space-gutter), var(--block-wide-max));
@@ -1289,10 +1365,35 @@
   .preview .vb,
   .preview figure,
   .preview .cs-callout,
+  .preview .cs-code,
+  .preview .cs-terminal,
+  .preview .cs-params-wrap,
+  .preview .cs-requirements,
+  .preview .cs-story,
+  .preview .cs-criteria,
+  .preview .cs-testimonial,
+  .preview .cs-procedure,
+  .preview .cs-references,
   .preview tr,
   .preview img,
   .preview-facts {
     break-inside: avoid;
+  }
+  .preview .cs-code pre {
+    white-space: pre-wrap !important;
+    word-break: break-word;
+  }
+  .preview .cs-params-table {
+    inline-size: 100%;
+    table-layout: auto;
+  }
+  .preview-badges {
+    margin-block-start: var(--space-8);
+  }
+  .preview-badge {
+    border: var(--border-width-100) solid var(--border-gray-normal);
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
   .preview :is(h1, h2, h3, h4) {
     break-after: avoid;

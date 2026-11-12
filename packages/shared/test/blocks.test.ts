@@ -11,6 +11,7 @@ import {
   blockContractProblems,
   cleanDocument,
   documentMarkdown,
+  exportStudyMarkdown,
   hasContent,
   isEmptyBlock,
   documentMediaPaths,
@@ -99,11 +100,30 @@ check('cleaning: report-only types keep what was sent, enforced types get the cl
   assert.equal(enforced.doc.content![0].attrs!.tone, 'brand');
 });
 
-check('enforcement covers the new blocks and every part inside them; existing blocks only report', () => {
-  for (const type of ['terminal', 'terminalCommand', 'terminalOutput', 'parameterTable', 'parameter', 'requirementList', 'requirement', 'userStory', 'storyPart', 'acceptanceCriteria', 'scenario', 'scenarioStep', 'testimonial', 'procedureSteps', 'procedureStep', 'referenceList', 'reference']) {
-    assert.equal(isEnforcedType(type), true, type);
+check('enforcement covers every block in the catalogue and all child parts (Phase 6 full enforcement)', () => {
+  for (const name of BLOCK_NAMES) {
+    assert.equal(isEnforcedType(name), true, `block: ${name}`);
   }
-  for (const type of ['paragraph', 'heading', 'image', 'imageGrid', 'callout', 'codeBlock', 'table', 'text']) assert.equal(isEnforcedType(type), false, type);
+  for (const type of ['terminalCommand', 'terminalOutput', 'parameter', 'requirement', 'storyPart', 'scenario', 'scenarioStep', 'procedureStep', 'reference', 'listItem', 'taskItem', 'detailsSummary', 'detailsContent', 'tableRow', 'tableCell', 'tableHeader', 'doc', 'text', 'hardBreak']) {
+    assert.equal(isEnforcedType(type), true, `part or root: ${type}`);
+  }
+});
+
+check('exportStudyMarkdown preserves title, subtitle, summary, metadata facts table, and body', () => {
+  const md = exportStudyMarkdown({
+    title: 'Acme Test Doc',
+    subtitle: 'A testing guide',
+    summary: 'Executive summary text.',
+    metadata: {version: 'v1.0.0', status: 'Approved'},
+    content: doc(fixture('callout')),
+  });
+  assert.ok(md.includes('# Acme Test Doc'));
+  assert.ok(md.includes('_A testing guide_'));
+  assert.ok(md.includes('> **Summary**'));
+  assert.ok(md.includes('Executive summary text.'));
+  assert.ok(md.includes('| **Version** | v1.0.0 |'));
+  assert.ok(md.includes('| **Status** | Approved |'));
+  assert.ok(md.includes('> [!WARNING]'));
 });
 
 check('every media path in a block is checked for ownership, including a testimonial’s photo', () => {

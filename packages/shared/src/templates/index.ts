@@ -1,18 +1,63 @@
 import {blocksFor, isSuggestedBlock, type SuggestedBlock} from '../blocks/catalog';
 import {CURRENT_FRAMEWORKS, DEFAULT_FRAMEWORK, FRAMEWORKS} from '../frameworks';
+import {adrV1} from './architectureDecisionRecord';
+import {developerDocsV1} from './developerDocumentation';
+import {featureSpecV1} from './featureSpecification';
+import {marketingCaseStudyV1} from './marketingCaseStudy';
+import {prdV1} from './productRequirementsDocument';
+import {releaseNotesV1} from './releaseNotes';
+import {sopV1} from './standardOperatingProcedure';
+import {technicalDesignV1} from './technicalDesignDocument';
 import {DEFAULT_DOCUMENT_TYPE, DOCUMENT_TYPES, TEMPLATE_CATEGORIES, type DocumentTemplate, type DocumentType, type TemplateCategory, type TemplateSection} from './types';
 
 export * from './types';
+export * from './developerDocumentation';
+export * from './featureSpecification';
+export * from './releaseNotes';
+export * from './marketingCaseStudy';
+export * from './productRequirementsDocument';
+export * from './technicalDesignDocument';
+export * from './architectureDecisionRecord';
+export * from './standardOperatingProcedure';
+export * from './samples';
+
+/**
+ * The four Release 1 vertical templates (Phase 4).
+ */
+export const RELEASE_1_TEMPLATES: readonly DocumentTemplate[] = [
+  developerDocsV1,
+  featureSpecV1,
+  releaseNotesV1,
+  marketingCaseStudyV1,
+];
+
+/**
+ * The four Release 2 vertical templates (Phase 5).
+ */
+export const RELEASE_2_TEMPLATES: readonly DocumentTemplate[] = [
+  prdV1,
+  technicalDesignV1,
+  adrV1,
+  sopV1,
+];
 
 /**
  * The template registry: every template version ever released, from every pack. Add a pack's
  * templates here; never edit or remove a released version (documents keep the id and version they
  * were made with). `templateProblems()` checks the rules and runs in the offline tests.
  */
-export const TEMPLATES: readonly DocumentTemplate[] = [...FRAMEWORKS];
+export const TEMPLATES: readonly DocumentTemplate[] = [
+  ...FRAMEWORKS,
+  ...RELEASE_1_TEMPLATES,
+  ...RELEASE_2_TEMPLATES,
+];
 
 /** The newest version of each template: what new documents are offered. */
-export const CURRENT_TEMPLATES: readonly DocumentTemplate[] = [...CURRENT_FRAMEWORKS];
+export const CURRENT_TEMPLATES: readonly DocumentTemplate[] = [
+  ...CURRENT_FRAMEWORKS,
+  ...RELEASE_1_TEMPLATES,
+  ...RELEASE_2_TEMPLATES,
+];
 
 export function getTemplate(id: unknown, version: unknown): DocumentTemplate | undefined {
   return TEMPLATES.find(template => template.id === id && template.version === version);

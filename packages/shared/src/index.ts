@@ -18,3 +18,4 @@ export * from './caseStudies/setup';
 export * from './caseStudies/sections';
 export * from './caseStudies/review';
 export * from './caseStudies/blockSchemas';
+export * from './analytics';

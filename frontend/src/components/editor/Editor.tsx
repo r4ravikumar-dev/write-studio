@@ -819,7 +819,7 @@ function EditorInner({study, lockReason, wrapped}: {study: StudioCaseStudy; lock
                   <IconButton label="Review" tooltip="Review" variant="ghost" size="sm" onClick={openReview} icon={<Icon icon={ClipboardCheck} size="sm" color="inherit" />} />
                   <IconButton label="Version history" tooltip="Version history" variant="ghost" size="sm" onClick={() => setIsHistoryOpen(true)} icon={<Icon icon={History} size="sm" color="inherit" />} />
                   <IconButton label="Preview" tooltip="Preview" variant="ghost" size="sm" onClick={openPreview} icon={<Icon icon={Eye} size="sm" color="inherit" />} />
-                  <ExportMenu isIconOnly title={meta.title.replace(/\*/g, '').trim() || untitledTitle(study.document_type)} previewHref={`/studio/documents/${study.id}/preview`} beforeOpen={saveNow} />
+                  <ExportMenu isIconOnly title={meta.title.replace(/\*/g, '').trim() || untitledTitle(study.document_type)} previewHref={`/studio/documents/${study.id}/preview`} beforeOpen={saveNow} study={study} />
                   <IconButton
                     label={archiveLabel}
                     tooltip={archiveLabel}
@@ -835,7 +835,7 @@ function EditorInner({study, lockReason, wrapped}: {study: StudioCaseStudy; lock
                   <Button label="Review" variant="ghost" size="sm" onClick={openReview} icon={<Icon icon={ClipboardCheck} size="sm" color="inherit" />} />
                   <Button label="History" variant="ghost" size="sm" onClick={() => setIsHistoryOpen(true)} icon={<Icon icon={History} size="sm" color="inherit" />} />
                   <Button label="Preview" variant="ghost" size="sm" onClick={openPreview} icon={<Icon icon={Eye} size="sm" color="inherit" />} />
-                  <ExportMenu title={meta.title.replace(/\*/g, '').trim() || untitledTitle(study.document_type)} previewHref={`/studio/documents/${study.id}/preview`} beforeOpen={saveNow} />
+                  <ExportMenu title={meta.title.replace(/\*/g, '').trim() || untitledTitle(study.document_type)} previewHref={`/studio/documents/${study.id}/preview`} beforeOpen={saveNow} study={study} />
                   <Button
                     label={archiveLabel}
                     variant={status === 'archived' ? 'primary' : 'destructive'}

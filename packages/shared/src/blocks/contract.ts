@@ -50,18 +50,18 @@ const altOf = (value: Media) => text(value?.alt);
 /** Blocks made of text: empty when there is no text; text and Markdown from the structure. */
 const textBlock = (storage: 'content' | 'atom' = 'content'): BlockContract => ({
   storage,
-  enforced: false,
+  enforced: true,
   isEmpty: node => !hasText(node),
   toText: node => plainText(node),
   toMarkdown: (node, ctx) => textNodeMarkdown(node, ctx) ?? '',
 });
 
 /** Decorative blocks: never content. */
-const decoration = (markdown = ''): BlockContract => ({storage: 'atom', enforced: false, isEmpty: () => true, toText: () => '', toMarkdown: () => markdown});
+const decoration = (markdown = ''): BlockContract => ({storage: 'atom', enforced: true, isEmpty: () => true, toText: () => '', toMarkdown: () => markdown});
 
 type Phase3Block = 'terminal' | 'parameterTable' | 'requirementList' | 'userStory' | 'acceptanceCriteria' | 'testimonial' | 'procedureSteps' | 'referenceList';
 
-/** The 29 blocks that existed before the contract: cleaning is report-only until evidence (B3). */
+/** The 29 blocks that existed before the contract: cleaning is enforced in Phase 6. */
 const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   // ---- Writing ----------------------------------------------------------------------------------
   paragraph: textBlock(),
@@ -73,7 +73,7 @@ const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   details: textBlock(),
   codeBlock: {
     storage: 'content',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !hasText(node),
     toText: node => lines(node.attrs?.title, plainText(node)),
     toMarkdown: (node, ctx) => joinBlocks(text(node.attrs?.title) ? `**${escapeMarkdown(text(node.attrs?.title))}**` : '', textNodeMarkdown(node, ctx)),
@@ -83,7 +83,7 @@ const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   table: textBlock(),
   callout: {
     storage: 'content',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !hasText(node),
     toText: node => plainText(node),
     toMarkdown: (node, ctx) => {
@@ -94,7 +94,7 @@ const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   },
   pullQuote: {
     storage: 'content',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !hasText(node),
     toText: node => lines(plainText(node), config(node).attribution, config(node).role),
     toMarkdown: node => {
@@ -106,28 +106,28 @@ const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   // ---- Media ------------------------------------------------------------------------------------
   image: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !node.attrs?.src,
     toText: node => lines(node.attrs?.decorative ? '' : node.attrs?.alt, node.attrs?.credit),
     toMarkdown: (node, ctx) => joinBlocks(imageMarkdown(node.attrs?.src as string, node.attrs?.decorative ? '' : (node.attrs?.alt as string), ctx), node.attrs?.credit ? `_${escapeMarkdown(String(node.attrs.credit))}_` : ''),
   },
   videoFile: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !node.attrs?.src,
     toText: node => lines(node.attrs?.caption),
     toMarkdown: (node, ctx) => (node.attrs?.src ? `[Video${node.attrs.caption ? `: ${escapeMarkdown(String(node.attrs.caption))}` : ''}](${ctx.media(String(node.attrs.src))})` : ''),
   },
   fileAttachment: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !node.attrs?.src,
     toText: node => lines(node.attrs?.name),
     toMarkdown: (node, ctx) => (node.attrs?.src ? `[${escapeMarkdown(String(node.attrs.name || 'File'))}](${ctx.media(String(node.attrs.src))})` : ''),
   },
   embed: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !parseEmbed(String(node.attrs?.src ?? '')),
     toText: node => lines(node.attrs?.caption),
     toMarkdown: node => {
@@ -140,7 +140,7 @@ const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   },
   imageGrid: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !items<Media>(config(node).items).some(item => item?.path),
     toText: node => lines(...items<Media>(config(node).items).map(altOf), config(node).caption),
     toMarkdown: (node, ctx) => joinBlocks(items<Media>(config(node).items).map(item => imageMarkdown(item?.path, item?.alt, ctx)).filter(Boolean).join('\n'), captionMarkdown(config(node).caption)),
@@ -149,7 +149,7 @@ const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   // ---- Visual -----------------------------------------------------------------------------------
   comparison: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => (['left', 'right'] as const).every(side => {
       const value = (config(node)[side] ?? {}) as {media?: Media; text?: string};
       return !value.media?.path && !text(value.text);
@@ -169,14 +169,14 @@ const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   },
   showcase: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !media(config(node).media)?.path,
     toText: node => lines(altOf(media(config(node).media)), config(node).caption),
     toMarkdown: (node, ctx) => joinBlocks(imageMarkdown(media(config(node).media)?.path, altOf(media(config(node).media)), ctx), captionMarkdown(config(node).caption)),
   },
   deviceMockup: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !items<{media?: Media}>(config(node).devices).some(device => device.media?.path),
     toText: node => lines(...items<{media?: Media}>(config(node).devices).map(device => altOf(device.media)), config(node).caption),
     toMarkdown: (node, ctx) =>
@@ -187,14 +187,14 @@ const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   },
   splitLayout: {
     storage: 'content',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !media(config(node).media)?.path && !hasText(node),
     toText: node => lines(altOf(media(config(node).media)), plainText(node)),
     toMarkdown: (node, ctx) => joinBlocks(imageMarkdown(media(config(node).media)?.path, altOf(media(config(node).media)), ctx), blocksMarkdown(node.content, ctx)),
   },
   annotatedImage: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !media(config(node).media)?.path,
     toText: node => lines(altOf(media(config(node).media)), ...items<{title?: string; text?: string}>(config(node).annotations).map(note => lines(note.title, note.text)), config(node).caption),
     toMarkdown: (node, ctx) =>
@@ -208,7 +208,7 @@ const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   },
   screenSequence: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !items<{media?: Media; title?: string; text?: string}>(config(node).steps).some(step => step.media?.path || text(step.title) || text(step.text)),
     toText: node => lines(...items<{media?: Media; title?: string; text?: string}>(config(node).steps).map(step => lines(step.title, step.text, altOf(step.media))), config(node).caption),
     toMarkdown: (node, ctx) =>
@@ -224,7 +224,7 @@ const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   // ---- Data -------------------------------------------------------------------------------------
   metrics: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !items<{value?: string}>(config(node).items).some(item => text(item.value)),
     toText: node => lines(...items<{value?: string; label?: string; detail?: string}>(config(node).items).map(item => [item.value, item.label, item.detail].map(text).filter(Boolean).join(' ')), config(node).caption),
     toMarkdown: node =>
@@ -238,7 +238,7 @@ const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   },
   chart: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !chartRows({...defaultChart(), ...config(node)} as ChartConfig).length,
     toText: node => {
       const chart = {...defaultChart(), ...config(node)} as ChartConfig;
@@ -259,7 +259,7 @@ const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   },
   researchInsights: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !items<{finding?: string}>(config(node).insights).some(item => text(item.finding)),
     toText: node => lines(...items<{finding?: string; evidence?: string; source?: string}>(config(node).insights).map(item => lines(item.finding, item.evidence, item.source)), config(node).caption),
     toMarkdown: node =>
@@ -275,7 +275,7 @@ const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   // ---- Structure --------------------------------------------------------------------------------
   timeline: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !items<{when?: string; title?: string; text?: string}>(config(node).phases).some(phase => text(phase.when) || text(phase.title) || text(phase.text)),
     toText: node => lines(...items<{when?: string; title?: string; text?: string}>(config(node).phases).map(phase => lines(phase.when, phase.title, phase.text)), config(node).caption),
     toMarkdown: node =>
@@ -289,7 +289,7 @@ const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
   },
   flowDiagram: {
     storage: 'atom',
-    enforced: false,
+    enforced: true,
     isEmpty: node => !items<{label?: string}>(config(node).nodes).some(item => text(item.label)),
     toText: node => lines(...items<{label?: string; next?: string}>(config(node).nodes).map(item => [text(item.label), text(item.next) && `(${text(item.next)})`].filter(Boolean).join(' ')), config(node).caption),
     toMarkdown: node => {
@@ -419,6 +419,11 @@ export const BLOCK_CONTRACTS: Record<BlockName, BlockContract> = {...EXISTING, .
 
 /** The node types that only exist inside a block (cleaned with the block they belong to). */
 export const BLOCK_PARTS: Partial<Record<BlockName, readonly string[]>> = {
+  bulletList: ['listItem'],
+  orderedList: ['listItem'],
+  taskList: ['taskItem'],
+  details: ['detailsSummary', 'detailsContent'],
+  table: ['tableRow', 'tableCell', 'tableHeader'],
   terminal: ['terminalCommand', 'terminalOutput'],
   parameterTable: ['parameter'],
   requirementList: ['requirement'],
@@ -427,9 +432,12 @@ export const BLOCK_PARTS: Partial<Record<BlockName, readonly string[]>> = {
   procedureSteps: ['procedureStep'],
   referenceList: ['reference'],
 };
-const ENFORCED = new Set<string>(
-  (Object.keys(BLOCK_CONTRACTS) as BlockName[]).filter(name => BLOCK_CONTRACTS[name].enforced).flatMap(name => [name, ...(BLOCK_PARTS[name] ?? [])]),
-);
+const ENFORCED = new Set<string>([
+  'doc',
+  'text',
+  'hardBreak',
+  ...(Object.keys(BLOCK_CONTRACTS) as BlockName[]).filter(name => BLOCK_CONTRACTS[name].enforced).flatMap(name => [name, ...(BLOCK_PARTS[name] ?? [])]),
+]);
 
 /** B3: whether the server keeps the cleaned form of a node type (a block and its parts), or only reports. */
 export function isEnforcedType(type: string): boolean {
@@ -452,6 +460,67 @@ export function documentMarkdown(doc: JSONContent, media: (path: string) => stri
     },
   };
   return `${blocksMarkdown(doc.content, ctx)}\n`;
+}
+
+/**
+ * Renders a full Studio document as portable GitHub-flavoured Markdown,
+ * including document title, subtitle, summary, metadata facts table, and body content.
+ */
+export function exportStudyMarkdown(
+  study: {
+    title: string;
+    subtitle?: string | null;
+    summary?: string | null;
+    document_type?: string | null;
+    metadata?: Record<string, unknown> | null;
+    content: JSONContent;
+    role?: string | null;
+    team?: string | null;
+    timeline?: string | null;
+    platform?: string | null;
+  },
+  media: (path: string) => string = defaultMedia,
+): string {
+  const parts: string[] = [];
+  const title = study.title.replace(/\*/g, '').trim() || 'Untitled Document';
+  parts.push(`# ${escapeMarkdown(title)}`);
+
+  if (study.subtitle?.trim()) {
+    parts.push(`_${escapeMarkdown(study.subtitle.trim())}_`);
+  }
+
+  // Facts / Metadata table
+  const facts: [string, string][] = [];
+  if (study.metadata && Object.keys(study.metadata).length > 0) {
+    for (const [key, val] of Object.entries(study.metadata)) {
+      if (val !== undefined && val !== null && String(val).trim()) {
+        const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        facts.push([label, String(val).trim()]);
+      }
+    }
+  } else {
+    if (study.role?.trim()) facts.push(['Role', study.role.trim()]);
+    if (study.team?.trim()) facts.push(['Team', study.team.trim()]);
+    if (study.timeline?.trim()) facts.push(['Timeline', study.timeline.trim()]);
+    if (study.platform?.trim()) facts.push(['Platform', study.platform.trim()]);
+  }
+
+  if (facts.length > 0) {
+    const tableHeader = '| Attribute | Details |\n| :--- | :--- |';
+    const rows = facts.map(([label, val]) => `| **${escapeMarkdown(label)}** | ${escapeMarkdown(val).replace(/\n+/g, ' ')} |`).join('\n');
+    parts.push(`${tableHeader}\n${rows}`);
+  }
+
+  if (study.summary?.trim()) {
+    parts.push(`> **Summary**  \n> ${study.summary.trim().split('\n').join('\n> ')}`);
+  }
+
+  const body = documentMarkdown(study.content, media).trim();
+  if (body) {
+    parts.push(body);
+  }
+
+  return parts.join('\n\n') + '\n';
 }
 
 /** Whether a node shows anything to a reader (unknown types count, to be safe). */

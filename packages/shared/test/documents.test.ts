@@ -43,6 +43,17 @@ import {
   templateSection,
   templatesFor,
   untitledTitle,
+  RELEASE_1_TEMPLATES,
+  RELEASE_2_TEMPLATES,
+  SAMPLES,
+  developerDocsV1,
+  featureSpecV1,
+  releaseNotesV1,
+  marketingCaseStudyV1,
+  prdV1,
+  technicalDesignV1,
+  adrV1,
+  sopV1,
   type DocumentTemplate,
   type StudioStatus,
 } from '../src/index';
@@ -203,8 +214,8 @@ check('versions: a document on an old version is offered the newest, with exactl
   assert.deepEqual([next.added.map(s => s.key), next.removed.map(s => s.key), next.requiredChanged.map(s => s.key), next.guidanceChanged.map(s => s.key)], [['x-new'], ['opening'], ['context'], ['context']]);
 });
 
-check('only formats that can be exported today are offered', () => {
-  assert.deepEqual([...EXPORTS_READY], ['pdf', 'html_zip']);
+check('only formats that can be exported today are offered (all 4 in Phase 6)', () => {
+  assert.deepEqual([...EXPORTS_READY], ['pdf', 'html_zip', 'markdown', 'json_backup']);
   for (const template of CURRENT_TEMPLATES) assert.ok(template.exportProfiles.some(profile => EXPORTS_READY.includes(profile)), template.id);
 });
 
@@ -293,6 +304,90 @@ check('review: the checklist comes from the template’s validation rules, and n
   assert.deepEqual(review.checklist.map(item => item.key), template.validationRules.map(rule => rule.key));
   assert.ok(review.checklist.every(item => !item.done));
   assert.ok(review.warnings.some(warning => warning.message === 'The case study has no title.'));
+});
+
+// ---- Phase 4: Release 1 vertical templates & samples -----------------------------------------------
+check('Phase 4: Release 1 templates are registered, current, and have unique prefixes', () => {
+  assert.equal(RELEASE_1_TEMPLATES.length, 4);
+  const ids = ['developer-docs', 'feature-spec', 'release-notes', 'marketing-case-study'];
+  assert.deepEqual(RELEASE_1_TEMPLATES.map(t => t.id), ids);
+  for (const id of ids) {
+    const template = getTemplate(id, 1);
+    assert.ok(template, `template ${id} v1 should be registered`);
+    assert.ok(CURRENT_TEMPLATES.includes(template!), `${id} should be in CURRENT_TEMPLATES`);
+    assert.equal(template!.version, 1);
+    assert.ok(template!.sections.length > 0);
+    assert.ok(template!.validationRules.length > 0);
+    assert.ok(template!.exportProfiles.length > 0);
+  }
+
+  // Check section prefixes
+  assert.ok(developerDocsV1.sections.every(s => s.key.startsWith('dev-')));
+  assert.ok(featureSpecV1.sections.every(s => s.key.startsWith('spec-')));
+  assert.ok(releaseNotesV1.sections.every(s => s.key.startsWith('rel-')));
+  assert.ok(marketingCaseStudyV1.sections.every(s => s.key.startsWith('mkt-')));
+});
+
+check('Phase 4: five document types can now be created and have default templates', () => {
+  const availableTypes = ['ux_case_study', 'developer_documentation', 'feature_specification', 'release_notes', 'marketing_case_study'];
+  for (const type of availableTypes) {
+    assert.equal(isAvailableDocumentType(type), true, `${type} should be available`);
+    const def = defaultTemplate(type as any);
+    assert.ok(def, `defaultTemplate(${type}) should resolve`);
+    assert.equal(def?.documentType, type);
+  }
+});
+
+// ---- Phase 5: Release 2 vertical templates & samples -----------------------------------------------
+check('Phase 5: Release 2 templates are registered, current, and have unique prefixes', () => {
+  assert.equal(RELEASE_2_TEMPLATES.length, 4);
+  const ids = ['prd', 'technical-design', 'adr', 'sop'];
+  assert.deepEqual(RELEASE_2_TEMPLATES.map(t => t.id), ids);
+  for (const id of ids) {
+    const template = getTemplate(id, 1);
+    assert.ok(template, `template ${id} v1 should be registered`);
+    assert.ok(CURRENT_TEMPLATES.includes(template!), `${id} should be in CURRENT_TEMPLATES`);
+    assert.equal(template!.version, 1);
+    assert.ok(template!.sections.length > 0);
+    assert.ok(template!.validationRules.length > 0);
+    assert.ok(template!.exportProfiles.length > 0);
+  }
+
+  // Check section prefixes
+  assert.ok(prdV1.sections.every(s => s.key.startsWith('prd-')));
+  assert.ok(technicalDesignV1.sections.every(s => s.key.startsWith('tech-')));
+  assert.ok(adrV1.sections.every(s => s.key.startsWith('adr-')));
+  assert.ok(sopV1.sections.every(s => s.key.startsWith('sop-')));
+});
+
+check('Phase 5: all nine document types can now be created and have default templates', () => {
+  const allTypes = Object.keys(DOCUMENT_TYPES);
+  assert.equal(allTypes.length, 9);
+  for (const type of allTypes) {
+    assert.equal(isAvailableDocumentType(type), true, `${type} should be available`);
+    const def = defaultTemplate(type as any);
+    assert.ok(def, `defaultTemplate(${type}) should resolve`);
+    assert.equal(def?.documentType, type);
+  }
+});
+
+check('Phase 5: all nine sample documents pass story review with 100% checklist completion and 0 fix warnings', () => {
+  assert.equal(SAMPLES.length, 9);
+  for (const sample of SAMPLES) {
+    const template = getTemplate(sample.templateId, sample.templateVersion);
+    assert.ok(template, `template ${sample.templateId} v${sample.templateVersion} must exist`);
+    const review = reviewCaseStudy({
+      title: sample.title,
+      content: sample.content,
+      framework: template,
+      documentType: sample.documentType,
+    });
+    assert.equal(review.checklist.every(item => item.done), true, `${sample.title} checklist incomplete`);
+    const fixWarnings = review.warnings.filter(w => w.severity === 'fix');
+    assert.deepEqual(fixWarnings, [], `${sample.title} has unexpected fix warnings`);
+    assert.equal(review.progress.empty, 0, `${sample.title} has empty sections`);
+    assert.equal(review.progress.complete, review.progress.total, `${sample.title} sections should all be complete`);
+  }
 });
 
 console.log(`${passed}/${passed} passed`);
