@@ -22,9 +22,9 @@ auth service (accounts, codes, JWTs), Supabase Postgres + Storage.
    transactional provider (Postmark, Resend, SES…), and set up SPF/DKIM for the sending domain.
    Gmail caps at about 500 emails a day. The console email backend prints sign-in codes to the log:
    **never run it in production.**
-3. **Bot protection on sign-up and code requests.** Only rate limits exist today (per email and per IP).
-   Add a CAPTCHA (e.g. Cloudflare Turnstile) to `/studio/signup` and the "Email me a code" forms, verified
-   in Django, before opening registration publicly.
+3. **Bot protection on sign-up and code requests.** Done (2026-11-12): Cloudflare Turnstile on sign-up,
+   "Email me a code" and "Forgot your password", checked on the Next.js server (`lib/auth/turnstile.ts`)
+   before Django is called. On when `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are set on the site.
 4. **Region and connections.** Supabase is in Sydney (ap-southeast-2); from elsewhere each call took 1–5 s.
    Deploy Django and Express in the same region and keep DB connections open (gunicorn workers with
    `conn_max_age`; if you use Supabase's transaction pooler on port 6543, set
@@ -55,7 +55,7 @@ auth service (accounts, codes, JWTs), Supabase Postgres + Storage.
 6. Check `/work`, `/write` and the old `/api/public`, `/api/studio` routes return 404.
 7. Register two test accounts in production, check each sees only its own workspace, then delete both
    from Settings.
-8. Open registration only after the CAPTCHA (blocker 3) is live.
+8. Open registration only once Turnstile (blocker 3) is on in production.
 
 ## Checks
 
