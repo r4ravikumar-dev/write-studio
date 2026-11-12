@@ -1,0 +1,35 @@
+/* Page-specific styles: legal. Tokens only (--m-*, DNA). Shared patterns belong in components.css. */
+
+/* ── Legal documents (privacy, terms, cookies, accessibility) ─────────── */
+/* The doc head already ends with a gap and a rule: the first heading needs no extra top margin. */
+.m-legal .m-prose > :first-child { margin-top: 0; }
+.m-legal .m-prose code {
+  font-family: var(--m-font-mono);
+  font-size: var(--m-code);
+  color: var(--m-text-primary);
+}
+/* A closing note after the prose (e.g. accessibility feedback). */
+.m-legal-aside { max-width: var(--m-measure); margin-top: var(--space-48); }
+
+/* ── FAQ: closing help prompt ──────────────────────────────────────────── */
+.m-faq-page-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  margin-top: var(--space-48);
+  text-align: center;
+}
+
+/* ── Pricing: single plan card and note ────────────────────────────────── */
+.m-pricing-plan {
+  max-width: var(--m-measure-lead);
+  margin: var(--space-48) auto 0;
+}
+.m-pricing-plan .m-card-meta { flex-wrap: wrap; }
+.m-pricing-features li { font-size: var(--m-body-sm); }
+.m-caption.m-pricing-note {
+  max-width: var(--m-measure-lead);
+  margin: var(--space-32) auto 0;
+  text-align: center;
+}

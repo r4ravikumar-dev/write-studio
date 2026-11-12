@@ -1,0 +1,24 @@
+/* Page-specific styles: templates and use cases. Tokens only (--m-*, DNA). Shared patterns belong in components.css. */
+
+/* Index heroes: space between the hero head and the grid or catalogue below it. */
+.m-tpl-head { margin-bottom: var(--m-section-head-bottom); }
+
+/* Detail heroes sit under the breadcrumbs, so they start closer to the top. */
+.m-tpl-hero { padding-top: var(--m-section-compact); }
+.m-tpl-tags { justify-content: center; gap: var(--space-8); }
+
+/* Audience and purpose: copy beside the supported-blocks panel. */
+.m-tpl-split { align-items: start; }
+.m-tpl-audience,
+.m-uc-types { gap: var(--space-8); }
+.m-tpl-panel-title { display: flex; align-items: center; gap: var(--space-8); }
+.m-tpl-panel-title svg { flex: none; width: var(--m-icon-md); height: var(--m-icon-md); color: var(--m-text-brand); }
+
+/* Outline rows: number, section title (takes the space), guidance badge. */
+.m-tpl-outline .m-row-title { flex: 1 1 auto; min-width: 0; font-size: var(--m-body); }
+@media screen and (max-width: 639px) {
+  .m-tpl-outline .m-badge { display: none; }
+}
+
+/* Use-case cards: larger title than a template card. */
+.m-uc-card-title { font-size: var(--m-h5); }

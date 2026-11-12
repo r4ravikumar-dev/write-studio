@@ -1,0 +1,44 @@
+/* Page-specific styles: product and how it works. Tokens only (--m-*, DNA). Shared patterns belong in components.css. */
+
+/* ── Product: editor canvas visual (selection toolbar inside a sunken well) ── */
+.m-product-canvas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-16);
+  border: var(--m-border-thin) solid var(--m-border-subtle);
+  border-radius: var(--m-radius-md);
+  background: var(--m-bg-sunken);
+}
+.m-product-canvas > * { margin: 0; }
+.m-product-toolbar { display: flex; flex-wrap: wrap; gap: var(--space-8); }
+.m-product-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-8);
+  border: var(--m-border-thin) solid var(--m-border-subtle);
+  border-radius: var(--m-radius-sm);
+  background: var(--m-surface-card);
+  font-size: var(--m-body-sm);
+  font-weight: var(--m-weight-semibold);
+  color: var(--m-text-primary);
+}
+.m-product-mark { background: var(--m-brand-soft); color: inherit; border-radius: var(--m-radius-xs); padding: 0 var(--space-2); }
+
+/* ── Product: privacy visual (centred) ───────────────────────────────────── */
+.m-product-privacy { align-items: center; text-align: center; }
+.m-product-lock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-56);
+  height: var(--size-56);
+  border-radius: var(--m-radius-full);
+  background: var(--m-success-bg);
+  color: var(--m-success-fg);
+}
+
+/* ── How it works: story visuals ─────────────────────────────────────────── */
+.m-hiw-row-lead { display: inline-flex; align-items: center; gap: var(--space-8); }
+.m-hiw-grip { flex: none; color: var(--m-text-muted); }

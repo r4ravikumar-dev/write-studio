@@ -1,0 +1,275 @@
+/* ==========================================================================
+ * Write Studio marketing site: motion & scroll interactions (Phase 3).
+ * CSS does the animating (opacity + transform only); the small client helpers in
+ * components/marketing/motion/ only toggle data attributes. No motion library.
+ * Every rule here has a reduced-motion answer at the bottom.
+ * ========================================================================== */
+
+/* Anchored headings land below the floating header. */
+html:has(.marketing-page) {
+  background-color: var(--m-bg-page);
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--m-nav-height) + var(--space-32));
+}
+
+/* ── Section reveal ──────────────────────────────────────────────────────
+ * RevealObserver marks only elements that start BELOW the fold with
+ * [data-reveal="pending"], so nothing is hidden without JavaScript and
+ * nothing above the fold flickers. --m-reveal-i staggers siblings. */
+[data-reveal='pending'] {
+  opacity: 0;
+  transform: translateY(var(--m-distance-lg));
+}
+[data-reveal='shown'] {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--m-duration-section) var(--m-ease-enter),
+    transform var(--m-duration-section) var(--m-ease-emphasized);
+  transition-delay: calc(min(var(--m-reveal-i, 0), 5) * var(--m-stagger));
+}
+
+/* ── Header: surface settles in once the page scrolls ───────────────────── */
+.marketing-nav-inner {
+  transition:
+    background-color var(--m-duration-slow) var(--m-ease-standard),
+    border-color var(--m-duration-slow) var(--m-ease-standard),
+    box-shadow var(--m-duration-slow) var(--m-ease-standard),
+    -webkit-backdrop-filter var(--m-duration-slow) var(--m-ease-standard),
+    backdrop-filter var(--m-duration-slow) var(--m-ease-standard);
+}
+.marketing-header:not([data-scrolled]) .marketing-nav-inner:not(#\#) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+/* An open menu always needs the solid bar above it. */
+.marketing-header:has(.marketing-mobile-menu) .marketing-nav-inner:not(#\#):not(#\#) {
+  background: var(--m-glass-elevated-bg);
+  border-color: var(--m-glass-border);
+  box-shadow: inset 0 var(--m-border-thin) 0 0 var(--m-glass-highlight), var(--elevation-none), var(--m-shadow-floating);
+}
+
+/* ── Sticky storytelling ───────────────────────────────────────────────── */
+.m-story {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--space-64);
+  align-items: start;
+}
+.m-story-steps { list-style: none; margin: 0; padding: 0; counter-reset: m-story; }
+.m-story-step {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-16);
+  min-height: 56vh;
+  padding-block: var(--space-32);
+  padding-left: var(--space-24);
+  border-left: var(--m-border-thick) solid var(--m-border-default);
+  color: var(--m-text-secondary);
+  transition: border-color var(--m-duration-slow) var(--m-ease-standard), opacity var(--m-duration-slow) var(--m-ease-standard);
+}
+.m-story-step:first-child { min-height: 40vh; }
+.m-story-step > * { margin: 0; }
+.m-story-step[data-active] { border-left-color: var(--m-brand); }
+/* Inactive steps recede by colour, not opacity, so every line keeps AA contrast. */
+.m-story-step .m-title-h3 { transition: color var(--m-duration-slow) var(--m-ease-standard); }
+.m-story-step:not([data-active]) .m-title-h3 { color: var(--m-text-secondary); }
+.m-story-step:not([data-active]) .m-checklist li::before { background: var(--m-border-strong); }
+.m-story-step-visual { display: none; } /* inline copy of the visual, used below desktop */
+
+.m-story-stage {
+  position: sticky;
+  top: calc(var(--m-nav-height) + var(--space-48));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+.m-story-frame {
+  position: relative;
+  display: grid;
+  min-height: 420px;
+  padding: var(--space-24);
+  border: var(--m-border-thin) solid var(--m-border-default);
+  border-radius: var(--m-radius-showcase);
+  background: var(--m-bg-muted);
+  box-shadow: var(--m-shadow-lg);
+  overflow: hidden;
+}
+/* All visuals share one grid cell and cross-fade. */
+.m-story-panel {
+  grid-area: 1 / 1;
+  align-self: center;
+  opacity: 0;
+  transform: translateY(var(--m-distance-md)) scale(0.98);
+  transition:
+    opacity var(--m-duration-slow) var(--m-ease-standard),
+    transform var(--m-duration-slow) var(--m-ease-emphasized);
+  pointer-events: none;
+}
+.m-story-panel[data-active] { opacity: 1; transform: none; pointer-events: auto; }
+
+/* Progress: one segment per step; doubles as "jump to step" buttons. */
+.m-story-progress { display: flex; gap: var(--space-8); }
+.m-story-progress button {
+  flex: 1;
+  height: var(--size-32);
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.m-story-progress button::before {
+  content: '';
+  width: 100%;
+  height: var(--space-4);
+  border-radius: var(--m-radius-full);
+  background: var(--m-border-default);
+  transition: background-color var(--m-duration-slow) var(--m-ease-standard);
+}
+.m-story-progress button[aria-current='step']::before { background: var(--m-brand); }
+.m-story-progress button:hover::before { background: var(--m-border-strong); }
+.m-story-progress button[aria-current='step']:hover::before { background: var(--m-brand-hover); }
+
+/* Below desktop: no pinning. Each step shows its own visual inline. */
+@media screen and (max-width: 1023px) {
+  .m-story { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .m-story-stage { display: none; }
+  .m-story-step,
+  .m-story-step:first-child,
+  .m-story-step:not([data-active]) { min-height: 0; padding: var(--space-24) 0; border-left: 0; }
+  .m-story-step + .m-story-step { border-top: var(--m-border-thin) solid var(--m-border-default); }
+  .m-story-step-visual { display: block; margin-top: var(--space-8); }
+  .m-story-step:not([data-active]) .m-title-h3 { color: var(--m-text-primary); }
+  .m-story-step:not([data-active]) .m-checklist li::before { background: var(--m-text-brand); }
+}
+
+/* ── Hero showcase: view switch + parallax ─────────────────────────────── */
+.m-showcase-view { animation: m-view-in var(--m-duration-slow) var(--m-ease-emphasized); }
+@keyframes m-view-in {
+  from { opacity: 0; transform: translateY(var(--m-distance-md)); }
+}
+
+.m-hero-showcase-wrap { position: relative; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .m-hero-showcase-wrap {
+      animation: m-showcase-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 35%;
+    }
+  }
+}
+@keyframes m-showcase-rise {
+  from { transform: translateY(var(--m-distance-lg)) scale(0.97); }
+  to { transform: none; }
+}
+
+/* Floating glass selection toolbar over the demo document. */
+.m-float-toolbar {
+  position: absolute;
+  z-index: var(--m-z-raised);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--m-radius-full);
+  animation: m-float-in var(--m-duration-showcase) var(--m-ease-emphasized) both;
+  animation-delay: 600ms;
+}
+.m-float-toolbar span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--size-28);
+  height: var(--size-28);
+  padding: 0 var(--space-6);
+  border-radius: var(--m-radius-full);
+  font-size: var(--m-caption);
+  font-weight: var(--m-weight-semibold);
+  color: var(--m-text-primary);
+}
+.m-float-toolbar span[data-on] { background: var(--m-brand-soft); color: var(--m-text-brand); }
+.m-float-toolbar hr { width: var(--m-border-thin); height: var(--size-16); margin: 0 var(--space-2); border: 0; background: var(--m-border-default); }
+@keyframes m-float-in {
+  from { opacity: 0; transform: translateY(var(--m-distance-md)) scale(0.96); }
+}
+@media screen and (max-width: 639px) {
+  .m-float-toolbar { display: none; }
+}
+
+/* ── Floating glass CTA ────────────────────────────────────────────────── */
+.m-floating-cta {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-24);
+  z-index: var(--m-z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  max-width: calc(100vw - 2 * var(--m-gutter));
+  padding: var(--space-8) var(--space-8) var(--space-8) var(--space-20);
+  border-radius: var(--m-radius-full);
+  translate: -50% 0;
+  transition:
+    opacity var(--m-duration-slow) var(--m-ease-standard),
+    transform var(--m-duration-slow) var(--m-ease-emphasized),
+    visibility 0s linear var(--m-duration-slow);
+}
+.m-floating-cta[data-hidden] {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(calc(var(--space-24) + 100%));
+}
+.m-floating-cta:not([data-hidden]) { transition-delay: 0s; }
+.m-floating-cta-label { font-size: var(--m-body-sm); font-weight: var(--m-weight-medium); color: var(--m-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media screen and (max-width: 639px) {
+  .m-floating-cta { left: var(--m-gutter); right: var(--m-gutter); bottom: var(--space-16); translate: none; padding-left: var(--space-16); }
+  .m-floating-cta-label { flex: 1; }
+}
+
+/* ── Reading progress (guides): CSS scroll timeline, no JS ─────────────── */
+.m-reading-progress { display: none; }
+@supports (animation-timeline: scroll()) {
+  .m-reading-progress {
+    display: block;
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: var(--m-z-overlay);
+    height: var(--space-4);
+    background: var(--m-brand);
+    transform-origin: 0 50%;
+    animation: m-progress linear both;
+    animation-timeline: scroll(root block);
+  }
+}
+@keyframes m-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────────────
+ * Content and state changes stay; movement goes. */
+@media (prefers-reduced-motion: reduce) {
+  html:has(.marketing-page) { scroll-behavior: auto; }
+  [data-reveal='pending'] { opacity: 1; transform: none; }
+  .m-story-panel,
+  .m-story-panel[data-active],
+  .m-floating-cta[data-hidden] { transform: none; }
+  .m-story-panel { transition: opacity var(--m-duration-fast) linear; }
+  .m-showcase-view,
+  .m-float-toolbar { animation: none; }
+}
+
+/* Print: everything visible, nothing pinned or floating. */
+@media print {
+  [data-reveal] { opacity: 1 !important; transform: none !important; }
+  .m-story-stage, .m-floating-cta, .m-reading-progress, .m-float-toolbar { display: none !important; }
+  .m-story-step-visual { display: block; }
+  .m-story-step { min-height: 0; opacity: 1; }
+}

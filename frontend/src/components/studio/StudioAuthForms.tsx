@@ -43,7 +43,7 @@ function AuthFrame({title, intro, children}: {title: string; intro: React.ReactN
     <VStack gap={8} className="studio-centered">
       <VStack gap={3}>
         <Text type="supporting" style={EYEBROW_STYLE}>
-          Case Study Studio
+          Write Studio
         </Text>
         <Heading level={1}>{title}</Heading>
         <Text color="secondary">{intro}</Text>
@@ -152,10 +152,12 @@ export function StudioLoginForm({next, notice, siteKey}: {next: string; notice?:
   const [password, setPassword] = useState('');
   const [state, logIn, isLoggingIn] = useActionState(logInWithPassword, idle);
 
+  const signupHref = next && next !== '/studio' ? `/signup?next=${encodeURIComponent(next)}` : '/signup';
+
   return (
     <AuthFrame
-      title="Sign in"
-      intro={<>New here? {link('/studio/signup', 'Create an account')}. Your case studies stay private to you.</>}>
+      title="Welcome back"
+      intro={<>Continue working on your documents. New to Write Studio? {link(signupHref, 'Create an account')}.</>}>
       {notice && <Banner status="info" title={notice} collapsible={false} />}
       <SegmentedControl label="How to sign in" value={method} onChange={value => setMethod(value as 'password' | 'code')} layout="fill">
         <SegmentedControlItem value="password" label="Password" />
@@ -189,7 +191,7 @@ export function StudioLoginForm({next, notice, siteKey}: {next: string; notice?:
             />
             <HStack gap={4} vAlign="center" justify="between" wrap="wrap">
               <Button type="submit" label="Sign in" variant="primary" isLoading={isLoggingIn} />
-              {link('/studio/forgot-password', 'Forgot your password?')}
+              {link('/forgot-password', 'Forgot your password?')}
             </HStack>
           </VStack>
         </form>
@@ -203,7 +205,7 @@ export function StudioLoginForm({next, notice, siteKey}: {next: string; notice?:
 // ---------------------------------------------------------------------------
 // Sign up
 // ---------------------------------------------------------------------------
-export function StudioSignupForm({siteKey}: {siteKey: string}) {
+export function StudioSignupForm({siteKey, next = '/studio'}: {siteKey: string; next?: string}) {
   const [method, setMethod] = useState<'password' | 'code'>('password');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -211,11 +213,13 @@ export function StudioSignupForm({siteKey}: {siteKey: string}) {
   const [again, setAgain] = useState('');
   const [state, signUp, isSigningUp] = useActionState(signUpWithPassword, idle);
 
+  const loginHref = next && next !== '/studio' ? `/login?next=${encodeURIComponent(next)}` : '/login';
+
   if (state.status === 'sent') {
     return (
-      <AuthFrame title="Check your email" intro={`We’ve sent a link to ${state.email}. Open it to confirm your email address and start writing.`}>
+      <AuthFrame title="Check your email" intro={`We’ve sent a confirmation link to ${state.email}. Open it to confirm your email address and start writing.`}>
         <Text color="secondary">
-          Nothing arrived after a few minutes? Check your spam folder, or {link('/studio/login', 'sign in with an email code')} instead.
+          Nothing arrived after a few minutes? Check your spam folder, or {link(loginHref, 'sign in with an email code')} instead.
         </Text>
       </AuthFrame>
     );
@@ -223,8 +227,8 @@ export function StudioSignupForm({siteKey}: {siteKey: string}) {
 
   return (
     <AuthFrame
-      title="Create your account"
-      intro={<>Get a private workspace for writing your case studies. Already have an account? {link('/studio/login', 'Sign in')}.</>}>
+      title="Create your Write Studio account"
+      intro={<>Start with a structure. Build a document that makes sense. Already have an account? {link(loginHref, 'Sign in')}.</>}>
       <SegmentedControl label="How to sign up" value={method} onChange={value => setMethod(value as 'password' | 'code')} layout="fill">
         <SegmentedControlItem value="password" label="With a password" />
         <SegmentedControlItem value="code" label="With an email code" />
@@ -233,6 +237,7 @@ export function StudioSignupForm({siteKey}: {siteKey: string}) {
         <form action={signUp}>
           <VStack gap={4}>
             <FormError state={state} />
+            <input type="hidden" name="next" value={next} />
             <TextInput label="Your name" htmlName="display_name" value={name} onChange={setName} autoComplete="name" width="100%" isRequired status={fieldError(state, 'display_name')} />
             <TextInput type="email" label="Email" htmlName="email" value={email} onChange={setEmail} autoComplete="email" width="100%" isRequired status={fieldError(state, 'email')} />
             <TextInput
@@ -250,10 +255,13 @@ export function StudioSignupForm({siteKey}: {siteKey: string}) {
             <TextInput type="password" label="Confirm password" htmlName="password_again" value={again} onChange={setAgain} autoComplete="new-password" width="100%" isRequired status={fieldError(state, 'password_again')} />
             <Turnstile siteKey={siteKey} resetKey={state} action="signup" />
             <Button type="submit" label="Create account" variant="primary" isLoading={isSigningUp} />
+            <Text type="supporting" color="secondary" style={{textAlign: 'center', marginTop: '8px'}}>
+              By creating an account, you agree to the <NextLink href="/terms" className="studio-auth-link">Terms of Service</NextLink> and acknowledge the <NextLink href="/privacy" className="studio-auth-link">Privacy Policy</NextLink>.
+            </Text>
           </VStack>
         </form>
       ) : (
-        <CodeForm next="/studio" askName siteKey={siteKey} />
+        <CodeForm next={next} askName siteKey={siteKey} />
       )}
     </AuthFrame>
   );

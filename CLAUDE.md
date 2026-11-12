@@ -181,7 +181,14 @@ All routes behind `requireUser` (jose verify, type access, role user, UUID sub);
   MediaManager, StudioCaseStudyList, NewCaseStudyButton/Form, StudioPreview.
 - Also used by the preview: components/editorial/{EditorialHero,Chapter,IndexLabel},
   storytelling/Lines, navigation/CtaButton, motion/*, illustrations/RippleGrid, theme/*.
-- Theme: `src/theme/theme.css` (Astryx Stone, `npm run theme:build`), imported by `app/globals.css`.
+- Theme: `src/theme/theme.css` (Astryx Stone, `npm run theme:build`).
+- **CSS loads per area (2026-11-13):** `app/globals.css` = the Astryx reset only. `app/studio.css` (imported by
+  `app/studio/layout.tsx` and the `/login`, `/signup`, `/forgot-password` pages) = Astryx core → theme → DNA tokens → bridge →
+  foundation → typography → surfaces → structured → liquid-glass → `html` rules → Studio rules (this is the original global
+  order; keep it). `theme/marketing/index.css` (imported by `app/(marketing)/layout.tsx`) = theme → DNA tokens → bridge →
+  foundation → typography → marketing files; no `astryx.css` (no Astryx components on the public site). Studio rules that
+  used to live in `globals.css` are now in `studio.css`. Proof of no visual change: `scripts/e2e/style-snapshot.mjs`
+  (computed-style snapshot + diff).
 - Env (server-only): API_URL, AUTH_URL, JWT_SECRET, AUTH_SERVICE_KEY. No Supabase keys or URLs.
 - ESLint: `eslint.config.mjs` (next core-web-vitals + typescript), clean.
 
@@ -191,7 +198,7 @@ All routes behind `requireUser` (jose verify, type access, role user, UUID sub);
   - Semantic tokens only, never primitives or hex. Component tokens win.
   - Text uses a text style (`.t-web-*` / `.t-mobile-*`); never raw font sizes.
   - Spacing and radius come only from the scale. Light mode only (DNA has no dark mode, so don't invent one).
-- **Files (imported in `app/globals.css` after the Astryx theme):**
+- **Files (imported in `app/studio.css` after the Astryx theme; marketing imports tokens, bridge, foundation, typography):**
   - `theme/dna-tokens.css`: a scripted copy of DNA `references/tokens.css`. `--spacing-N` is renamed `--space-N` because Astryx owns `--spacing-N` (4 px steps). Re-copy to update; never hand-edit.
   - `theme/dna-bridge.css`: points Astryx colour, radius and border names at DNA semantic tokens; `color-scheme: light`; buttons radius/8, brand-intense hover, brand focus outline; font families.
   - `theme/foundation.css`: DNA layout defaults (card padding, section gap, stacks, radii) + legacy layout names.
@@ -255,7 +262,7 @@ Backup before removal: `/private/tmp/claude-501/-Users-visit--claude-spares-spar
   RSC requests need a valid `_rsc` hash (307 otherwise).
 - Raw SQL inserts into `django.accounts_user` must set `session_version` (no DB default).
 - Python 3.9: `from __future__ import annotations` for `X | None`; Django 4.2 LTS.
-- **Print = desktop layout.** Width media queries (`max-width`, the tablet range) are `@media screen and (…)` in globals.css,
+- **Print = desktop layout.** Width media queries (`max-width`, the tablet range) are `@media screen and (…)` in studio.css,
   typography.css, surfaces.css and foundation.css: an A4 page is narrower than 768px, so without `screen` the PDF used the
   phone layout (1-column grids, full-width images). Keep new breakpoints screen-only. Print also forces white paper, drops
   device shadows (they print as grey boxes) and swaps videos for `.cs-video-note`.
@@ -263,13 +270,13 @@ Backup before removal: `/private/tmp/claude-501/-Users-visit--claude-spares-spar
   aria-label (the History button was squeezed to "H").
 - The staging pooler allows 15 clients in session mode: if Django returns 500 "max clients reached", wait and retry.
 - zsh doesn't word-split `$var` into arguments; pass file lists explicitly.
-- `globals.css` (~4.3k lines) still holds styles for removed portfolio components (dead CSS, harmless; raw values there predate DNA).
+- The dead portfolio CSS (~3.2k lines) and its orphaned components (`components/{editorial,illustrations,motion,navigation,layout}`, `src/motion`) were removed on 2026-11-13. Rules for library-generated classes (`astryx-*`, `ProseMirror-*`) can't be found by grepping our code: check them by hand before deleting CSS. `dialog.astryx-dialog` reads `var(--glass-highlight)`, which is defined nowhere, so the dialog's shadow never renders (pre-existing).
 - ProseMirror attrs are null-prototype objects: anything sent to a server action must be plain JSON (`plainDocument()` in Editor.tsx). Live tests bypass server actions, so add a browser e2e test (Stage 3).
 - Section titles AND hints are **placeholders, never content**: `caseStudyTemplate()` / `caseStudySectionNodes()` emit an empty heading tagged `attrs.section` (key, via the `SectionKey` global attribute in caseStudy/schema.ts) + an empty paragraph. The editor's Placeholder shows `sectionOf(heading).title` in heading style and `.hint` in body style (placeholder grey only); typed text takes those styles. `clearUntouchedHints()` turns completely untouched old sections (title + hint text) into placeholders in the editor and preview. Empty blocks are hidden in the preview.
 - Editor scrolling (≥768px): the window doesn't scroll; only `.write-scroll` (the document, below the toolbar) and the settings panel scroll. Phones use window scrolling.
 - **Microcopy follows W3C WAI "Writing for Web Accessibility"** (2026-11-11): unique page titles, most specific first (`Edit: <name>`, `Preview: <name>`, `Archived case studies`); icon-only buttons name their target (`Edit <case study>`); errors say what's wrong AND how to fix it (`Enter an email address in the format name@example.com.`); instructions go in field descriptions, not placeholders; no "e.g.", no jargon; alt-text prompts ask what the image shows. Voice: plain, direct, UK spelling, product name "Case Study Studio". Don't repeat privacy reassurances (the user already knows they're signed in).
 - **Toolbar 2.0 (Release 1, implemented; spec `docs/toolbar-2.0-spec.md`):** `Toolbar.tsx` is one row on desktop (Undo/Redo · Find · Text style · B/I/U, Link, Colour · Alignment, Lists · More ⋯ · Insert); below ~720px of column width Alignment/Lists fold into More; phones keep the bottom bar + ⌃ sheet (groups Text style / Format / Paragraph) + Insert FAB. Text styles = headings h1–h4 + paragraph `textRole` (display/lead/small/caption/label → `.cs-text-*` in typography.css). Find/replace: `search.ts` (ProseMirror decorations, never stored; replace all = one undo) + `FindReplace.tsx`, ⌘/Ctrl+F. Selection bubble: B/I/U/Link/Highlight/More, hidden in tables and while find is open. `TableBar.tsx`: anchored above the table. Link editor: address + text + new-tab switch; `safeHref()` allows only https/http/mailto/tel, `/`, `#`. Image node attrs: decorative, size, align, ratio, focus (Image inspector 2.0). Insert registry (`insertCommands.tsx`): six groups Text/Media/Visual/Data/Structure/Advanced + template sections via `insertMenuItems()`; `/` menu shows the same headings (name matches rank first).
-- **Insert 2.0 blocks (Release 2):** `timeline` (phases; across/down; line/cards), `screenSequence` (numbered screens with phone/browser/no frame, 2–4 columns, arrows), `annotatedImage` (click the screenshot in the editor to add a numbered marker; notes list is the accessible content; markers decorative), `flowDiagram` (start/step/decision/end shapes, labelled arrows). Configs/defaults in `packages/shared/src/caseStudies/blocks.ts`, nodes via `visualAtom` in schema.ts, renderers in `visualBlocks.tsx` (editor + preview), views in nodeViews.tsx, inspectors in BlockInspector.tsx, CSS `.vb-timeline/.vb-sequence/.vb-annotated/.vb-flow` in globals.css (list selectors are `.vb .vb-…-list` to beat `.cs-prose ol`). Horizontal layouts stack on phones; empty sequence steps are omitted in the preview. Media paths are covered by the generic `documentMediaPaths` walk.
+- **Insert 2.0 blocks (Release 2):** `timeline` (phases; across/down; line/cards), `screenSequence` (numbered screens with phone/browser/no frame, 2–4 columns, arrows), `annotatedImage` (click the screenshot in the editor to add a numbered marker; notes list is the accessible content; markers decorative), `flowDiagram` (start/step/decision/end shapes, labelled arrows). Configs/defaults in `packages/shared/src/caseStudies/blocks.ts`, nodes via `visualAtom` in schema.ts, renderers in `visualBlocks.tsx` (editor + preview), views in nodeViews.tsx, inspectors in BlockInspector.tsx, CSS `.vb-timeline/.vb-sequence/.vb-annotated/.vb-flow` in studio.css (list selectors are `.vb .vb-…-list` to beat `.cs-prose ol`). Horizontal layouts stack on phones; empty sequence steps are omitted in the preview. Media paths are covered by the generic `documentMediaPaths` walk.
 - **Inspector 2.0 (Release 3):** `findSelectedBlock` treats the table around the cursor as a block → `TableInspector` (borders grid/rows/minimal, striped, density, header row/column, cell alignment, rows/columns, phones scroll/fit; table attrs `tableStyle/striped/density/mobile` → `data-tablestyle…` via `TableAttributes`). Device mockups: drag on the canvas in the editor (`onMoveDevice`, window pointer listeners, keeps the grab offset, one update on drop; a drag suppresses the picker click), Duplicate device, `locked`. Images: `credit` (shown after the caption in the preview) and `radius`; the preview's image mapping now honours size/align/ratio/focus/decorative/radius. Comparison `display: 'slider'` (range-input divider, needs both pictures). Image grid `mobileColumns`.
 - Write Studio 2.0 blueprint: `docs/write-studio-2.0-blueprint.md`; Stage 0 audit done: `docs/stage-0-ux-audit.md`; Stage 1 done (`docs/stage-1-report.md`); Stage 2 done (`docs/stage-2-report.md`); Stage 3 done (`docs/stage-3-report.md`); Stage 4 done (`docs/stage-4-report.md`); Stage 5 done (`docs/stage-5-report.md`); next is Stage 6 (closed beta).
 - **Stage 1, guided project creation (done 2026-11-11; report `docs/stage-1-report.md`):** frameworks are versioned,
@@ -343,7 +350,7 @@ Backup before removal: `/private/tmp/claude-501/-Users-visit--claude-spares-spar
   `editor/blocks/inspectors.tsx` (`INSPECTORS` registry; `BlockInspector.tsx` is a lookup) built from `blocks/inspectorKit.tsx`
   (`<Groups>` sorts `<Group name>` into Content/Layout/Size/Spacing/Alignment/Appearance/Tablet and phone; `BreakpointSwitch`,
   `ResponsiveColumnsControl`); `config.responsive.{tablet,phone}.columns` on image grid (tablet only), metrics, screen sequence →
-  `columnAttrs()` CSS vars + data flags, rules at the end of globals.css. Shared `caseStudies/blockSchemas.ts` (`BLOCK_SCHEMAS`,
+  `columnAttrs()` CSS vars + data flags, rules at the end of studio.css. Shared `caseStudies/blockSchemas.ts` (`BLOCK_SCHEMAS`,
   `blockProblems`, `isEvidenceBlock`) drives review.ts; `caseStudy/blockRenderers.tsx` drives the preview's visual mapping.
   T4 done 2026-11-12: cards Problem callout / Key takeaway (callouts; placeholder from tone/icon via `calloutHint` in
   Editor.tsx, Placeholder `includeChildren` but nested paragraphs other than callouts return '') and Results highlights

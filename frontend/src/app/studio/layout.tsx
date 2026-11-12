@@ -1,4 +1,5 @@
 import type {Metadata} from 'next';
+import '../studio.css';
 
 /**
  * The Case Study Studio: anyone can register; everything inside a
