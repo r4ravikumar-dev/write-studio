@@ -125,6 +125,55 @@ function renderNodes(content: JSONContent) {
             </div>
           );
         },
+        apiEndpoint: ({node, children}: RenderProps) => {
+          const attrs = node.attrs ?? {};
+          const method = String(attrs.method || 'GET');
+          const path = String(attrs.path || '/');
+          const auth = String(attrs.auth || 'bearer');
+          const summary = String(attrs.summary || '');
+          const reqType = String(attrs.requestType || 'application/json');
+          const reqBody = String(attrs.requestBody || '');
+          const resStatus = String(attrs.responseStatus || '200 OK');
+          const resBody = String(attrs.responseBody || '');
+
+          return (
+            <div className="cs-endpoint" data-method={method}>
+              <div className="cs-endpoint-header">
+                <span className={`cs-endpoint-method cs-method-${method.toLowerCase()}`}>{method}</span>
+                <code className="cs-endpoint-path">{path}</code>
+                <span className="cs-endpoint-auth">{auth === 'none' ? 'PUBLIC' : auth.toUpperCase()}</span>
+              </div>
+              {summary && <p className="cs-endpoint-summary">{summary}</p>}
+              {(reqBody || resBody) && (
+                <div className="cs-endpoint-schemas">
+                  {reqBody && (
+                    <div className="cs-endpoint-schema-panel">
+                      <div className="cs-endpoint-schema-title">
+                        <span>Request</span>
+                        <code>{reqType}</code>
+                      </div>
+                      <pre className="cs-endpoint-code">
+                        <code>{highlightToReact(reqBody, 'json')}</code>
+                      </pre>
+                    </div>
+                  )}
+                  {resBody && (
+                    <div className="cs-endpoint-schema-panel">
+                      <div className="cs-endpoint-schema-title">
+                        <span>Response</span>
+                        <code className="cs-status-badge">{resStatus}</code>
+                      </div>
+                      <pre className="cs-endpoint-code">
+                        <code>{highlightToReact(resBody, 'json')}</code>
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              )}
+              {children && <div className="cs-endpoint-content">{children}</div>}
+            </div>
+          );
+        },
         parameterTable: ({node, children}: RenderProps) => (
           <figure className="cs-params-wrap">
             <table className="cs-params-table" data-show-required={String(node.attrs?.showRequired !== false)} data-show-default={String(node.attrs?.showDefault !== false)}>

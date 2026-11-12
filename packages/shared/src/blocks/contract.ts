@@ -59,7 +59,7 @@ const textBlock = (storage: 'content' | 'atom' = 'content'): BlockContract => ({
 /** Decorative blocks: never content. */
 const decoration = (markdown = ''): BlockContract => ({storage: 'atom', enforced: true, isEmpty: () => true, toText: () => '', toMarkdown: () => markdown});
 
-type Phase3Block = 'terminal' | 'parameterTable' | 'requirementList' | 'userStory' | 'acceptanceCriteria' | 'testimonial' | 'procedureSteps' | 'referenceList';
+type Phase3Block = 'terminal' | 'apiEndpoint' | 'parameterTable' | 'requirementList' | 'userStory' | 'acceptanceCriteria' | 'testimonial' | 'procedureSteps' | 'referenceList';
 
 /** The 29 blocks that existed before the contract: cleaning is enforced in Phase 6. */
 const EXISTING: Record<Exclude<BlockName, Phase3Block>, BlockContract> = {
@@ -329,6 +329,42 @@ const PHASE_3: Record<Phase3Block, BlockContract> = {
         .join('\n');
       const fence = fenceFor(body);
       return `${fence}${node.attrs?.shell === 'powershell' || node.attrs?.shell === 'cmd' ? 'powershell' : 'console'}\n${body}\n${fence}`;
+    },
+  }),
+  apiEndpoint: proseBlock({
+    isEmpty: node => !attr(node, 'path') && !attr(node, 'summary') && !hasText(node),
+    toText: node =>
+      lines(
+        `${attr(node, 'method') || 'GET'} ${attr(node, 'path')}`,
+        attr(node, 'summary'),
+        plainText(node),
+        attr(node, 'requestBody'),
+        attr(node, 'responseBody'),
+      ),
+    toMarkdown: (node, ctx) => {
+      const method = attr(node, 'method') || 'GET';
+      const path = attr(node, 'path') || '/';
+      const summary = attr(node, 'summary');
+      const auth = attr(node, 'auth') || 'bearer';
+      const authLabel = auth === 'none' ? 'None (Public)' : auth === 'apiKey' ? 'API Key' : auth === 'basic' ? 'Basic Auth' : auth === 'oauth2' ? 'OAuth 2.0' : 'Bearer Token';
+      const desc = blocksMarkdown(node.content, ctx);
+      const reqType = attr(node, 'requestType') || 'application/json';
+      const reqBody = attr(node, 'requestBody');
+      const resStatus = attr(node, 'responseStatus') || '200 OK';
+      const resBody = attr(node, 'responseBody');
+
+      const parts = [
+        `### \`${method}\` ${escapeMarkdown(path)}`,
+        `> **Authentication**: ${authLabel}${summary ? `  \n> **Summary**: ${escapeMarkdown(summary)}` : ''}`,
+      ];
+      if (desc) parts.push(desc);
+      if (reqBody) {
+        parts.push(`#### Request (\`${reqType}\`)\n\`\`\`json\n${reqBody}\n\`\`\``);
+      }
+      if (resBody) {
+        parts.push(`#### Response (\`${resStatus}\`)\n\`\`\`json\n${resBody}\n\`\`\``);
+      }
+      return parts.join('\n\n');
     },
   }),
   parameterTable: proseBlock({

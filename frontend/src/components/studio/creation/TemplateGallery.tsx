@@ -1,11 +1,16 @@
 'use client';
 
-import {useId, useMemo, useState} from 'react';
+import {useEffect, useId, useMemo, useState} from 'react';
 import {VStack, HStack} from '@astryxdesign/core/Layout';
 import {Heading} from '@astryxdesign/core/Heading';
 import {Text} from '@astryxdesign/core/Text';
 import {TextInput} from '@astryxdesign/core/TextInput';
 import {Button} from '@astryxdesign/core/Button';
+import {
+  getWorkspacePresets,
+  presetToDocumentTemplate,
+  type WorkspacePreset,
+} from '@/lib/workspacePresets';
 import {
   BLOCK_CATALOG,
   CONTENT_CARDS,
@@ -36,22 +41,33 @@ const blockLabel = (name: SuggestedBlock) => (name in BLOCK_CATALOG ? BLOCK_CATA
 export function TemplateGallery({value, onChoose}: {value?: string; onChoose?: (template: DocumentTemplate) => void}) {
   const groupName = useId();
   const [query, setQuery] = useState('');
-  const [category, setCategory] = useState<TemplateCategory | 'all'>('all');
+  const [category, setCategory] = useState<TemplateCategory | 'all' | 'presets'>('all');
   const [browsed, setBrowsed] = useState<string | undefined>(value);
+  const [presets, setPresets] = useState<WorkspacePreset[]>(() => getWorkspacePresets());
+
+  useEffect(() => {
+    const handler = () => setPresets(getWorkspacePresets());
+    window.addEventListener('workspace-presets-changed', handler);
+    return () => window.removeEventListener('workspace-presets-changed', handler);
+  }, []);
+
   const library = useMemo(() => templateLibrary(), []);
   const blank = useMemo(() => universalTemplates(), []);
+  const presetTemplates = useMemo(() => presets.map(presetToDocumentTemplate), [presets]);
 
   const selected = onChoose ? value : browsed;
   const select = (template: DocumentTemplate) => (onChoose ? onChoose(template) : setBrowsed(keyOf(template)));
 
-  const groups = library
-    .filter(group => category === 'all' || group.category === category)
-    .map(group => ({...group, types: group.types.map(type => ({...type, templates: type.templates.filter(template => templateMatches(template, query))}))}))
-    // Categories that have templates today come first; the ones still to come follow.
-    .sort((first, second) => Number(second.types.some(type => type.templates.length)) - Number(first.types.some(type => type.templates.length)));
+  const groups = category === 'presets'
+    ? []
+    : library
+        .filter(group => category === 'all' || group.category === category)
+        .map(group => ({...group, types: group.types.map(type => ({...type, templates: type.templates.filter(template => templateMatches(template, query))}))}))
+        .sort((first, second) => Number(second.types.some(type => type.templates.length)) - Number(first.types.some(type => type.templates.length)));
   const blanks = category === 'all' ? blank.filter(template => templateMatches(template, query)) : [];
-  const found = groups.reduce((count, group) => count + group.types.reduce((sum, type) => sum + type.templates.length, 0), 0) + blanks.length;
-  const all = [...library.flatMap(group => group.types.flatMap(type => type.templates)), ...blank];
+  const matchedPresets = category === 'presets' || category === 'all' ? presetTemplates.filter(template => templateMatches(template, query)) : [];
+  const found = groups.reduce((count, group) => count + group.types.reduce((sum, type) => sum + type.templates.length, 0), 0) + blanks.length + (category === 'presets' ? matchedPresets.length : 0);
+  const all = [...library.flatMap(group => group.types.flatMap(type => type.templates)), ...blank, ...presetTemplates];
   const chosen = all.find(template => keyOf(template) === selected);
 
   const card = (template: DocumentTemplate, badge?: string) => (
@@ -77,10 +93,10 @@ export function TemplateGallery({value, onChoose}: {value?: string; onChoose?: (
         </HStack>
         <fieldset className="template-cats">
           <legend className="sr-only">Category</legend>
-          {(['all', ...(Object.keys(TEMPLATE_CATEGORIES) as TemplateCategory[])] as const).map(id => (
+          {(['all', ...(Object.keys(TEMPLATE_CATEGORIES) as TemplateCategory[]), 'presets'] as const).map(id => (
             <label key={id} className="template-cat t-web-label-lg-medium">
               <input type="radio" name={`${groupName}-category`} value={id} checked={category === id} onChange={() => setCategory(id)} className="sr-only" />
-              <span>{id === 'all' ? 'All' : TEMPLATE_CATEGORIES[id].label}</span>
+              <span>{id === 'all' ? 'All' : id === 'presets' ? `My Presets${presets.length ? ` (${presets.length})` : ''}` : TEMPLATE_CATEGORIES[id].label}</span>
             </label>
           ))}
         </fieldset>
@@ -96,6 +112,25 @@ export function TemplateGallery({value, onChoose}: {value?: string; onChoose?: (
 
         {/* One radio group across every category: arrow keys move through all the templates. */}
         <div role="radiogroup" aria-label="Templates" className="template-groups">
+          {category === 'presets' && (
+            <section className="template-group" aria-label="My workspace presets">
+              <VStack gap={1}>
+                <Heading level={3}>My Workspace Presets</Heading>
+                <Text type="supporting" color="secondary">
+                  Custom document section outlines saved in your private workspace.
+                </Text>
+              </VStack>
+              {matchedPresets.length > 0 ? (
+                <div className="setup-choices">
+                  {matchedPresets.map(template => card(template, 'Workspace Preset'))}
+                </div>
+              ) : (
+                <Text color="secondary">
+                  You haven’t saved any workspace presets yet. Customize an outline in the outline step or the editor outline panel, then choose “Save structure as preset”.
+                </Text>
+              )}
+            </section>
+          )}
           {groups.map(group => {
             const hasTemplates = group.types.some(type => type.templates.length);
             const planned = query ? [] : group.types.filter(type => !type.templates.length);

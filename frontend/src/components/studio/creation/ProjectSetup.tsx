@@ -11,7 +11,8 @@ import {TextArea} from '@astryxdesign/core/TextArea';
 import {Selector} from '@astryxdesign/core/Selector';
 import {Banner} from '@astryxdesign/core/Banner';
 import {Icon} from '@astryxdesign/core/Icon';
-import {ArrowDown, ArrowLeft, ArrowUp, Check, Plus, RotateCcw, Trash2} from 'lucide-react';
+import {ArrowDown, ArrowLeft, ArrowUp, BookmarkPlus, Check, Plus, RotateCcw, Trash2} from 'lucide-react';
+import {saveWorkspacePreset} from '@/lib/workspacePresets';
 import {
   SETUP_LIMITS,
   SETUP_STEPS,
@@ -289,6 +290,10 @@ function Details({setup, template, update, titleError}: {setup: StudioSetup; tem
 function OutlineEditor({setup, framework, update}: {setup: StudioSetup; framework: DocumentTemplate | undefined; update: (patch: Partial<StudioSetup>) => void}) {
   const outline = setup.outline;
   const [announcement, setAnnouncement] = useState('');
+  const [isSavingPreset, setIsSavingPreset] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  const [presetSavedMsg, setPresetSavedMsg] = useState('');
+
   const set = (next: StudioSetup['outline']) => update({outline: next});
   const move = (from: number, to: number) => {
     const next = [...outline];
@@ -299,6 +304,26 @@ function OutlineEditor({setup, framework, update}: {setup: StudioSetup; framewor
   };
   const purposeOf = (key: string | null) => framework?.sections.find(section => section.key === key)?.purpose;
   const isFull = outline.length >= SETUP_LIMITS.sections;
+
+  const handleSavePreset = () => {
+    if (!presetName.trim()) return;
+    saveWorkspacePreset({
+      name: presetName.trim(),
+      description: `Custom ${setup.document_type} outline (${outline.length} sections)`,
+      documentType: setup.document_type,
+      templateId: setup.template_id,
+      templateVersion: setup.template_version,
+      sections: outline.map(row => ({
+        key: row.key,
+        title: row.title.trim() || 'Untitled section',
+        purpose: purposeOf(row.key),
+      })),
+    });
+    setPresetSavedMsg(`Preset “${presetName.trim()}” saved to your workspace!`);
+    setIsSavingPreset(false);
+    setPresetName('');
+    setTimeout(() => setPresetSavedMsg(''), 4000);
+  };
 
   return (
     <VStack gap={4}>
@@ -365,7 +390,44 @@ function OutlineEditor({setup, framework, update}: {setup: StudioSetup; framewor
         {framework && framework.sections.length > 0 && (
           <Button label="Reset to the template’s sections" variant="ghost" onClick={() => set(outlineFor(framework))} icon={<Icon icon={RotateCcw} size="sm" color="inherit" />} />
         )}
+        <Button
+          label="Save structure as preset"
+          variant="ghost"
+          onClick={() => setIsSavingPreset(!isSavingPreset)}
+          icon={<Icon icon={BookmarkPlus} size="sm" color="inherit" />}
+        />
       </HStack>
+      {isSavingPreset && (
+        <HStack gap={2} vAlign="end" className="setup-preset-save-row">
+          <TextInput
+            label="Preset name"
+            placeholder="e.g. Microservice API Outline"
+            value={presetName}
+            onChange={setPresetName}
+            width="18rem"
+            hasAutoFocus
+          />
+          <Button
+            label="Save preset"
+            variant="primary"
+            size="sm"
+            isDisabled={!presetName.trim()}
+            onClick={handleSavePreset}
+          />
+          <Button
+            label="Cancel"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setIsSavingPreset(false);
+              setPresetName('');
+            }}
+          />
+        </HStack>
+      )}
+      {presetSavedMsg && (
+        <Banner status="success" title={presetSavedMsg} collapsible={false} />
+      )}
       {isFull && <Text type="supporting" color="secondary">An outline can have up to {SETUP_LIMITS.sections} sections.</Text>}
       <span className="sr-only" aria-live="polite">
         {announcement}

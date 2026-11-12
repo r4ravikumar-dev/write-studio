@@ -6,8 +6,9 @@ import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
 import {Button} from '@astryxdesign/core/Button';
 import {IconButton} from '@astryxdesign/core/IconButton';
 import {Icon} from '@astryxdesign/core/Icon';
-import {Download, FileCode2, FileDown, FileJson, FileText} from 'lucide-react';
-import {CONTENT_SCHEMA_VERSION, documentMediaPaths, exportStudyMarkdown, type StudioCaseStudy} from '@studio/shared';
+import {Archive, Download, FileCode2, FileDown, FileJson, FileText} from 'lucide-react';
+import {CONTENT_SCHEMA_VERSION, documentMediaPaths, exportStudyMarkdown, studioMediaUrl, type StudioCaseStudy} from '@studio/shared';
+import {createZipArchive, type ZipFileEntry} from '@/lib/zip';
 
 /** Files bigger than this aren't embedded in the HTML export (it would be unwieldy to open). */
 const MAX_EMBED_BYTES = 20 * 1024 * 1024;
@@ -190,11 +191,60 @@ export function ExportMenu({
     }
   };
 
+  const exportZip = async () => {
+    if (!study) return;
+    setIsWorking(true);
+    setMessage('Packaging ZIP archive bundle…');
+    try {
+      const base = getFileBase();
+      const files: ZipFileEntry[] = [];
+
+      // 1. Markdown document
+      const md = exportStudyMarkdown(study);
+      files.push({name: `${base}.md`, data: md});
+
+      // 2. Full JSON backup
+      const backup = {
+        schema_version: CONTENT_SCHEMA_VERSION,
+        exported_at: new Date().toISOString(),
+        document: study,
+        asset_manifest: documentMediaPaths(study.content),
+      };
+      files.push({name: `${base}-backup.json`, data: JSON.stringify(backup, null, 2)});
+
+      // 3. Referenced media files
+      const mediaPaths = documentMediaPaths(study.content);
+      let mediaCount = 0;
+      for (const mediaPath of mediaPaths) {
+        try {
+          const url = studioMediaUrl(mediaPath);
+          if (!url) continue;
+          const res = await fetch(url, {credentials: 'same-origin'});
+          if (!res.ok) continue;
+          const arrayBuf = await res.arrayBuffer();
+          const filename = mediaPath.split('/').pop() || `media_${mediaCount}`;
+          files.push({name: `media/${filename}`, data: new Uint8Array(arrayBuf)});
+          mediaCount++;
+        } catch {
+          // Continue if an individual file cannot be fetched
+        }
+      }
+
+      const zipBlob = createZipArchive(files);
+      downloadBlob(zipBlob, `${base}-bundle.zip`);
+      setMessage(`ZIP bundle downloaded (${files.length} files: Markdown, JSON backup, and ${mediaCount} media assets).`);
+    } catch {
+      setMessage('We couldn’t make the ZIP archive bundle. Try again.');
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
   /**
    * From the editor: open the tab straight away (inside the click, so it isn't blocked as a
-   * pop-up), save, then point it at the preview with ?export=pdf|html|markdown|json.
+   * pop-up), save, then point it at the preview with ?export=pdf|html|markdown|json|zip.
    */
-  const openPreview = (kind: 'pdf' | 'html' | 'markdown' | 'json') => {
+  const openPreview = (kind: 'pdf' | 'html' | 'markdown' | 'json' | 'zip') => {
     const tab = window.open('', '_blank');
     void Promise.resolve(beforeOpen?.()).finally(() => {
       const url = `${previewHref}?export=${kind}`;
@@ -203,12 +253,12 @@ export function ExportMenu({
     });
   };
 
-  // On the preview page, ?export=pdf|html|markdown|json (from the editor) runs that export once everything has
+  // On the preview page, ?export=pdf|html|markdown|json|zip (from the editor) runs that export once everything has
   // loaded, then removes the parameter so a reload doesn't repeat it.
   useEffect(() => {
     if (previewHref || hasAutoRun.current) return;
     const kind = new URLSearchParams(window.location.search).get('export');
-    if (kind !== 'pdf' && kind !== 'html' && kind !== 'markdown' && kind !== 'json') return;
+    if (kind !== 'pdf' && kind !== 'html' && kind !== 'markdown' && kind !== 'json' && kind !== 'zip') return;
     hasAutoRun.current = true;
     const run = async () => {
       await document.fonts.ready;
@@ -222,6 +272,7 @@ export function ExportMenu({
       else if (kind === 'html') await exportHtml();
       else if (kind === 'markdown') exportMarkdown();
       else if (kind === 'json') exportJson();
+      else if (kind === 'zip') await exportZip();
     };
     void run();
     // exportHtml/exportMarkdown reads only the DOM and study; running once on load is intended.
@@ -256,6 +307,12 @@ export function ExportMenu({
             description: 'GitHub-flavoured Markdown document',
             icon: <Icon icon={FileDown} size="sm" color="inherit" />,
             onClick: () => (previewHref ? openPreview('markdown') : exportMarkdown()),
+          },
+          {
+            label: 'Download ZIP Bundle',
+            description: 'Markdown, JSON backup, and media files',
+            icon: <Icon icon={Archive} size="sm" color="inherit" />,
+            onClick: () => (previewHref ? openPreview('zip') : void exportZip()),
           },
           {
             label: 'Backup (JSON)',

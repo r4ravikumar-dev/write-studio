@@ -154,6 +154,12 @@ const schemas: BlockSchema[] = [
   {type: 'codeBlock', schemaVersion: 2, phrase: 'A code block', problems: node => (textOf(node).trim() && !node.attrs?.language ? [{kind: 'language'}] : [])},
   {type: 'terminal', schemaVersion: 1, phrase: 'A terminal block', problems: node => ((node.content ?? []).some(line => line.type === 'terminalCommand' && textOf(line).trim()) ? [] : [{kind: 'empty'}])},
   {
+    type: 'apiEndpoint',
+    schemaVersion: 1,
+    phrase: 'An API endpoint',
+    problems: node => (!String(node.attrs?.path ?? '').trim() ? [{kind: 'empty'}] : []),
+  },
+  {
     type: 'parameterTable',
     schemaVersion: 1,
     phrase: 'A parameter table',

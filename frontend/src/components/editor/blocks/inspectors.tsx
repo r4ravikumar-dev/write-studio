@@ -1252,6 +1252,71 @@ function ParameterTableInspector({editor, pos, node}: NodeProps) {
   );
 }
 
+function ApiEndpointInspector({editor, pos, node}: NodeProps) {
+  return (
+    <Groups>
+      <Group name="content">
+        <Selector
+          label="HTTP Method"
+          options={[
+            {value: 'GET', label: 'GET'},
+            {value: 'POST', label: 'POST'},
+            {value: 'PUT', label: 'PUT'},
+            {value: 'DELETE', label: 'DELETE'},
+            {value: 'PATCH', label: 'PATCH'},
+          ]}
+          value={String(node.attrs.method || 'GET')}
+          onChange={method => setBlockAttrs(editor, pos, {method})}
+          size="sm"
+        />
+        <TextInput
+          label="Path"
+          value={String(node.attrs.path || '')}
+          placeholder="/api/v1/..."
+          onChange={path => setBlockAttrs(editor, pos, {path: path.slice(0, 300)})}
+          size="sm"
+          width="100%"
+        />
+        <Selector
+          label="Authentication"
+          options={[
+            {value: 'bearer', label: 'Bearer Token'},
+            {value: 'apiKey', label: 'API Key'},
+            {value: 'basic', label: 'Basic Auth'},
+            {value: 'oauth2', label: 'OAuth 2.0'},
+            {value: 'none', label: 'None (Public)'},
+          ]}
+          value={String(node.attrs.auth || 'bearer')}
+          onChange={auth => setBlockAttrs(editor, pos, {auth})}
+          size="sm"
+        />
+        <TextInput
+          label="Summary"
+          value={String(node.attrs.summary || '')}
+          placeholder="Brief purpose"
+          onChange={summary => setBlockAttrs(editor, pos, {summary: summary.slice(0, 120)})}
+          size="sm"
+          width="100%"
+        />
+        <TextInput
+          label="Request Content-Type"
+          value={String(node.attrs.requestType || 'application/json')}
+          onChange={requestType => setBlockAttrs(editor, pos, {requestType: requestType.slice(0, 100)})}
+          size="sm"
+          width="100%"
+        />
+        <TextInput
+          label="Response Status"
+          value={String(node.attrs.responseStatus || '200 OK')}
+          onChange={responseStatus => setBlockAttrs(editor, pos, {responseStatus: responseStatus.slice(0, 50)})}
+          size="sm"
+          width="100%"
+        />
+      </Group>
+    </Groups>
+  );
+}
+
 function TestimonialInspector({editor, pos, node}: NodeProps) {
   return (
     <Groups>
@@ -1301,6 +1366,7 @@ export const INSPECTORS: Record<string, InspectorEntry> = {
   image: {kind: 'node', Inspector: ImageInspector},
   codeBlock: {kind: 'node', Inspector: CodeBlockInspector},
   terminal: {kind: 'node', Inspector: TerminalInspector},
+  apiEndpoint: {kind: 'node', Inspector: ApiEndpointInspector},
   parameterTable: {kind: 'node', Inspector: ParameterTableInspector},
   testimonial: {kind: 'node', Inspector: TestimonialInspector},
 };

@@ -47,6 +47,22 @@ export const BLOCK_FIXTURES: Record<BlockName, Record<number, JSONContent>> = {
       ],
     },
   },
+  apiEndpoint: {
+    1: {
+      type: 'apiEndpoint',
+      attrs: {
+        method: 'POST',
+        path: '/v1/appointments',
+        summary: 'Create a new clinic appointment',
+        auth: 'bearer',
+        requestType: 'application/json',
+        requestBody: '{\n  "clinicId": "cln_123",\n  "slot": "2026-11-15T09:00:00Z"\n}',
+        responseStatus: '201 Created',
+        responseBody: '{\n  "id": "apt_987",\n  "status": "confirmed"\n}',
+      },
+      content: [p('Creates and locks an appointment slot for the patient.')],
+    },
+  },
   parameterTable: {
     1: {
       type: 'parameterTable',

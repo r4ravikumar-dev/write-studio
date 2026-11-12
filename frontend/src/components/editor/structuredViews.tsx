@@ -16,6 +16,7 @@ import {Icon} from '@astryxdesign/core/Icon';
 import {Check, Copy, Plus, Trash2} from 'lucide-react';
 import {
   AcceptanceCriteriaNode,
+  ApiEndpointNode,
   KEYWORD_LABELS,
   ParameterNode,
   ParameterTableNode,
@@ -183,6 +184,135 @@ function nextTerminalLine(editor: Editor) {
   const after = $from.after();
   const type = line.type.name === 'terminalCommand' ? 'terminalOutput' : 'terminalCommand';
   return editor.chain().insertContentAt(after, {type}).setTextSelection(after + 1).run();
+}
+
+// ---- API Endpoint -----------------------------------------------------------------------------------
+
+const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'] as const;
+const AUTH_OPTIONS = [
+  {value: 'bearer', label: 'Bearer Token'},
+  {value: 'apiKey', label: 'API Key'},
+  {value: 'basic', label: 'Basic Auth'},
+  {value: 'oauth2', label: 'OAuth 2.0'},
+  {value: 'none', label: 'Public (No Auth)'},
+];
+
+function ApiEndpointView(props: ReactNodeViewProps) {
+  const attrs = props.node.attrs as {
+    method: string;
+    path: string;
+    summary: string;
+    auth: string;
+    requestType: string;
+    requestBody: string;
+    responseStatus: string;
+    responseBody: string;
+  };
+  const [activeTab, setActiveTab] = useState<'request' | 'response'>('request');
+  const method = attrs.method || 'GET';
+
+  return (
+    <NodeViewWrapper className="cs-endpoint write-endpoint" data-method={method}>
+      <div className="cs-endpoint-head write-row" contentEditable={false}>
+        <div className="cs-endpoint-method-pills" role="radiogroup" aria-label="HTTP Method">
+          {HTTP_METHODS.map(m => (
+            <button
+              key={m}
+              type="button"
+              className={`cs-method-badge cs-method-${m.toLowerCase()} ${method === m ? 'cs-method-active' : ''}`}
+              onClick={() => props.updateAttributes({method: m})}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+        <Field
+          label="Endpoint Path"
+          placeholder="/api/v1/resource"
+          value={attrs.path}
+          onChange={path => props.updateAttributes({path: path.slice(0, 300)})}
+          width="16rem"
+        />
+        <Selector
+          label="Authentication"
+          isLabelHidden
+          size="sm"
+          options={AUTH_OPTIONS}
+          value={attrs.auth || 'bearer'}
+          onChange={auth => props.updateAttributes({auth})}
+        />
+        <Field
+          label="Summary"
+          placeholder="Summary of endpoint"
+          value={attrs.summary}
+          onChange={summary => props.updateAttributes({summary: summary.slice(0, 120)})}
+          width="14rem"
+        />
+      </div>
+
+      <div className="cs-endpoint-tabs-bar write-row" contentEditable={false}>
+        <div className="cs-endpoint-tabs">
+          <button
+            type="button"
+            className={`cs-endpoint-tab ${activeTab === 'request' ? 'cs-endpoint-tab-active' : ''}`}
+            onClick={() => setActiveTab('request')}
+          >
+            Request
+          </button>
+          <button
+            type="button"
+            className={`cs-endpoint-tab ${activeTab === 'response' ? 'cs-endpoint-tab-active' : ''}`}
+            onClick={() => setActiveTab('response')}
+          >
+            Response
+          </button>
+        </div>
+        {activeTab === 'request' ? (
+          <Field
+            label="Content Type"
+            placeholder="application/json"
+            value={attrs.requestType}
+            onChange={requestType => props.updateAttributes({requestType: requestType.slice(0, 100)})}
+            width="12rem"
+          />
+        ) : (
+          <Field
+            label="Response Status"
+            placeholder="200 OK"
+            value={attrs.responseStatus}
+            onChange={responseStatus => props.updateAttributes({responseStatus: responseStatus.slice(0, 50)})}
+            width="12rem"
+          />
+        )}
+      </div>
+
+      <div className="cs-endpoint-body" contentEditable={false}>
+        {activeTab === 'request' ? (
+          <textarea
+            className="cs-endpoint-schema-input"
+            aria-label="Request schema and payload"
+            placeholder="Request body JSON schema or sample..."
+            value={attrs.requestBody || ''}
+            onChange={e => props.updateAttributes({requestBody: e.target.value.slice(0, 5000)})}
+            rows={4}
+            spellCheck={false}
+          />
+        ) : (
+          <textarea
+            className="cs-endpoint-schema-input"
+            aria-label="Response schema and payload"
+            placeholder="Response body JSON schema or sample..."
+            value={attrs.responseBody || ''}
+            onChange={e => props.updateAttributes({responseBody: e.target.value.slice(0, 5000)})}
+            rows={4}
+            spellCheck={false}
+          />
+        )}
+      </div>
+
+      <NodeViewContent className="cs-endpoint-description" />
+    </NodeViewWrapper>
+  );
 }
 
 // ---- Parameter table ----------------------------------------------------------------------------------
@@ -370,6 +500,18 @@ function ScenarioView(props: ReactNodeViewProps) {
         <RemoveButton props={props} label={`Remove scenario${title ? ` “${title}”` : ''}`} />
       </div>
       <NodeViewContent<'ul'> as="ul" className="cs-scenario-steps" />
+      <div contentEditable={false} className="write-block-add write-row cs-scenario-quick-add">
+        <span className="cs-scenario-quick-add-label">Add step:</span>
+        {KEYWORDS.map(k => (
+          <Button
+            key={k.value}
+            label={`+ ${k.label}`}
+            size="sm"
+            variant="ghost"
+            onClick={() => appendChild(props, {type: 'scenarioStep', attrs: {keyword: k.value}})}
+          />
+        ))}
+      </div>
     </NodeViewWrapper>
   );
 }
@@ -378,8 +520,19 @@ function ScenarioStepView(props: ReactNodeViewProps) {
   const keyword = String(props.node.attrs.keyword);
   return (
     <NodeViewWrapper as="li" className="cs-scenario-step write-scenario-step" data-keyword={keyword}>
-      <span contentEditable={false} className="cs-step-keyword-select">
-        <Selector label="Step" isLabelHidden size="sm" options={KEYWORDS} value={keyword} onChange={value => props.updateAttributes({keyword: value})} />
+      <span contentEditable={false} className="cs-step-keyword-pills" role="toolbar" aria-label="BDD step keyword">
+        {KEYWORDS.map(k => (
+          <button
+            key={k.value}
+            type="button"
+            className={`cs-step-pill ${keyword === k.value ? 'cs-step-pill-active' : ''}`}
+            data-keyword={k.value}
+            onClick={() => props.updateAttributes({keyword: k.value})}
+            title={`Set to ${k.label}`}
+          >
+            {k.label}
+          </button>
+        ))}
       </span>
       <NodeViewContent<'span'> as="span" className="cs-step-text" />
     </NodeViewWrapper>
@@ -486,6 +639,7 @@ export const structuredEditorNodes = [
   TerminalNode.extend({addNodeView: () => ReactNodeViewRenderer(TerminalView)}),
   TerminalCommandNode.extend({addKeyboardShortcuts: () => ({'Mod-Enter': ({editor}) => nextTerminalLine(editor)})}),
   TerminalOutputNode.extend({addKeyboardShortcuts: () => ({'Mod-Enter': ({editor}) => nextTerminalLine(editor)})}),
+  ApiEndpointNode.extend({addNodeView: () => ReactNodeViewRenderer(ApiEndpointView)}),
   ParameterTableNode.extend({addNodeView: () => ReactNodeViewRenderer(ParameterTableView)}),
   ParameterNode.extend({addNodeView: () => ReactNodeViewRenderer(ParameterView), addKeyboardShortcuts: () => listItemKeys('parameter')}),
   RequirementListNode.extend({addNodeView: () => ReactNodeViewRenderer(RequirementListView)}),
@@ -505,6 +659,20 @@ export const structuredEditorNodes = [
 /** What each new block is when inserted (contract §3.2 `insert.create`): the same JSON from Insert, "/" and recommendations. */
 export const STRUCTURED_CREATE: Record<string, () => JSONContent> = {
   terminal: () => ({type: 'terminal', attrs: {shell: 'bash', prompt: '$'}, content: [{type: 'terminalCommand'}]}),
+  apiEndpoint: () => ({
+    type: 'apiEndpoint',
+    attrs: {
+      method: 'GET',
+      path: '/api/v1/resource',
+      summary: '',
+      auth: 'bearer',
+      requestType: 'application/json',
+      requestBody: '{\n  \n}',
+      responseStatus: '200 OK',
+      responseBody: '{\n  \n}',
+    },
+    content: [{type: 'paragraph'}],
+  }),
   parameterTable: () => ({type: 'parameterTable', attrs: {showRequired: true, showDefault: true}, content: [{type: 'parameter', content: [{type: 'paragraph'}]}]}),
   requirementList: () => ({type: 'requirementList', content: [{type: 'requirement', content: [{type: 'paragraph'}]}]}),
   userStory: () => ({type: 'userStory', content: (['role', 'goal', 'benefit'] as const).map(part => ({type: 'storyPart', attrs: {part}}))}),
@@ -529,6 +697,8 @@ export function structuredPlaceholder(node: PMNode, parent: PMNode | null, isFir
       return 'Title of the document or page';
     case 'codeBlock':
       return 'Code';
+    case 'apiEndpoint':
+      return 'Endpoint description or notes';
   }
   if (node.type.name !== 'paragraph' || !parent || !isFirstChild || parent.childCount !== 1) return undefined;
   return (
@@ -537,6 +707,7 @@ export function structuredPlaceholder(node: PMNode, parent: PMNode | null, isFir
       procedureStep: 'What to do in this step',
       testimonial: 'The customer’s exact words',
       parameter: 'What it does',
+      apiEndpoint: 'Detailed description or notes about this endpoint',
     } as Record<string, string>
   )[parent.type.name];
 }

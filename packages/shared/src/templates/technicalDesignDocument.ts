@@ -193,7 +193,7 @@ const TECH_DESIGN_SECTIONS: TemplateSection[] = [
       'Use parameter tables and code blocks for exact signatures and payloads.',
     ],
     suggestedEvidence: ['Parameter table', 'Protobuf/JSON schemas'],
-    suggestedBlocks: ['parameterTable', 'codeBlock', 'table'],
+    suggestedBlocks: ['apiEndpoint', 'parameterTable', 'codeBlock', 'table'],
   },
   {
     key: 'tech-data-flow',
@@ -365,6 +365,7 @@ export const technicalDesignV1: DocumentTemplate = {
   recommendedBlocks: [
     'flowDiagram',
     'codeBlock',
+    'apiEndpoint',
     'parameterTable',
     'procedureSteps',
     'comparison',

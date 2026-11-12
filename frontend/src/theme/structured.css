@@ -499,10 +499,224 @@
   }
   .cs-code,
   .cs-terminal,
+  .cs-endpoint,
   .cs-params-wrap {
     break-inside: avoid;
   }
   .cs-params-wrap {
     overflow: visible;
   }
+}
+
+/* ---- API Endpoint Block ------------------------------------------------------------------------- */
+.cs-endpoint {
+  margin: var(--space-16) 0;
+  border: var(--border-width-100) solid var(--border-gray-subtle);
+  border-radius: var(--radius-12);
+  background: var(--surface-container-high);
+  overflow: hidden;
+}
+.cs-endpoint-header,
+.cs-endpoint-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  border-block-end: var(--border-width-100) solid var(--border-gray-subtle);
+  background: var(--surface-container);
+}
+.cs-endpoint-method-pills {
+  display: inline-flex;
+  gap: var(--space-4);
+}
+.cs-method-badge,
+.cs-endpoint-method {
+  font-family: var(--font-family-code);
+  font-size: var(--text-supporting-size);
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: var(--space-2) var(--space-8);
+  border-radius: var(--radius-4);
+  border: var(--border-width-100) solid transparent;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.cs-method-badge {
+  background: var(--surface-container-high);
+  color: var(--text-gray-secondary);
+}
+.cs-method-badge:hover {
+  background: var(--surface-container);
+  color: var(--text-gray-primary);
+}
+.cs-method-badge.cs-method-active,
+.cs-endpoint-method {
+  border-color: currentColor;
+}
+.cs-method-get {
+  background: var(--bg-brand-subtle);
+  color: var(--text-brand-primary);
+}
+.cs-method-post {
+  background: var(--bg-success-subtle);
+  color: var(--text-success-normal);
+}
+.cs-method-put {
+  background: var(--bg-warning-subtle);
+  color: var(--text-warning-normal);
+}
+.cs-method-delete {
+  background: var(--bg-error-subtle);
+  color: var(--text-error-normal);
+}
+.cs-method-patch {
+  background: var(--bg-info-subtle);
+  color: var(--text-info-normal);
+}
+.cs-endpoint-path {
+  font-family: var(--font-family-code);
+  font-weight: 600;
+  color: var(--text-gray-primary);
+  font-size: var(--text-supporting-size);
+}
+.cs-endpoint-auth {
+  margin-inline-start: auto;
+  font-family: var(--font-family-code);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-4);
+  background: var(--surface-container-high);
+  color: var(--text-gray-secondary);
+}
+.cs-endpoint-summary {
+  padding: var(--space-6) var(--space-12);
+  margin: 0;
+  color: var(--text-gray-secondary);
+  font-size: var(--text-supporting-size);
+  border-block-end: var(--border-width-100) solid var(--border-gray-subtle);
+}
+.cs-endpoint-tabs-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4) var(--space-12);
+  background: var(--surface-container);
+  border-block-end: var(--border-width-100) solid var(--border-gray-subtle);
+}
+.cs-endpoint-tabs {
+  display: inline-flex;
+  gap: var(--space-4);
+}
+.cs-endpoint-tab {
+  background: transparent;
+  border: none;
+  font-size: var(--text-supporting-size);
+  font-weight: 600;
+  color: var(--text-gray-secondary);
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-4);
+  cursor: pointer;
+}
+.cs-endpoint-tab:hover {
+  color: var(--text-gray-primary);
+}
+.cs-endpoint-tab.cs-endpoint-tab-active {
+  background: var(--surface-container-high);
+  color: var(--text-gray-primary);
+}
+.cs-endpoint-body {
+  padding: var(--space-8) var(--space-12);
+}
+.cs-endpoint-schema-input {
+  width: 100%;
+  font-family: var(--font-family-code);
+  font-size: var(--text-supporting-size);
+  line-height: 1.5;
+  background: var(--surface-container);
+  color: var(--text-gray-primary);
+  border: var(--border-width-100) solid var(--border-gray-subtle);
+  border-radius: var(--radius-6);
+  padding: var(--space-8);
+  resize: vertical;
+}
+.cs-endpoint-schemas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+}
+.cs-endpoint-schema-panel {
+  background: var(--surface-container);
+  border: var(--border-width-100) solid var(--border-gray-subtle);
+  border-radius: var(--radius-8);
+  overflow: hidden;
+}
+.cs-endpoint-schema-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4) var(--space-8);
+  background: var(--surface-container-high);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-gray-secondary);
+  border-block-end: var(--border-width-100) solid var(--border-gray-subtle);
+}
+.cs-status-badge {
+  font-family: var(--font-family-code);
+  font-size: 11px;
+  color: var(--text-success-normal);
+}
+.cs-endpoint-code {
+  margin: 0;
+  padding: var(--space-8);
+  font-family: var(--font-family-code);
+  font-size: var(--text-supporting-size);
+  line-height: 1.5;
+  overflow-x: auto;
+}
+.cs-endpoint-description {
+  padding: var(--space-8) var(--space-12);
+  border-block-start: var(--border-width-100) solid var(--border-gray-subtle);
+}
+
+/* ---- BDD Step Pills (Given / When / Then) -------------------------------------------------------- */
+.cs-step-keyword-pills {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+.cs-step-pill {
+  font-family: var(--font-family-code);
+  font-size: 11px;
+  font-weight: 600;
+  padding: var(--space-2) var(--space-6);
+  border-radius: var(--radius-4);
+  border: var(--border-width-100) solid var(--border-gray-subtle);
+  background: var(--surface-container);
+  color: var(--text-gray-secondary);
+  cursor: pointer;
+  line-height: 1.2;
+}
+.cs-step-pill:hover {
+  background: var(--surface-container-high);
+  color: var(--text-gray-primary);
+}
+.cs-step-pill.cs-step-pill-active {
+  background: var(--bg-brand-subtle);
+  border-color: var(--border-brand-normal);
+  color: var(--text-brand-primary);
+}
+.cs-scenario-quick-add {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-block-start: var(--space-8);
+}
+.cs-scenario-quick-add-label {
+  font-size: 12px;
+  color: var(--text-gray-secondary);
+  margin-inline-end: var(--space-4);
 }
