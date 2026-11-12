@@ -36,6 +36,9 @@ if not SECRET_KEY:
     SECRET_KEY = 'dev-only-insecure-secret-key'
 
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1')
+# On Vercel, also accept this deployment's own address (set by Vercel).
+if os.environ.get('VERCEL_URL'):
+    ALLOWED_HOSTS.append(os.environ['VERCEL_URL'])
 
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
@@ -60,9 +63,16 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # ---------------------------------------------------------------------------
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 if DATABASE_URL:
-    DATABASES = {'default': dj_database_url.parse(DATABASE_URL, conn_max_age=60, ssl_require=not DEBUG)}
+    DATABASES = {'default': dj_database_url.parse(
+        DATABASE_URL, conn_max_age=60, conn_health_checks=True, ssl_require=not DEBUG,
+    )}
     schema = os.environ.get('DJANGO_DB_SCHEMA', 'django')
     DATABASES['default'].setdefault('OPTIONS', {})['options'] = f'-c search_path={schema}'
+    # Supabase's transaction pooler (port 6543), used on serverless hosts such as Vercel:
+    # connections are shared between transactions, so no server-side cursors.
+    # (It keeps the search_path option above: checked on staging 2026-11-12.)
+    if str(DATABASES['default'].get('PORT')) == '6543':
+        DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
 else:
     DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'db.sqlite3'}}
 
