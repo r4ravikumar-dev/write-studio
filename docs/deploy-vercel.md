@@ -98,6 +98,7 @@ Settings → Environment Variables (Production), then **Redeploy** (variables ap
 | Name | Value |
 |---|---|
 | `API_URL` | `https://<api domain>` |
+| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | from Cloudflare Turnstile (see "Before opening sign-ups") |
 | `AUTH_URL` | `https://<auth domain>` |
 | `JWT_SECRET`, `AUTH_SERVICE_KEY` | from step 2 |
 
@@ -113,7 +114,10 @@ No Supabase keys or URLs here.
 
 ## Before opening sign-ups publicly
 
-From `docs/RELEASE.md`: add a CAPTCHA to sign-up and the code forms (only rate limits exist today).
+Turn on bot protection: in Cloudflare → Turnstile → **Add widget** (mode *Managed*, hostname = your
+site domain), then add `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` to the **site** project and
+redeploy. Sign-up, "Email me a code" and "Forgot your password" then require the check (password
+sign-in doesn't). Without both keys the check is off.
 
 ## Notes
 

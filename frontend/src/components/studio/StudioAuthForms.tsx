@@ -20,6 +20,7 @@ import {
   type AuthFormState,
 } from '@/app/studio/auth-actions';
 import {EYEBROW_STYLE} from '@/theme/eyebrow';
+import {Turnstile} from './Turnstile';
 
 /**
  * The public Studio's sign-in, sign-up and recovery forms. Any email can
@@ -61,7 +62,7 @@ const link = (href: string, label: string) => (
 // ---------------------------------------------------------------------------
 // Email code (sign in, or sign up on first use)
 // ---------------------------------------------------------------------------
-function CodeForm({next, askName}: {next: string; askName: boolean}) {
+function CodeForm({next, askName, siteKey}: {next: string; askName: boolean; siteKey: string}) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
@@ -135,6 +136,7 @@ function CodeForm({next, askName}: {next: string; askName: boolean}) {
           isRequired
           status={fieldError(sent, 'email')}
         />
+        <Turnstile siteKey={siteKey} resetKey={sent} action="code" />
         <Button type="submit" label="Email me a code" variant="primary" isLoading={isSending} />
       </VStack>
     </form>
@@ -144,7 +146,7 @@ function CodeForm({next, askName}: {next: string; askName: boolean}) {
 // ---------------------------------------------------------------------------
 // Sign in
 // ---------------------------------------------------------------------------
-export function StudioLoginForm({next, notice}: {next: string; notice?: string}) {
+export function StudioLoginForm({next, notice, siteKey}: {next: string; notice?: string; siteKey: string}) {
   const [method, setMethod] = useState<'password' | 'code'>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -192,7 +194,7 @@ export function StudioLoginForm({next, notice}: {next: string; notice?: string})
           </VStack>
         </form>
       ) : (
-        <CodeForm next={next} askName={false} />
+        <CodeForm next={next} askName={false} siteKey={siteKey} />
       )}
     </AuthFrame>
   );
@@ -201,7 +203,7 @@ export function StudioLoginForm({next, notice}: {next: string; notice?: string})
 // ---------------------------------------------------------------------------
 // Sign up
 // ---------------------------------------------------------------------------
-export function StudioSignupForm() {
+export function StudioSignupForm({siteKey}: {siteKey: string}) {
   const [method, setMethod] = useState<'password' | 'code'>('password');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -246,11 +248,12 @@ export function StudioSignupForm() {
               status={fieldError(state, 'password')}
             />
             <TextInput type="password" label="Confirm password" htmlName="password_again" value={again} onChange={setAgain} autoComplete="new-password" width="100%" isRequired status={fieldError(state, 'password_again')} />
+            <Turnstile siteKey={siteKey} resetKey={state} action="signup" />
             <Button type="submit" label="Create account" variant="primary" isLoading={isSigningUp} />
           </VStack>
         </form>
       ) : (
-        <CodeForm next="/studio" askName />
+        <CodeForm next="/studio" askName siteKey={siteKey} />
       )}
     </AuthFrame>
   );
@@ -277,7 +280,7 @@ export function StudioConfirmForm({token}: {token: string}) {
 // ---------------------------------------------------------------------------
 // Forgot / reset password
 // ---------------------------------------------------------------------------
-export function StudioForgotPasswordForm() {
+export function StudioForgotPasswordForm({siteKey}: {siteKey: string}) {
   const [email, setEmail] = useState('');
   const [state, request, isRequesting] = useActionState(requestPasswordReset, idle);
   if (state.status === 'sent') {
@@ -293,6 +296,7 @@ export function StudioForgotPasswordForm() {
         <VStack gap={4}>
           <FormError state={state} />
           <TextInput type="email" label="Email" htmlName="email" value={email} onChange={setEmail} autoComplete="email" width="100%" isRequired status={fieldError(state, 'email')} />
+          <Turnstile siteKey={siteKey} resetKey={state} action="reset" />
           <Button type="submit" label="Email me a link" variant="primary" isLoading={isRequesting} />
         </VStack>
       </form>
