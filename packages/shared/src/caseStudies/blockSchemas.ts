@@ -26,7 +26,7 @@ import {
  * Adding a block = one entry here + one entry in the editor registry. Stored JSON never changes
  * shape without bumping `schemaVersion` and adding a migration.
  */
-export type BlockProblemKind = 'empty' | 'alt' | 'embed' | 'figures' | 'evidence' | 'summary';
+export type BlockProblemKind = 'empty' | 'alt' | 'embed' | 'figures' | 'evidence' | 'summary' | 'language' | 'fields' | 'scenario' | 'attribution' | 'consent';
 export type BlockProblem = {kind: BlockProblemKind; count?: number};
 
 export type BlockSchema = {
@@ -150,6 +150,60 @@ const schemas: BlockSchema[] = [
   {type: 'embed', schemaVersion: 1, phrase: 'An embedded video or design', evidence: true, problems: node => (parseEmbed(String(node.attrs?.src ?? '')) ? [] : [{kind: 'embed'}])},
   {type: 'videoFile', schemaVersion: 1, phrase: 'A video', evidence: true, problems: node => (node.attrs?.src ? [] : [{kind: 'empty'}])},
   {type: 'fileAttachment', schemaVersion: 1, phrase: 'A file', evidence: true},
+  // Phase 3 blocks (block contract §5)
+  {type: 'codeBlock', schemaVersion: 2, phrase: 'A code block', problems: node => (textOf(node).trim() && !node.attrs?.language ? [{kind: 'language'}] : [])},
+  {type: 'terminal', schemaVersion: 1, phrase: 'A terminal block', problems: node => ((node.content ?? []).some(line => line.type === 'terminalCommand' && textOf(line).trim()) ? [] : [{kind: 'empty'}])},
+  {
+    type: 'parameterTable',
+    schemaVersion: 1,
+    phrase: 'A parameter table',
+    problems: node => {
+      const rows = node.content ?? [];
+      if (!rows.some(row => String(row.attrs?.name ?? '').trim())) return [{kind: 'empty'}];
+      return rows.some(row => !String(row.attrs?.name ?? '').trim() || !textOf(row).trim()) ? [{kind: 'fields'}] : [];
+    },
+  },
+  {
+    type: 'requirementList',
+    schemaVersion: 1,
+    phrase: 'A requirements list',
+    problems: node => ((node.content ?? []).some(item => !String(item.attrs?.reqId ?? '').trim() || !textOf(item).trim()) ? [{kind: 'fields'}] : []),
+  },
+  {
+    type: 'userStory',
+    schemaVersion: 1,
+    phrase: 'A user story',
+    problems: node => {
+      const filled = (node.content ?? []).filter(part => textOf(part).trim()).length;
+      return filled === 0 ? [{kind: 'empty'}] : filled < 3 ? [{kind: 'fields'}] : [];
+    },
+  },
+  {
+    type: 'acceptanceCriteria',
+    schemaVersion: 1,
+    phrase: 'An acceptance criteria block',
+    problems: node =>
+      (node.content ?? []).some(scenario => !(['given', 'when', 'then'] as const).every(keyword => (scenario.content ?? []).some(step => step.attrs?.keyword === keyword && textOf(step).trim())))
+        ? [{kind: 'scenario'}]
+        : [],
+  },
+  {
+    type: 'testimonial',
+    schemaVersion: 1,
+    phrase: 'A testimonial',
+    evidence: true,
+    problems: node => {
+      if (!textOf(node).trim()) return [{kind: 'empty'}];
+      return [...(String(node.attrs?.person ?? '').trim() ? [] : [{kind: 'attribution' as const}]), ...(node.attrs?.consent === 'approved' ? [] : [{kind: 'consent' as const}])];
+    },
+  },
+  {type: 'procedureSteps', schemaVersion: 1, phrase: 'A procedure', problems: node => ((node.content ?? []).some(step => !textOf(step).trim()) ? [{kind: 'fields'}] : [])},
+  {
+    type: 'referenceList',
+    schemaVersion: 1,
+    phrase: 'A references list',
+    problems: node => ((node.content ?? []).some(item => !textOf(item).trim() && !String(item.attrs?.url ?? '').trim()) ? [{kind: 'fields'}] : []),
+  },
 ];
 
 function mediaBlock(node: JSONContent): BlockProblem[] {

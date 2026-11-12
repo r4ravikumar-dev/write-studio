@@ -1,6 +1,6 @@
 'use client';
 
-import {useId, useRef, useState, useTransition} from 'react';
+import {useRef, useState, useTransition} from 'react';
 import {VStack, HStack} from '@astryxdesign/core/Layout';
 import {Heading} from '@astryxdesign/core/Heading';
 import {Text} from '@astryxdesign/core/Text';
@@ -13,49 +13,45 @@ import {Banner} from '@astryxdesign/core/Banner';
 import {Icon} from '@astryxdesign/core/Icon';
 import {ArrowDown, ArrowLeft, ArrowUp, Check, Plus, RotateCcw, Trash2} from 'lucide-react';
 import {
-  FRAMEWORK_ACTS,
-  PROJECT_TYPES,
   SETUP_LIMITS,
   SETUP_STEPS,
-  getFramework,
+  documentNoun,
+  documentTypeOf,
+  getTemplate,
   outlineFor,
   outlineId,
-  recommendedFramework,
-  setupFrameworks,
-  type Framework,
-  type FrameworkAct,
-  type ProjectType,
+  projectTypeFor,
+  type DocumentTemplate,
+  type MetadataField,
   type SetupStep,
   type StudioSetup,
 } from '@studio/shared';
-import {duplicateStudioCaseStudy, saveProjectSetup} from '@/app/studio/case-study-actions';
+import {duplicateStudioCaseStudy, saveProjectSetup} from '@/app/studio/document-actions';
 import {MediaProvider} from '@/components/editor/MediaLibrary';
 import {ImageField} from '@/components/editor/SettingsPanel';
+import {TemplateGallery} from './TemplateGallery';
 
 const STEP_NAMES: Record<SetupStep, string> = {
-  start: 'How to start',
-  type: 'Project type',
-  details: 'Project details',
-  framework: 'Story framework',
+  start: 'Template',
+  details: 'Details',
   cover: 'Cover picture',
   outline: 'Outline',
 };
 
-/** A case study the user can copy (wizard step 1, "Copy a case study"). */
+/** One of the user's own documents that can be copied (step 1, "Copy one of your documents"). */
 export type CopySource = {id: string; title: string};
 
-type StartChoice = StudioSetup['start'] | 'copy';
-
 /**
- * Project setup: the guided way to start a case study (Write Studio 2.0 blueprint in docs,
- * "Project Setup wizard"). Six steps, all skippable except the working title; the user can go
- * back to any step, save and finish later, or start writing at any point. Nothing is created
- * until they choose Create (or Save and finish later); creating is a server action (POST).
+ * Create Document (multi-vertical Phase 2; it grew out of the Stage 1 project setup). Four steps:
+ * choose a template from the library (or blank, or a copy of one of your own documents), its
+ * details, an optional cover, the outline. Only the working title is required; the user can go
+ * back to any step, save and finish later, or start writing at any point. The questions on the
+ * details step come from the chosen template, so a new template needs no change here. Nothing is
+ * created until they choose Create (or Save and finish later); creating is a server action (POST).
  */
 export function ProjectSetup({id, initial, copySources}: {id?: string; initial: StudioSetup; copySources: CopySource[]}) {
   const [setup, setSetup] = useState<StudioSetup>(initial);
   const [visited, setVisited] = useState<Set<SetupStep>>(() => new Set(SETUP_STEPS.slice(0, SETUP_STEPS.indexOf(initial.step) + 1)));
-  const [start, setStart] = useState<StartChoice>(initial.start);
   const [copyFrom, setCopyFrom] = useState(copySources[0]?.id ?? '');
   const [copyTitle, setCopyTitle] = useState('');
   const [titleError, setTitleError] = useState('');
@@ -75,16 +71,17 @@ export function ProjectSetup({id, initial, copySources}: {id?: string; initial: 
     requestAnimationFrame(() => headingRef.current?.focus());
   };
 
-  const chooseFramework = (framework: Framework) => {
-    if (framework.id === setup.framework_id && framework.version === setup.framework_version) return;
-    update({framework_id: framework.id, framework_version: framework.version, outline: outlineFor(framework), start: framework.id === 'blank' ? 'blank' : 'framework'});
-  };
-
-  const chooseStart = (choice: StartChoice) => {
-    setStart(choice);
-    if (choice === 'copy') return;
-    update({start: choice});
-    chooseFramework(choice === 'blank' ? getFramework('blank', 1)! : recommendedFramework(setup.project_type));
+  /** Choosing a template sets the kind of document and replaces the outline with its sections. */
+  const chooseTemplate = (template: DocumentTemplate) => {
+    if (template.id === setup.template_id && template.version === setup.template_version) return;
+    update({
+      template_id: template.id,
+      template_version: template.version,
+      document_type: documentTypeOf(template, setup.document_type),
+      project_type: projectTypeFor(template),
+      outline: outlineFor(template),
+      start: template.sections.length ? 'framework' : 'blank',
+    });
   };
 
   const save = (finish: boolean) => {
@@ -106,10 +103,10 @@ export function ProjectSetup({id, initial, copySources}: {id?: string; initial: 
     goTo(SETUP_STEPS[index + 1]);
   };
 
-  const framework = getFramework(setup.framework_id, setup.framework_version);
+  const framework = getTemplate(setup.template_id, setup.template_version);
+  const noun = documentNoun(setup.document_type);
   const isLast = step === 'outline';
-  const isCopy = step === 'start' && start === 'copy';
-  const canSkip = step === 'type' || step === 'cover';
+  const canSkip = step === 'cover';
 
   return (
     <MediaProvider caseStudyId={null}>
@@ -129,7 +126,7 @@ export function ProjectSetup({id, initial, copySources}: {id?: string; initial: 
                     type="button"
                     className="setup-step"
                     aria-current={isCurrent ? 'step' : undefined}
-                    disabled={!visited.has(name) || isCurrent || isCopy}
+                    disabled={!visited.has(name) || isCurrent}
                     onClick={() => goTo(name)}>
                     <span className="setup-step-number t-web-label-md-semibold" aria-hidden="true">
                       {isDone ? <Icon icon={Check} size="sm" color="inherit" /> : position + 1}
@@ -146,50 +143,46 @@ export function ProjectSetup({id, initial, copySources}: {id?: string; initial: 
         <VStack gap={6} className="setup-panel">
           <VStack gap={2}>
             <Heading level={2} ref={headingRef} tabIndex={-1} className="setup-heading">
-              {HEADINGS[step]}
+              {HEADINGS[step](noun)}
             </Heading>
-            <Text color="secondary">{INTROS[step]}</Text>
+            <Text color="secondary">{INTROS[step](noun)}</Text>
           </VStack>
 
           {error && <Banner status="error" title={error} collapsible={false} />}
 
           {step === 'start' && (
-            <ChoiceGroup
-              label="How to start"
-              value={start}
-              onChange={value => chooseStart(value as StartChoice)}
-              options={[
-                {value: 'framework', label: 'Use a story framework', description: 'Recommended. Suggested sections, each with questions to help you write.'},
-                {value: 'blank', label: 'Start blank', description: 'An empty page. Add your own sections as you go.'},
-                ...(copySources.length ? [{value: 'copy', label: 'Copy a case study', description: 'Start from one of your case studies and change what you need.'}] : []),
-              ]}
-            />
-          )}
-          {isCopy && (
-            <VStack gap={4} className="setup-subpanel">
-              <Selector label="Case study to copy" options={copySources.map(source => ({value: source.id, label: source.title}))} value={copyFrom} onChange={setCopyFrom} width="100%" />
-              <TextInput label="Title of the copy" description="Leave it empty to use “Copy of” and the original title." value={copyTitle} onChange={setCopyTitle} width="100%" />
-            </VStack>
-          )}
-
-          {step === 'type' && (
-            <ChoiceGroup
-              label="Project type"
-              value={setup.project_type ?? ''}
-              onChange={value => {
-                const type = value as ProjectType;
-                // Until the framework step has been seen, the framework follows the type's recommendation.
-                const next = recommendedFramework(type);
-                const follow = setup.start === 'framework' && !visited.has('framework') && !visited.has('outline');
-                update({project_type: type, ...(follow ? {framework_id: next.id, framework_version: next.version, outline: outlineFor(next)} : {})});
-              }}
-              options={Object.entries(PROJECT_TYPES).map(([value, type]) => ({value, label: type.label, description: type.description}))}
-            />
+            <>
+              <TemplateGallery value={`${setup.template_id}@${setup.template_version}`} onChoose={chooseTemplate} />
+              {copySources.length > 0 && (
+                <VStack gap={4} className="setup-subpanel" role="group" aria-label="Copy one of your documents">
+                  <VStack gap={1}>
+                    <Heading level={3}>Or copy one of your documents</Heading>
+                    <Text type="supporting" color="secondary">
+                      The copy is a new private draft with the same sections and content. The original stays as it is.
+                    </Text>
+                  </VStack>
+                  <Selector label="Document to copy" options={copySources.map(source => ({value: source.id, label: source.title}))} value={copyFrom} onChange={setCopyFrom} width="100%" />
+                  <TextInput label="Title of the copy" description="Leave it empty to use “Copy of” and the original title." value={copyTitle} onChange={setCopyTitle} width="100%" />
+                  <HStack>
+                    <Button
+                      label="Make a copy"
+                      variant="secondary"
+                      isLoading={isSaving}
+                      isDisabled={!copyFrom}
+                      onClick={() =>
+                        startSaving(async () => {
+                          const result = await duplicateStudioCaseStudy(copyFrom, copyTitle);
+                          if (result && !result.ok) setError(result.error);
+                        })
+                      }
+                    />
+                  </HStack>
+                </VStack>
+              )}
+            </>
           )}
 
-          {step === 'details' && <Details setup={setup} update={update} titleError={titleError} />}
-
-          {step === 'framework' && <FrameworkStep setup={setup} chosen={framework} onChoose={chooseFramework} />}
+          {step === 'details' && <Details setup={setup} template={framework} update={update} titleError={titleError} />}
 
           {step === 'cover' && (
             <VStack gap={4} className="setup-cover">
@@ -214,33 +207,12 @@ export function ProjectSetup({id, initial, copySources}: {id?: string; initial: 
               {index > 0 && <Button label="Back" variant="ghost" onClick={() => goTo(SETUP_STEPS[index - 1])} icon={<Icon icon={ArrowLeft} size="sm" color="inherit" />} />}
             </HStack>
             <HStack gap={2} wrap="wrap" hAlign="end">
-              {isCopy ? (
-                <Button
-                  label="Make a copy"
-                  variant="primary"
-                  isLoading={isSaving}
-                  isDisabled={!copyFrom}
-                  onClick={() =>
-                    startSaving(async () => {
-                      const result = await duplicateStudioCaseStudy(copyFrom, copyTitle);
-                      if (result && !result.ok) setError(result.error);
-                    })
-                  }
-                />
-              ) : (
-                <>
-                  {index > 0 && <Button label="Save and finish later" variant="ghost" isDisabled={isSaving} onClick={() => save(false)} />}
-                  {canSkip && <Button label="Skip this step" variant="ghost" onClick={() => goTo(SETUP_STEPS[index + 1])} />}
-                  {isLast ? (
-                    <Button label="Create case study" variant="primary" isLoading={isSaving} onClick={() => save(true)} />
-                  ) : (
-                    <Button label="Continue" variant="primary" onClick={next} />
-                  )}
-                </>
-              )}
+              {index > 0 && <Button label="Save and finish later" variant="ghost" isDisabled={isSaving} onClick={() => save(false)} />}
+              {canSkip && <Button label="Skip this step" variant="ghost" onClick={() => goTo(SETUP_STEPS[index + 1])} />}
+              {isLast ? <Button label={`Create ${noun}`} variant="primary" isLoading={isSaving} onClick={() => save(true)} /> : <Button label="Continue" variant="primary" onClick={next} />}
             </HStack>
           </HStack>
-          {!isLast && !isCopy && (
+          {!isLast && (
             <Text type="supporting" color="secondary">
               Want to write straight away?{' '}
               <button type="button" className="setup-text-button" disabled={isSaving} onClick={() => save(true)}>
@@ -255,50 +227,33 @@ export function ProjectSetup({id, initial, copySources}: {id?: string; initial: 
   );
 }
 
-const HEADINGS: Record<SetupStep, string> = {
-  start: 'How do you want to start?',
-  type: 'What kind of project is it?',
-  details: 'Tell us about the project',
-  framework: 'Choose a story framework',
-  cover: 'Add a cover picture',
-  outline: 'Review your outline',
+const HEADINGS: Record<SetupStep, (noun: string) => string> = {
+  start: () => 'What are you creating?',
+  details: noun => `Tell us about the ${noun}`,
+  cover: () => 'Add a cover picture',
+  outline: () => 'Review your outline',
 };
 
-const INTROS: Record<SetupStep, string> = {
-  start: 'You can change your mind later: everything here can be edited in the case study.',
-  type: 'This helps us recommend a story framework.',
-  details: 'Only the working title is needed now. Everything else is optional, and you can fill it in later.',
-  framework: 'A framework suggests sections and the questions each one answers. You can rename, reorder, add and remove sections next.',
-  cover: 'Optional. The picture at the top of your case study, also used on its card. Choose one from your media library or upload one.',
-  outline: 'These are the sections your case study starts with. Rename, reorder, add or remove them. You can change them in the editor too.',
+const INTROS: Record<SetupStep, (noun: string) => string> = {
+  start: () => 'Choose a template to start from. It suggests sections and the questions each one answers; you can change all of it later.',
+  details: () => 'Only the working title is needed now. Everything else is optional, and you can fill it in later.',
+  cover: noun => `Optional. The picture at the top of your ${noun}, also used on its card. Choose one from your media library or upload one.`,
+  outline: noun => `These are the sections your ${noun} starts with. Rename, reorder, add or remove them. You can change them in the editor too.`,
 };
 
-/** Radio buttons drawn as cards. Native inputs, so arrow keys and screen readers work as usual. */
-function ChoiceGroup({label, value, onChange, options}: {label: string; value: string; onChange: (value: string) => void; options: {value: string; label: string; description: string; badge?: string}[]}) {
-  const name = useId();
-  return (
-    <fieldset className="setup-choices">
-      <legend className="sr-only">{label}</legend>
-      {options.map(option => (
-        <label key={option.value} className="setup-choice">
-          <input type="radio" name={name} value={option.value} checked={value === option.value} onChange={() => onChange(option.value)} className="setup-choice-input" />
-          <span className="setup-choice-text">
-            <span className="setup-choice-label t-web-heading-sm">
-              {option.label}
-              {option.badge && <span className="setup-badge t-web-label-md-medium">{option.badge}</span>}
-            </span>
-            <span className="setup-choice-description t-web-body-lg-regular">{option.description}</span>
-          </span>
-        </label>
-      ))}
-    </fieldset>
-  );
-}
+/** The columns a template field can be stored in (every other field goes in `metadata`). */
+type ColumnKey = 'role' | 'team' | 'timeline' | 'platform' | 'objective' | 'challenge';
 
-function Details({setup, update, titleError}: {setup: StudioSetup; update: (patch: Partial<StudioSetup>) => void; titleError: string}) {
-  const field = (key: 'role' | 'team' | 'timeline' | 'platform', label: string, description: string) => (
-    <TextInput label={label} description={description} value={setup[key]} onChange={value => update({[key]: value.slice(0, SETUP_LIMITS[key])})} width="100%" isOptional />
-  );
+/** The working title and overview, then the template's own questions (its `metadataFields`). */
+function Details({setup, template, update, titleError}: {setup: StudioSetup; template: DocumentTemplate | undefined; update: (patch: Partial<StudioSetup>) => void; titleError: string}) {
+  const fields = template?.metadataFields ?? [];
+  const valueOf = (field: MetadataField) => (field.storage === 'column' ? setup[field.key as ColumnKey] ?? '' : setup.metadata[field.key] ?? '');
+  const set = (field: MetadataField, value: string) => {
+    const text = value.slice(0, field.max);
+    update(field.storage === 'column' ? {[field.key as ColumnKey]: text} : {metadata: {...setup.metadata, [field.key]: text}});
+  };
+  const short = fields.filter(field => field.kind === 'text');
+  const long = fields.filter(field => field.kind === 'longtext');
   return (
     <VStack gap={6}>
       <VStack gap={4}>
@@ -311,77 +266,27 @@ function Details({setup, update, titleError}: {setup: StudioSetup; update: (patc
           hasAutoFocus
           status={titleError ? {type: 'error', message: titleError} : undefined}
         />
-        <TextArea label="Overview" description="What the project is, in two or three sentences." value={setup.summary} onChange={value => update({summary: value.slice(0, SETUP_LIMITS.summary)})} rows={3} width="100%" isOptional />
+        <TextArea label="Overview" description="What it is about, in two or three sentences." value={setup.summary} onChange={value => update({summary: value.slice(0, SETUP_LIMITS.summary)})} rows={3} width="100%" isOptional />
       </VStack>
-      <div className="setup-fields">
-        {field('role', 'Your role', 'For example: Lead product designer')}
-        {field('team', 'Team', 'Who you worked with. For example: 2 designers, 4 engineers, a product manager')}
-        {field('timeline', 'Timeline', 'For example: March to June 2025')}
-        {field('platform', 'Platform', 'For example: iOS and Android app')}
-      </div>
-      <VStack gap={4}>
-        <TextArea label="Objective" description="What the project set out to achieve." value={setup.objective} onChange={value => update({objective: value.slice(0, SETUP_LIMITS.objective)})} rows={2} width="100%" isOptional />
-        <TextArea label="Main challenge" description="The biggest problem you had to solve." value={setup.challenge} onChange={value => update({challenge: value.slice(0, SETUP_LIMITS.challenge)})} rows={2} width="100%" isOptional />
-      </VStack>
-    </VStack>
-  );
-}
-
-function FrameworkStep({setup, chosen, onChoose}: {setup: StudioSetup; chosen: Framework | undefined; onChoose: (framework: Framework) => void}) {
-  const frameworks = setupFrameworks();
-  const recommended = recommendedFramework(setup.project_type);
-  // Lower-case the first letter only, keeping acronyms ("UX research", "product redesign").
-  const typeLabel = setup.project_type ? PROJECT_TYPES[setup.project_type].label.replace(/^([A-Z])(?=[a-z])/, letter => letter.toLowerCase()) : null;
-  const acts = (Object.keys(FRAMEWORK_ACTS) as FrameworkAct[]).filter(act => chosen?.sections.some(section => section.act === act));
-  return (
-    <VStack gap={6}>
-      <ChoiceGroup
-        label="Story framework"
-        value={chosen ? `${chosen.id}@${chosen.version}` : ''}
-        onChange={value => {
-          const framework = frameworks.find(candidate => `${candidate.id}@${candidate.version}` === value);
-          if (framework) onChoose(framework);
-        }}
-        options={frameworks.map(framework => ({
-          value: `${framework.id}@${framework.version}`,
-          label: framework.name,
-          description: framework.description,
-          badge: framework === recommended ? (typeLabel ? `Recommended for ${typeLabel}` : 'Recommended') : undefined,
-        }))}
-      />
-      {chosen && (
-        <section className="setup-preview" aria-label={`Sections in ${chosen.name}`}>
-          {chosen.sections.length ? (
-            <VStack gap={5}>
-              {/* The narrative flow: the acts in order. */}
-              <ol className="setup-flow t-web-label-lg-medium" aria-label="Story flow">
-                {acts.map(act => (
-                  <li key={act}>{FRAMEWORK_ACTS[act]}</li>
-                ))}
-              </ol>
-              <ol className="setup-preview-sections">
-                {chosen.sections.map(section => (
-                  <li key={section.key}>
-                    <span className="setup-preview-title t-web-heading-sm">
-                      {section.title}
-                      {!section.required && <span className="setup-preview-optional t-web-body-lg-regular"> (optional)</span>}
-                    </span>
-                    <span className="setup-preview-purpose t-web-body-lg-regular">{section.purpose}</span>
-                  </li>
-                ))}
-              </ol>
-            </VStack>
-          ) : (
-            <Text color="secondary">You’ll start with an empty page. Add your own sections in the next step, or as you write.</Text>
-          )}
-        </section>
+      {short.length > 0 && (
+        <div className="setup-fields">
+          {short.map(field => (
+            <TextInput key={field.key} label={field.label} description={field.description} value={valueOf(field)} onChange={value => set(field, value)} width="100%" isOptional />
+          ))}
+        </div>
       )}
-      {setup.outline.length > 0 && <Text type="supporting" color="secondary">Choosing a different framework replaces the outline with its sections.</Text>}
+      {long.length > 0 && (
+        <VStack gap={4}>
+          {long.map(field => (
+            <TextArea key={field.key} label={field.label} description={field.description} value={valueOf(field)} onChange={value => set(field, value)} rows={2} width="100%" isOptional />
+          ))}
+        </VStack>
+      )}
     </VStack>
   );
 }
 
-function OutlineEditor({setup, framework, update}: {setup: StudioSetup; framework: Framework | undefined; update: (patch: Partial<StudioSetup>) => void}) {
+function OutlineEditor({setup, framework, update}: {setup: StudioSetup; framework: DocumentTemplate | undefined; update: (patch: Partial<StudioSetup>) => void}) {
   const outline = setup.outline;
   const [announcement, setAnnouncement] = useState('');
   const set = (next: StudioSetup['outline']) => update({outline: next});
@@ -441,7 +346,7 @@ function OutlineEditor({setup, framework, update}: {setup: StudioSetup; framewor
         </ol>
       ) : (
         <Text color="secondary" className="setup-outline-empty">
-          No sections yet. Add one, or create the case study and add sections as you write.
+          No sections yet. Add one, or create the document and add sections as you write.
         </Text>
       )}
       <HStack gap={2} wrap="wrap">
@@ -458,7 +363,7 @@ function OutlineEditor({setup, framework, update}: {setup: StudioSetup; framewor
           icon={<Icon icon={Plus} size="sm" color="inherit" />}
         />
         {framework && framework.sections.length > 0 && (
-          <Button label="Reset to the framework’s sections" variant="ghost" onClick={() => set(outlineFor(framework))} icon={<Icon icon={RotateCcw} size="sm" color="inherit" />} />
+          <Button label="Reset to the template’s sections" variant="ghost" onClick={() => set(outlineFor(framework))} icon={<Icon icon={RotateCcw} size="sm" color="inherit" />} />
         )}
       </HStack>
       {isFull && <Text type="supporting" color="secondary">An outline can have up to {SETUP_LIMITS.sections} sections.</Text>}

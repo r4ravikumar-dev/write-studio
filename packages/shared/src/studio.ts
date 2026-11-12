@@ -3,18 +3,48 @@ import type {CaseStudyLayout} from './caseStudies/types';
 import {STUDIO_PATH} from './auth';
 import type {ProjectType} from './frameworks';
 import type {StudioSetupState} from './caseStudies/setup';
+import type {DocumentType} from './templates/types';
 
 /**
- * Studio case studies: private documents in a user's workspace
- * (public.studio_case_studies). Not the portfolio's CaseStudy: no published
- * snapshot, no Home/Work settings, no public slug route.
+ * A document's private lifecycle. None of these is public: "ready for review" is the author's own
+ * marker, and there is no published state.
  */
-export type StudioStatus = 'draft' | 'archived';
+export const STUDIO_STATUSES = ['draft', 'in_progress', 'ready_for_review', 'archived'] as const;
+export type StudioStatus = (typeof STUDIO_STATUSES)[number];
 
-export type StudioCaseStudy = {
+export const STUDIO_STATUS_LABELS: Record<StudioStatus, string> = {
+  draft: 'Draft',
+  in_progress: 'In progress',
+  ready_for_review: 'Ready for review',
+  archived: 'Archived',
+};
+
+export function isStudioStatus(value: unknown): value is StudioStatus {
+  return typeof value === 'string' && (STUDIO_STATUSES as readonly string[]).includes(value);
+}
+
+/**
+ * Whether a document may move from one status to another: the three working states in any order,
+ * any of them to archived, and archived only back to draft (restore). The API enforces this.
+ */
+export function canChangeStatus(from: StudioStatus, to: StudioStatus): boolean {
+  if (!isStudioStatus(from) || !isStudioStatus(to) || from === to) return false;
+  if (from === 'archived') return to === 'draft';
+  return true;
+}
+
+/**
+ * A Studio document of any type: private, in its owner's workspace (public.studio_documents).
+ * No published snapshot, no public route.
+ */
+export type StudioDocument = {
   id: string;
   workspace_id: string;
   owner_id: string;
+  /** What kind of document it is (DOCUMENT_TYPES). Set when it's created; never changes. */
+  document_type: DocumentType;
+  /** Details the template asks for that have no column of their own, by field key. */
+  metadata: Record<string, string>;
   slug: string;
   title: string;
   subtitle: string;
@@ -36,10 +66,10 @@ export type StudioCaseStudy = {
   platform: string;
   objective: string;
   challenge: string;
-  /** The framework (and its immutable version) the case study was set up with. */
-  framework_id: string | null;
-  framework_version: number | null;
-  /** Set while project setup is unfinished; null once the case study is created. */
+  /** The template (and its immutable version) the document was made with. Null for the oldest documents. */
+  template_id: string | null;
+  template_version: number | null;
+  /** Set while setup is unfinished; null once the document is created. */
   setup_state: StudioSetupState | null;
   content: JSONContent;
   content_schema_version: number;
@@ -49,11 +79,11 @@ export type StudioCaseStudy = {
 };
 
 /** A row for lists (no body), with section progress worked out by the database. */
-export type StudioCaseStudyCard = Omit<StudioCaseStudy, 'content'> & {sections_total?: number | null; sections_complete?: number | null};
+export type StudioDocumentCard = Omit<StudioDocument, 'content'> & {sections_total?: number | null; sections_complete?: number | null};
 
-/** What the Studio editor saves. */
-export type StudioCaseStudyDraft = Pick<
-  StudioCaseStudy,
+/** What the editor saves. `metadata` is optional: left out, the stored details are kept. */
+export type StudioDocumentDraft = Pick<
+  StudioDocument,
   | 'slug'
   | 'title'
   | 'subtitle'
@@ -75,7 +105,12 @@ export type StudioCaseStudyDraft = Pick<
   | 'objective'
   | 'challenge'
   | 'content'
->;
+> & {metadata?: Record<string, string>};
+
+/** Earlier names: every document used to be a case study. */
+export type StudioCaseStudy = StudioDocument;
+export type StudioCaseStudyCard = StudioDocumentCard;
+export type StudioCaseStudyDraft = StudioDocumentDraft;
 
 /** Document bodies are capped (also enforced by the database). */
 export const STUDIO_MAX_CONTENT_BYTES = 2 * 1024 * 1024;
@@ -97,6 +132,8 @@ export function documentMediaPaths(doc: unknown): string[] {
     // Embeds hold a pasted provider URL (rebuilt safely at render), not a file.
     if (type !== 'embed') {
       if (typeof attrs.src === 'string' && attrs.src) paths.push(attrs.src);
+      // A testimonial's photo (Phase 3).
+      if (typeof attrs.photo === 'string' && attrs.photo) paths.push(attrs.photo);
       if (attrs.config) visit(attrs.config);
     }
     node.content?.forEach(walk);
@@ -114,7 +151,7 @@ export function documentMediaPaths(doc: unknown): string[] {
  * Studio path pattern).
  */
 export function studioDraftProblems(
-  draft: Pick<StudioCaseStudyDraft, 'content' | 'thumbnail_path' | 'cover_path'>,
+  draft: Pick<StudioDocumentDraft, 'content' | 'thumbnail_path' | 'cover_path'>,
   ownerId: string,
   workspaceId: string,
 ): string[] {
@@ -122,7 +159,7 @@ export function studioDraftProblems(
   const content = draft.content as JSONContent | undefined;
   if (!content || typeof content !== 'object' || content.type !== 'doc') return ['The document is missing.'];
   if (new TextEncoder().encode(JSON.stringify(content)).length > STUDIO_MAX_CONTENT_BYTES) {
-    return ['This case study is too large to save. Its text and settings must be under 2 MB. Move some of it into another case study.'];
+    return ['This document is too large to save. Its text and settings must be under 2 MB. Move some of it into another document.'];
   }
   const prefix = `${ownerId}/${workspaceId}/`;
   const own = (path: string) => STUDIO_PATH.test(path) && path.startsWith(prefix);
@@ -135,4 +172,4 @@ export function studioDraftProblems(
 }
 
 /** The editor's settings: every draft field except the body. */
-export type StudioMeta = Omit<StudioCaseStudyDraft, 'content'>;
+export type StudioMeta = Omit<StudioDocumentDraft, 'content' | 'metadata'>;

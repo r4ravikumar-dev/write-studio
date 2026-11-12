@@ -11,6 +11,7 @@
 @import '../theme/typography.css';
 /* Liquid Glass for floating navigation and controls only (src/theme/liquid-glass.css). */
 @import '../theme/surfaces.css';
+@import '../theme/structured.css';
 @import '../theme/liquid-glass.css';
 /* Lenis smooth scrolling (components/motion/SmoothScroll). */
 @import 'lenis/dist/lenis.css';

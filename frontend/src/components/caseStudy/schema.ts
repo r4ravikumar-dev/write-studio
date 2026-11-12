@@ -10,6 +10,7 @@ import {TableKit} from '@tiptap/extension-table';
 import {TaskItem, TaskList} from '@tiptap/extension-list';
 import {Details, DetailsContent, DetailsSummary} from '@tiptap/extension-details';
 import {studioMediaUrl} from '@studio/shared';
+import {StudioCodeBlock, structuredNodes} from './structuredBlocks';
 import {
   defaultComparison,
   defaultDeviceMockup,
@@ -153,6 +154,22 @@ export const FlowDiagramNode = visualAtom('flowDiagram', defaultFlowDiagram);
 // T4 blocks
 export const ResearchInsightsNode = visualAtom('researchInsights', defaultResearchInsights);
 export const ChartNode = visualAtom('chart', defaultChart);
+
+/**
+ * A block made with a newer version of the app than this one (block contract B2). It holds the
+ * original, untouched, in `original`: shown locked, never edited, and put back exactly as it was on
+ * save (`unwrapUnknownBlocks`). Never stored itself: the server refuses the type.
+ */
+export const UnknownBlockNode = Node.create({
+  name: 'unknownBlock',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: false,
+  addAttributes: () => ({original: {default: null, rendered: false}}),
+  parseHTML: () => [],
+  renderHTML: () => ['div', {'data-unknown-block': '', class: 'cs-unknown-block'}, 'This block needs a newer version of Case Study Studio. It is kept as it was.'],
+});
 
 /** Media beside editable text: the text is ordinary content inside the block. */
 export const SplitLayoutNode = Node.create({
@@ -489,6 +506,8 @@ export const caseStudyExtensions: Extensions = [
   TableAttributes,
   StarterKit.configure({
     heading: {levels: [1, 2, 3, 4]},
+    // Code block v2 (title, line numbers, wrapping) is StudioCodeBlock below.
+    codeBlock: false,
     link: {
       openOnClick: false,
       autolink: true,
@@ -530,4 +549,7 @@ export const caseStudyExtensions: Extensions = [
   FlowDiagramNode,
   ResearchInsightsNode,
   ChartNode,
+  StudioCodeBlock,
+  ...structuredNodes,
+  UnknownBlockNode,
 ];

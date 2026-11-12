@@ -1,6 +1,6 @@
 # Case Study Studio — codebase context
 
-> Project memory: read first. Last updated 2026-11-10, after removing the single-owner portfolio.
+> Project memory: read first. Last updated 2026-11-12 (multi-vertical Phase 3: universal block registry & safety contract).
 
 ## 1. What this is
 
@@ -19,6 +19,66 @@ which is kept unchanged). All six phases (0 audit · 1 database · 2 auth · 3 s
 User decisions: Django is the identity provider (not Supabase Auth); Supabase project
 `psfjngzdldqhvmabgvos` (Sydney, ap-southeast-2) is **staging**; work phase by phase and report.
 
+## 1b. Multi-vertical expansion (in progress, started 2026-11-12)
+
+The product is becoming a template-driven document studio: one editor, many document types (developer
+documentation, feature specification, release notes, marketing case study, PRD, technical design, ADR, SOP)
+beside the UX case study. **Contract: `docs/multi-vertical-master-plan.json`** (8 phases, executed in order,
+each with a report in `docs/multi-vertical/phase-N-*.md`). Rules from it: one universal editor; templates and
+blocks are data; no block or template is "done" without editor, preview, export, validation and tests; privacy
+model unchanged; no public publishing.
+- **Phase 0 done** (`phase-0-audit.md`): route/data/editor/template inventory, baseline 308 staging checks.
+- **Phase 1 done on staging** (`phase-1-report.md`): migration `0014_studio_documents.sql` (rollback in
+  `supabase/rollback/`, dry run `supabase/tests/migration_0014_dry_run.py`). Tables: `studio_documents`
+  (was `studio_case_studies`; + `document_type`, `metadata`; `template_id/version` were `framework_*`; status
+  draft|in_progress|ready_for_review|archived, all private), `studio_document_revisions`, and `document_id`
+  (was `case_study_id`) on assets, notes, backups, revisions. API is `/api/app/documents` (`routes/appDocuments.ts`;
+  responses `{document}` / `{documents}`; `POST /:id/status`; `?status=active`, `?type=`); the old path is gone.
+  Shared: `StudioDocument*` types (old `StudioCaseStudy*` names are aliases), `STUDIO_STATUSES`,
+  `canChangeStatus`, `templates/` (registry: `DOCUMENT_TYPES`, `TEMPLATE_CATEGORIES`, `getTemplate`,
+  `templatesFor`, `recommendBlocks`, `cleanMetadata`, `templateProblems`), `blocks/catalog.ts` (`BLOCK_CATALOG`,
+  keyed by stored node name; the editor's `blocks/registry.ts` must cover every entry). `frameworks/` is now the
+  Design & Research template pack; `getFramework`/`frameworkSection` are aliases of `getTemplate`/`templateSection`.
+  `suggestedVisuals` was renamed `suggestedBlocks`. New template section keys must be prefixed
+  (`dev-overview`): a key means one section across all templates.
+- **Phase 2 done** (`phase-2-report.md`, no DB change): template library `/studio/templates`
+  (`studio/creation/TemplateGallery.tsx`: search, category chips, preview; reads `templateLibrary()`), Create Document
+  `/studio/documents/new` (`ProjectSetup.tsx`, now 4 steps `start/details/cover/outline`; Details questions = the template's
+  `metadataFields`; `?template=<id>` preselects; old `type`/`framework` steps resume at `start`; `projectTypeFor(template)`
+  replaces the project-type question), My documents (`studio/DocumentsDashboard.tsx` on `/studio` and `/studio/documents`:
+  `?status=in_progress|ready_for_review|archived`, `?view=list`; cards show kind · template · status), editor status menu
+  (`StatusMenu` in Editor.tsx, wide screens only; `setStudioDocumentStatus`), explicit template update (`editor/TemplateVersion.tsx`
+  in the Details panel + `POST /api/app/documents/:id/template {version}`; only the reference changes, never content;
+  `newerTemplate`, `templateChanges`). **Pages moved:** `/studio/documents/[id]/edit|preview|setup`, `/studio/documents/new`;
+  `next.config.ts` redirects old `/studio/case-studies/*`, `/studio/documents/[id]` and `/studio/dashboard`. Actions file is
+  `app/studio/document-actions.ts`. `EXPORTS_READY` lists the formats that really export today (pdf, html); only those are shown.
+  Template search deliberately ignores category names. Tests: `test_studio_templates_live.py` + `scripts/e2e/create.mjs`.
+  Open question for the owner: the product is still named "Case Study Studio" (titles, sign-in, emails).
+- **Phase 3 done** (`phase-3-report.md`, `phase-3-block-contract.md`, no DB migration): Content schema bumped
+  to v3 (additive). Universal block contract in `packages/shared/src/blocks/` (`catalog.ts`, `spec.ts`, `document.ts`,
+  `markdown.ts`, `contract.ts`, `fixtures.ts`). 37 catalogue blocks (the 29 existing, one of them the upgraded code block, + 8 new).
+  Nine new blocks implemented across editor, preview, HTML renderers, Markdown and review: Code block v2 (syntax
+  highlighting via lowlight with 23 languages, line numbers, wrap), Terminal (commands vs output, shell, prompt),
+  Parameter table (name, type, required, default, description), Requirements (ids such as FR-1, filled in on creation by `RequirementIds`; priorities; statements),
+  User story (As a / I want / so that), Acceptance criteria (Given/When/Then scenarios bound to requirement id),
+  Testimonial (quote, name, role, organisation, permission), Procedure steps (instructions, who, expected result),
+  and References (title, link, kind). B2 safety in `caseStudy/documentCheck.ts` and `editor/DocumentUnreadable.tsx`:
+  unknown blocks wrap in `<unknownBlock>` preserving exact raw JSON on round-trip save; newer-version documents open
+  read-only; unreadable documents are refused. Server validation: `cleanContent()` in `appDocuments.ts` enforces known
+  types, cleans attributes for enforced types, and logs issues for report-only legacy blocks. UI and styling in
+  `editor/structuredViews.tsx`, `editor/blocks/inspectors.tsx`, `editor/insertCommands.tsx`, and `theme/structured.css`.
+  Offline test suite: `packages/shared/test/blocks.test.ts`, `frontend/test/schema.test.ts`, and live
+  suite `supabase/tests/test_studio_blocks_live.py` + `scripts/e2e/blocks.mjs`; `scripts/report-cleaning.ts` = report-only scan.
+  Working rules: **adding a node, attribute or mark to the editor schema requires the same entry in shared `document.ts`**
+  (`schema.test.ts` fails otherwise); new blocks need a contract entry, fixture and editor registry entry (typecheck +
+  `blockContractProblems`); the 29 older blocks are cleaned report-only until enforced (Phase 6); `isEnforcedType` covers
+  a block's parts too; a block's media attribute other than `src`/`path`/config `path` must be added to
+  `documentMediaPaths` (ownership check); the "/" menu closes at a space. DNA has no `--size-36` (use
+  `calc(var(--size-32) + var(--size-04))`) and `--bg-gray-inverse` is WHITE (dark = `--bg-gray-dark`).
+- **Not done yet:** Phases 4–5 (the 8 new templates and their domain blocks), Phase 6 (Markdown, HTML ZIP, JSON backup,
+  per-type PDF; enforcing cleaning for the 29 older blocks), Phase 7 (analytics, domain review, beta: needs real practitioners).
+- Sections 4 and 6 below describe the pre-0014 names in places; the bullets above win.
+
 ## 2. Architecture (npm workspaces)
 
 ```
@@ -26,9 +86,9 @@ frontend/          @studio/frontend  Next.js 16 + React 19, Astryx UI. Server-si
 backend/django/    Django 4.2 (Python 3.9 venv .venv) auth service. accounts app.
 backend/express/   @studio/express-api  Express 5 + TS. Only holder of the Supabase service-role key.
 packages/shared/   @studio/shared  TS source (no build): types, schema helpers, validation, constants.
-supabase/          migrations 0001-0009, tests/, README (migration order)
+supabase/          migrations 0001-0014, rollback/, tests/, README (migration order)
 scripts/security-suite.sh   runs every check
-docs/              master-plan.v2.json, RELEASE.md
+docs/              master-plan.v2.json, multi-vertical-master-plan.json, multi-vertical/, RELEASE.md
 ```
 Root scripts: `dev:web` (3000), `dev:api` (4000), `dev:auth` (8000), `build`, `typecheck`.
 
@@ -63,7 +123,7 @@ verifies the JWT with `jose`, refreshes via Django when expired, redirects signe
 All routes behind `requireUser` (jose verify, type access, role user, UUID sub); every query
 `.eq('owner_id', req.user.id)`; owner/workspace set server-side. Responses `private, no-store`.
 - `routes/app.ts`: `GET/PATCH /api/app/workspace` (+ `workspaceOf()`).
-- `routes/appCaseStudies.ts`: list (?status), create (`{setup, finish}` from the wizard, or legacy `{title}` = full
+- `routes/appDocuments.ts` (mounted at `/api/app/documents`): list (?status, ?type), create (`{setup, finish}` from the wizard, or legacy `{title}` = full
   template), `PUT /:id/setup` (only while `setup_state` is set; finish builds the document), `POST /:id/duplicate`,
   get, PUT save (409 while setup is unfinished) (`studioDraftProblems`:
   every media path must be `{owner}/{workspace}/…`; 2 MB cap; `expected_updated_at` → 409 conflict;

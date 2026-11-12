@@ -2,8 +2,9 @@
 
 import type {Editor} from '@tiptap/react';
 import type {JSONContent} from '@tiptap/core';
+import {TextSelection} from '@tiptap/pm/state';
 import {Icon} from '@astryxdesign/core/Icon';
-import {caseStudySectionNodes, caseStudySections, frameworkSection, type Framework} from '@studio/shared';
+import {BLOCK_CATALOG, caseStudySectionNodes, caseStudySections, documentNoun, frameworkSection, recommendBlocks, type BlockName, type Framework} from '@studio/shared';
 import {
   defaultComparison,
   defaultDeviceMockup,
@@ -59,10 +60,11 @@ import {
 } from 'lucide-react';
 import {frequentInserts, recentInserts, recordInsert} from './insertUsage';
 import {activeSectionIndex, outlineOf} from './sections';
-import {insertIdFor} from './blocks/registry';
+import {BLOCKS, insertIdFor} from './blocks/registry';
+import {STRUCTURED_CREATE} from './structuredViews';
 
 /** Insert and "/" menu categories, in menu order (editor spec §8.1; D2 adds Embeds, Advanced retired). */
-export const INSERT_GROUPS = ['Text', 'Media', 'Visual', 'Data', 'Structure', 'Embeds'] as const;
+export const INSERT_GROUPS = ['Text', 'Media', 'Visual', 'Data', 'Structure', 'Specialised', 'Embeds'] as const;
 export type InsertGroup = (typeof INSERT_GROUPS)[number];
 
 /** One thing that can be added to a case study, from the Insert menu or by typing "/". */
@@ -438,10 +440,50 @@ export function buildInsertCommands(editor: Editor, handlers: InsertHandlers): I
       run: block('flowDiagram', defaultFlowDiagram()),
     },
   ];
+  // Phase 3 blocks (block contract §3.2): one command each, generated from the catalogue (name,
+  // description, search words) and the block's own `create`, so Insert, "/" and the recommendations
+  // all add exactly the same JSON.
+  for (const [type, create] of Object.entries(STRUCTURED_CREATE) as [BlockName, () => JSONContent][]) {
+    const entry = BLOCK_CATALOG[type];
+    commands.push({
+      id: BLOCKS[type].insertId,
+      group: entry.family === 'writing' ? 'Text' : 'Specialised',
+      label: entry.label,
+      description: entry.description.replace(/\.$/, ''),
+      icon: BLOCKS[type].icon,
+      keywords: entry.searchTerms.join(' '),
+      run: () => {
+        chain().insertContent(create()).run();
+        focusInsideInserted(editor, type);
+      },
+    });
+  }
   // Every insert is counted for Recently / Frequently used (ids only, this browser only).
   const recorded = commands.map(command => ({...command, run: () => (recordInsert(command.id), command.run())}));
   if (handlers.framework) FRAMEWORKS.set(recorded, handlers.framework);
   return recorded;
+}
+
+/**
+ * After inserting a block with text inside, put the cursor in its first editable spot (the first
+ * command, the first requirement…), so people can type straight away. The new block is the one just
+ * before the cursor, which insertContent leaves after it.
+ */
+function focusInsideInserted(editor: Editor, type: string) {
+  const {state} = editor;
+  const $at = state.selection.$from;
+  for (let depth = $at.depth; depth >= 0; depth -= 1) {
+    const parent = $at.node(depth);
+    const index = $at.index(depth);
+    for (let i = Math.min(index, parent.childCount - 1); i >= 0; i -= 1) {
+      const child = parent.child(i);
+      if (child.type.name !== type) continue;
+      let start = $at.start(depth);
+      for (let j = 0; j < i; j += 1) start += parent.child(j).nodeSize;
+      editor.chain().setTextSelection(TextSelection.near(state.doc.resolve(start + 1)).from).focus().run();
+      return;
+    }
+  }
 }
 
 /** A titled group of insert commands (the top sections, then the categories). */
@@ -458,9 +500,17 @@ export function smartSections(commands: InsertCommand[], editor: Editor): Insert
   const sections: InsertSection[] = [];
   const outline = outlineOf(editor.state.doc);
   const current = outline[activeSectionIndex(outline, editor.state.selection.from)];
-  const framework = current ? frameworkSection(current.key, frameworkOf(commands)) : undefined;
-  const recommended = framework ? pick(framework.suggestedVisuals.map(insertIdFor)).slice(0, 4) : [];
-  if (recommended.length) sections.push({title: `Recommended for “${current!.name}”`, commands: recommended});
+  // Document-aware (shared `recommendBlocks`). In one of the template's sections: that section's own
+  // suggestions. Anywhere else (the user's own section, before the first one): the template's, then
+  // blocks made for this kind of document. Suggestions only: nothing is hidden below.
+  const template = frameworkOf(commands);
+  const section = current ? frameworkSection(current.key, template) : undefined;
+  const names = section ? section.suggestedBlocks : recommendBlocks({template});
+  const recommended = pick(names.map(insertIdFor)).slice(0, 4);
+  if (recommended.length) {
+    const noun = documentNoun(template && template.documentType !== 'any' ? template.documentType : undefined);
+    sections.push({title: section ? `Recommended for “${current!.name}”` : `Recommended for this ${noun}`, commands: recommended});
+  }
   const recent = pick(recentInserts(5));
   if (recent.length) sections.push({title: 'Recently used', commands: recent});
   const frequent = pick(frequentInserts(5, [...recent, ...recommended].map(command => command.id)));

@@ -11,6 +11,8 @@ throwaway `@example.test` accounts.
 | `test_studio_auth_live.py` | all services | 23 checks: two accounts end to end through Django, Express and Next |
 | `test_studio_storage_live.py` | all services | 30 checks: private bucket, owner-only file route, cross-user denial, upload safety, Range, delete |
 | `test_studio_documents_live.py` | all services | 55 checks: every block round-trips, foreign paths refused, cross-user 404s, archive, no publish, old portfolio routes/APIs/tables/bucket gone |
+| `test_studio_document_model_live.py` | all services, 0014 applied | Multi-vertical Phase 1: document type + template id/version on every document, server-decided type, blank document, private status lifecycle and its allowed moves, list filters, save can't change type/template/owner/status, another account and signed-out callers get 404/401 on every route (plan A02, A03, A15) |
+| `migration_0014_dry_run.py` | staging DB, **before** 0014 | 50 checks: migration up, row-for-row identity, ownership and lockdown on the new schema, rollback, catalogue identity, refusal guards; one transaction, always rolled back |
 | `test_studio_setup_live.py` | all services | 35 checks (Stage 1): document from the outline (placeholders, renamed and own sections, no guidance stored), framework/version/outline/cover validation, save and finish later + resume, no autosave or re-setup in the wrong state, duplicate, cross-user 404s, GET never creates |
 | `test_studio_sections_live.py` | all services | 30 checks (Stage 2): new documents are schema v2 with unique section ids; a v1 document is migrated on read with a backup (once); saves normalise section ids/status; private notes (owner-only, not in the document or preview, not copied, deleted with the case study); lockdown of the new tables |
 | `packages/shared/test/review.test.ts` | nothing | 8 checks: the story review engine (progress, checklist, alt text, empty blocks, figures, embeds, cover, actions point at their block/section) |
@@ -26,7 +28,7 @@ throwaway `@example.test` accounts.
 | SEC-001 | Register with password, verify email, enter /studio; one workspace | Django `test_signup_confirm_and_login`; auth live; schema "one workspace per account" | |
 | SEC-002 | Register / sign in by email code | Django `test_otp_creates_account_on_first_use`; auth live | |
 | SEC-003 | Same email, both methods, one identity | Django `test_password_account_can_also_use_otp`, `test_otp_account_can_add_a_password`; auth live | Django is the identity provider (not Supabase Auth) |
-| SEC-004 | Signed-out visitor on /studio/case-studies/[id] | documents live | redirect to /studio/login, nothing rendered |
+| SEC-004 | Signed-out visitor on /studio/documents/[id] | documents live | redirect to /studio/login, nothing rendered |
 | SEC-005 | B reads A's document by UUID (UI + direct API) | documents live; schema (anon/authenticated can't read studio_* via Supabase REST) | |
 | SEC-006 | B updates/deletes A's doc, or inserts with A's ids | documents live (API); schema (composite FK) | |
 | SEC-007 | Move doc/asset to B's workspace | schema (owner/workspace immutable triggers) | |

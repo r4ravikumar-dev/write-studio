@@ -28,17 +28,17 @@ A = j(D('confirm-email', {'token': token})[1]); ta = A['access']
 B = sign_in(f'life-b-{tag}@example.test'); tb = B['access']
 
 # A's things: a case study, a recorded upload and an upload that was never recorded (an orphan)
-s, b, _ = API(ta, 'POST', '/api/app/case-studies', {'title': 'Ava secret project'}); acid = j(b)['id']
-_, aimg, _ = upload(ta, PNG, 'image/png', case_study_id=acid)
+s, b, _ = API(ta, 'POST', '/api/app/documents', {'title': 'Ava secret project'}); acid = j(b)['id']
+_, aimg, _ = upload(ta, PNG, 'image/png', document_id=acid)
 _, _, orphan = upload(ta, PNG, 'image/png', record=False)
 ok('A has a case study, a recorded file and an orphan upload', aimg.get('id') and stored(aimg['path']) and stored(orphan['path']))
 # B's things, which must survive A's deletion
-s, b, _ = API(tb, 'POST', '/api/app/case-studies', {'title': 'Ben own project'}); bcid = j(b)['id']
-_, bimg, _ = upload(tb, PNG, 'image/png', case_study_id=bcid)
+s, b, _ = API(tb, 'POST', '/api/app/documents', {'title': 'Ben own project'}); bcid = j(b)['id']
+_, bimg, _ = upload(tb, PNG, 'image/png', document_id=bcid)
 
 # --- SEC-018: same browser, A then B ------------------------------------------------------
 ca, cb = f'studio_access={ta}', f'studio_access={tb}'
-for path in ['/studio', f'/studio/case-studies/{acid}', f'/studio/case-studies/{acid}/preview', '/studio/media', '/studio/settings', f"/studio/files/{aimg['path']}"]:
+for path in ['/studio', f'/studio/documents/{acid}/edit', f'/studio/documents/{acid}/preview', '/studio/media', '/studio/settings', f"/studio/files/{aimg['path']}"]:
     s, _, h = WEB(path, ca); ok(f'{path.split("/")[2] if path.count("/") > 1 else "/studio"} page is never cached (no-store)', s == 200 and 'no-store' in (h.get('Cache-Control') or ''), f"{s} {h.get('Cache-Control')}")
 rsc = {'RSC': '1', 'Next-Router-State-Tree': '%5B%22%22%2C%7B%7D%5D'}
 s, html, h = WEB('/studio?_rsc=probe', ca, rsc)
@@ -47,7 +47,7 @@ if s == 307:  # Next 16 checks the _rsc hash and redirects to the right one, as 
 ok('client-navigation (RSC) responses are no-store too', s == 200 and 'no-store' in (h.get('Cache-Control') or ''), h.get('Cache-Control'))
 s, html_a, _ = WEB('/studio', ca); s, html_b, _ = WEB('/studio', cb)
 ok('after A, B in the same browser sees only B\'s workspace (SEC-018)', b'Ben own project' in html_b and b'Ava' not in html_b and b'Ava secret project' not in html_b)
-s, b, h = API(ta, 'GET', '/api/app/case-studies'); ok('API replies are private, no-store', 'no-store' in (h.get('Cache-Control') or ''))
+s, b, h = API(ta, 'GET', '/api/app/documents'); ok('API replies are private, no-store', 'no-store' in (h.get('Cache-Control') or ''))
 
 # --- SEC-017: delete A's account ----------------------------------------------------------
 s, b, _ = D('delete-account/confirm', {'password': 'not it'}, ta); ok('deletion needs the real password', s == 400, s)
@@ -66,16 +66,16 @@ with psycopg.connect(dj['DATABASE_URL']) as c:
     ok("A's account, workspace, case studies and file records are gone (cascade)",
        q('select count(*) from django.accounts_user where id = %s', aid) == 0
        and q('select count(*) from public.studio_workspaces where owner_id = %s', aid) == 0
-       and q('select count(*) from public.studio_case_studies where owner_id = %s', aid) == 0
+       and q('select count(*) from public.studio_documents where owner_id = %s', aid) == 0
        and q('select count(*) from public.studio_assets where owner_id = %s', aid) == 0)
     ok("no storage object left under A's folder", q("select count(*) from storage.objects where bucket_id = 'studio-private-media' and name like %s", aid + '/%') == 0)
     ok("B's account, case study and file record are intact",
-       q('select count(*) from public.studio_case_studies where id = %s', bcid) == 1 and q('select count(*) from public.studio_assets where id = %s', bimg['id']) == 1)
+       q('select count(*) from public.studio_documents where id = %s', bcid) == 1 and q('select count(*) from public.studio_assets where id = %s', bimg['id']) == 1)
 
 s, _, _ = D('refresh', {'refresh': A['refresh']}); ok("A's refresh token no longer works", s == 401, s)
 s, _, _ = D('login', {'email': ea, 'password': PASSWORD}); ok('A can no longer sign in with the password', s == 400, s)
 s, _, _ = API(ta, 'GET', '/api/app/workspace'); ok("A's still-unexpired access token reaches nothing", s == 404, s)
-s, _, _ = API(ta, 'POST', '/api/app/case-studies', {'title': 'ghost'}); ok('…and cannot create anything', s in (404, 502) and s != 201, s)
+s, _, _ = API(ta, 'POST', '/api/app/documents', {'title': 'ghost'}); ok('…and cannot create anything', s in (404, 502) and s != 201, s)
 s, _, _ = API(ta, 'POST', '/api/app/assets/upload-url', {'mime': 'image/png', 'size': 10}); ok('…or upload anything', s == 404, s)
 
 # --- clean up ---------------------------------------------------------------------------
@@ -84,7 +84,7 @@ with psycopg.connect(dj['DATABASE_URL']) as c:
     c.execute("delete from django.accounts_user where email like %s", (f'life-%-{tag}@example.test',))
     ids = [A['user']['id'], B['user']['id']]
     left = c.execute(
-        """select (select count(*) from public.studio_case_studies where owner_id = any(%s::uuid[]))
+        """select (select count(*) from public.studio_documents where owner_id = any(%s::uuid[]))
                 + (select count(*) from public.studio_assets where owner_id = any(%s::uuid[]))
                 + (select count(*) from storage.objects where bucket_id = 'studio-private-media'
                      and (name like %s or name like %s))""",

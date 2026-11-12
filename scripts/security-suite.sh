@@ -26,6 +26,9 @@ echo ok
 step 'TypeScript (shared, Express, frontend)';  npm run typecheck --silent
 step 'ESLint (frontend)';                       (cd frontend && npx eslint src)
 step 'Story review engine (offline)';           npx tsx packages/shared/test/review.test.ts | tail -1
+step 'Documents, templates, block catalogue (offline)'; npx tsx packages/shared/test/documents.test.ts | tail -1
+step 'Block contract: cleaning, text, Markdown, fixtures (offline)'; npx tsx packages/shared/test/blocks.test.ts | tail -1
+step 'Editor and server agree on the document schema (offline)'; (cd frontend && npx tsx --tsconfig tsconfig.json test/schema.test.ts | tail -1)
 step 'Express build';                           npm run build -w @studio/express-api --silent >/dev/null && echo ok
 step 'Django checks';                           (cd backend/django && .venv/bin/python manage.py check)
 step 'Django auth tests (offline, in-memory)';  (cd backend/django && .venv/bin/python manage.py test accounts)
@@ -43,10 +46,13 @@ step 'Schema: ownership, constraints, lockdown (SEC-005/006/007/016)'; $PY supab
 step 'Auth: both methods, one identity, sessions (SEC-001/002/003)'; $PY -I supabase/tests/test_studio_auth_live.py "$PWD" "$LOG"
 step 'Storage: private files, isolation (SEC-008/009/010)';              $PY -I supabase/tests/test_studio_storage_live.py "$PWD" "$LOG"
 step 'Documents: editor data, isolation, no publishing, portfolio gone (SEC-004/011-016)'; $PY -I supabase/tests/test_studio_documents_live.py "$PWD" "$LOG"
+step 'Document model: types, templates, statuses, isolation (multi-vertical Phase 1)'; $PY -I supabase/tests/test_studio_document_model_live.py "$PWD" "$LOG"
+step 'Templates: library and Create Document in a browser, template updates, addresses (multi-vertical Phase 2)'; $PY -I supabase/tests/test_studio_templates_live.py "$PWD" "$LOG"
 step 'Project setup: frameworks, resume, duplicate, ownership (Stage 1)'; $PY -I supabase/tests/test_studio_setup_live.py "$PWD" "$LOG"
 step 'Sections: v2 migration + backup, section ids, private notes (Stage 2)'; $PY -I supabase/tests/test_studio_sections_live.py "$PWD" "$LOG"
 step 'Review: card progress, restyled preview (Stage 5)';  $PY -I supabase/tests/test_studio_review_live.py "$PWD" "$LOG"
 step 'History: versions, restore, isolation; new frameworks (T7)'; $PY -I supabase/tests/test_studio_history_live.py "$PWD" "$LOG"
+step 'Block contract: unknown blocks, read-only documents, report-only cleaning (multi-vertical Phase 3)'; $PY -I supabase/tests/test_studio_blocks_live.py "$PWD" "$LOG"
 step 'Editor in a real browser: save path, reload, PDF and HTML export'; $PY -I supabase/tests/test_studio_editor_e2e.py "$PWD" "$LOG"
 step 'Lifecycle and caching (SEC-017/018)';                               $PY -I supabase/tests/test_studio_lifecycle_live.py "$PWD" "$LOG"
 echo; echo 'All checks passed.'

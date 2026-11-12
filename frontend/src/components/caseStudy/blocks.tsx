@@ -77,7 +77,7 @@ export function VideoBlock({src, caption}: {src: string; caption?: string}) {
     <figure className="cs-media">
       <video className="cs-video" src={src} controls playsInline preload="metadata" />
       {/* Printing (Save as PDF): the video can't play on paper, so this note shows instead. */}
-      <p className="cs-video-note">Video: it plays in the HTML version of this case study.</p>
+      <p className="cs-video-note">Video: it plays in the HTML version of this document.</p>
       {caption && <figcaption className="cs-caption">{caption}</figcaption>}
     </figure>
   );

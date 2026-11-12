@@ -24,6 +24,7 @@ import {
   ChartNode,
 } from '@/components/caseStudy/schema';
 import {EmbedBlock, FileBlock, VideoBlock} from '@/components/caseStudy/blocks';
+import {structuredEditorNodes} from './structuredViews';
 import {
   Callout as CalloutBlock,
   Comparison,
@@ -396,4 +397,6 @@ export const editorNodes = [
   FlowDiagramNode.extend({addNodeView: () => ReactNodeViewRenderer(FlowDiagramView)}),
   ResearchInsightsNode.extend({addNodeView: () => ReactNodeViewRenderer(ResearchInsightsView)}),
   ChartNode.extend({addNodeView: () => ReactNodeViewRenderer(ChartView)}),
+  // Phase 3 blocks (block contract §5): on-page editing views.
+  ...structuredEditorNodes,
 ];

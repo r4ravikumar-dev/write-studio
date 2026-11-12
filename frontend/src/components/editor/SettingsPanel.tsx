@@ -101,19 +101,27 @@ export function ImageField({
 export function SettingsPanel({
   meta,
   onChange,
+  isCaseStudy = true,
+  template,
 }: {
   meta: StudioMeta;
   onChange: (patch: Partial<StudioMeta>) => void;
+  /** UX case studies have a project type; other kinds of document don't. */
+  isCaseStudy?: boolean;
+  /** The template the document was made with, and the way to update it (shown first). */
+  template?: React.ReactNode;
 }) {
   const [tags, setTags] = useState(meta.tags.join(', '));
 
   return (
     <VStack gap={8} className="write-settings">
       <Heading level={2} style={{fontSize: 'var(--type-headline-s-size)'}}>
-        Case study settings
+        Details
       </Heading>
 
-      <Group title="Thumbnail" hint="The picture that stands for this case study in your workspace.">
+      {template && <Group title="Template">{template}</Group>}
+
+      <Group title="Thumbnail" hint="The picture on this document’s card in My documents.">
         <ImageField
           label="Thumbnail"
           url={meta.thumbnail_path}
@@ -139,10 +147,10 @@ export function SettingsPanel({
 
       <Divider />
 
-      <Group title="Summary" hint="The title and subtitle are on the page, above the story.">
+      <Group title="Summary" hint="The title and subtitle are on the page, above the first section.">
         <TextArea
           label="Summary"
-          description="Two or three sentences about the project."
+          description="Two or three sentences about it."
           value={meta.summary}
           onChange={value => onChange({summary: value})}
           rows={4}
@@ -170,24 +178,29 @@ export function SettingsPanel({
 
       <Divider />
 
-      <Group title="Project" hint="From project setup. All optional.">
-        <Selector
-          label="Project type"
-          options={[{value: '', label: 'Not set'}, ...Object.entries(PROJECT_TYPES).map(([value, type]) => ({value, label: type.label}))]}
-          value={meta.project_type ?? ''}
-          onChange={value => onChange({project_type: (value || null) as ProjectType | null})}
-        />
-        <TextInput label="Your role" description="For example: Lead product designer" value={meta.role} onChange={value => onChange({role: value})} width="100%" />
-        <TextInput label="Team" description="Who you worked with." value={meta.team} onChange={value => onChange({team: value})} width="100%" />
-        <TextInput label="Timeline" description="For example: March to June 2025" value={meta.timeline} onChange={value => onChange({timeline: value})} width="100%" />
-        <TextInput label="Platform" description="For example: iOS and Android app" value={meta.platform} onChange={value => onChange({platform: value})} width="100%" />
-        <TextArea label="Objective" description="What the project set out to achieve." value={meta.objective} onChange={value => onChange({objective: value})} rows={2} width="100%" />
-        <TextArea label="Main challenge" description="The biggest problem you had to solve." value={meta.challenge} onChange={value => onChange({challenge: value})} rows={2} width="100%" />
-      </Group>
+      {/* The UX case-study details (their own columns). Other templates' details arrive with those templates. */}
+      {isCaseStudy && (
+        <>
+          <Group title="Project" hint="From setup. All optional.">
+            <Selector
+              label="Project type"
+              options={[{value: '', label: 'Not set'}, ...Object.entries(PROJECT_TYPES).map(([value, type]) => ({value, label: type.label}))]}
+              value={meta.project_type ?? ''}
+              onChange={value => onChange({project_type: (value || null) as ProjectType | null})}
+            />
+            <TextInput label="Your role" description="For example: Lead product designer" value={meta.role} onChange={value => onChange({role: value})} width="100%" />
+            <TextInput label="Team" description="Who you worked with." value={meta.team} onChange={value => onChange({team: value})} width="100%" />
+            <TextInput label="Timeline" description="For example: March to June 2025" value={meta.timeline} onChange={value => onChange({timeline: value})} width="100%" />
+            <TextInput label="Platform" description="For example: iOS and Android app" value={meta.platform} onChange={value => onChange({platform: value})} width="100%" />
+            <TextArea label="Objective" description="What the project set out to achieve." value={meta.objective} onChange={value => onChange({objective: value})} rows={2} width="100%" />
+            <TextArea label="Main challenge" description="The biggest problem you had to solve." value={meta.challenge} onChange={value => onChange({challenge: value})} rows={2} width="100%" />
+          </Group>
+        </>
+      )}
 
       <Divider />
 
-      <Group title="Opening visual" hint="Optional. The large picture at the top of the case study.">
+      <Group title="Opening visual" hint="Optional. The large picture at the top of the document.">
         <ImageField label="Cover" url={meta.cover_path} onChange={path => onChange({cover_path: path})} />
       </Group>
 
@@ -196,7 +209,7 @@ export function SettingsPanel({
       <Group title="Short name">
         <TextInput
           label="Short name"
-          description="Used in this case study’s private web address. Use lowercase letters, numbers and dashes, and a different name for each case study."
+          description="Used in this document’s private web address. Use lowercase letters, numbers and dashes, and a different name for each case study."
           value={meta.slug}
           onChange={value => {
             onChange({slug: slugify(value)});

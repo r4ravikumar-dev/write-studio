@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["syd1"],
+  "functions": {
+    "config/wsgi.py": {
+      "maxDuration": 30,
+      "excludeFiles": "{.venv/**,.env,db.sqlite3,accounts/tests.py,**/__pycache__/**}"
+    }
+  }
+}

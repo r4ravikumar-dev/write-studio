@@ -21,7 +21,7 @@ import {
   saveRevision,
   type StudioRevision,
   type StudioRevisionWithContent,
-} from '@/app/studio/case-study-actions';
+} from '@/app/studio/document-actions';
 
 const KIND_LABELS: Record<StudioRevision['kind'], string> = {
   auto: 'Saved automatically',
@@ -180,7 +180,7 @@ export function HistoryDialog({
                         <button type="button" className="history-open" onClick={() => show(revision)} aria-label={`Open the version from ${time.format(new Date(revision.created_at))}: ${label(revision)}`}>
                           <span className="history-time">{time.format(new Date(revision.created_at))}</span>
                           <span className="history-label">{label(revision)}</span>
-                          <span className="history-title">{revision.title.replace(/\*/g, '') || 'Untitled case study'}</span>
+                          <span className="history-title">{revision.title.replace(/\*/g, '') || 'Untitled'}</span>
                         </button>
                         <IconButton
                           label={`Delete the version from ${time.format(new Date(revision.created_at))}`}
@@ -208,14 +208,14 @@ export function HistoryDialog({
                 </VStack>
                 {isArchived ? (
                   <Text type="supporting" color="secondary">
-                    Restore the case study from the archive to restore a version.
+                    Restore the document from the archive to restore a version.
                   </Text>
                 ) : (
                   <Button label="Restore this version" variant="primary" size="sm" onClick={() => setToRestore(open)} icon={<Icon icon={RotateCcw} size="sm" color="inherit" />} />
                 )}
               </HStack>
               <div className="history-doc" tabIndex={0} aria-label="The version’s text, read-only">
-                <h1 className="history-doc-title">{open.title.replace(/\*/g, '') || 'Untitled case study'}</h1>
+                <h1 className="history-doc-title">{open.title.replace(/\*/g, '') || 'Untitled'}</h1>
                 {open.subtitle && <p className="history-doc-subtitle">{open.subtitle}</p>}
                 <CaseStudyArticle content={open.content as JSONContent} />
               </div>
@@ -239,7 +239,7 @@ export function HistoryDialog({
         isOpen={toDelete !== null}
         onOpenChange={next => !next && setToDelete(null)}
         title="Delete this version?"
-        description="It’s removed from the history for good. The case study itself doesn’t change."
+        description="It’s removed from the history for good. The document itself doesn’t change."
         actionLabel="Delete"
         cancelLabel="Keep it"
         isActionLoading={isPending}
