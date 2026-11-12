@@ -1,6 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["syd1"],
+  "regions": [
+    "syd1"
+  ],
+  "ignoreCommand": "bash vercel-ignore.sh",
   "functions": {
     "config/wsgi.py": {
       "maxDuration": 30,

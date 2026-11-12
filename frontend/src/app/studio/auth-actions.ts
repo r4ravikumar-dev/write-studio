@@ -13,6 +13,7 @@ import {
 import {isBackendConfigured} from '@/lib/api/env';
 import {clientIp, setSession} from '@/lib/api/session';
 import {safeStudioNext} from '@/lib/auth/safe-next';
+import {checkHuman} from '@/lib/auth/turnstile';
 
 /**
  * Sign-in, sign-up and recovery actions. They only talk to the Django auth
@@ -49,7 +50,10 @@ export async function sendStudioCode(_: AuthFormState, formData: FormData): Prom
   const email = emailOf(formData);
   const displayName = text(formData, 'display_name').trim().slice(0, 80);
   if (!EMAIL.test(email)) return {status: 'error', field: 'email', message: 'Enter an email address in the format name@example.com.', email};
-  const result = await requestLoginCode(email, await clientIp());
+  const ip = await clientIp();
+  const notHuman = await checkHuman(formData, ip);
+  if (notHuman) return {status: 'error', message: notHuman, email, displayName};
+  const result = await requestLoginCode(email, ip);
   if (!result.ok) return {status: 'error', message: result.error, email, displayName};
   return {status: 'sent', email, displayName};
 }
@@ -79,7 +83,10 @@ export async function signUpWithPassword(_: AuthFormState, formData: FormData): 
   if (password !== text(formData, 'password_again')) {
     return {status: 'error', field: 'password_again', message: 'The passwords don’t match. Enter the same password in both fields.', email, displayName};
   }
-  const result = await signUp(email, password, displayName, await clientIp());
+  const ip = await clientIp();
+  const notHuman = await checkHuman(formData, ip);
+  if (notHuman) return {status: 'error', message: notHuman, email, displayName};
+  const result = await signUp(email, password, displayName, ip);
   if (!result.ok) return {status: 'error', field: result.field, message: result.error, email, displayName};
   return {status: 'sent', email, displayName};
 }
@@ -97,7 +104,10 @@ export async function requestPasswordReset(_: AuthFormState, formData: FormData)
   if (!isBackendConfigured) return notConfigured;
   const email = emailOf(formData);
   if (!EMAIL.test(email)) return {status: 'error', field: 'email', message: 'Enter an email address in the format name@example.com.', email};
-  const result = await forgotPassword(email, await clientIp());
+  const ip = await clientIp();
+  const notHuman = await checkHuman(formData, ip);
+  if (notHuman) return {status: 'error', message: notHuman, email};
+  const result = await forgotPassword(email, ip);
   if (!result.ok) return {status: 'error', message: result.error, email};
   return {status: 'sent', email};
 }

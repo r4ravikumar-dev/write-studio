@@ -1,4 +1,5 @@
 import type {Metadata} from 'next';
+import {Analytics} from '@vercel/analytics/next';
 import './globals.css';
 import {displayFont, primaryFont} from './fonts';
 
@@ -14,7 +15,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
     <html lang="en" data-astryx-theme="stone" className={`${primaryFont.variable} ${displayFont.variable}`}>
       <body>
         {children}
-        
+        <Analytics />
       </body>
     </html>
   );
