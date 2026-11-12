@@ -73,7 +73,7 @@ try {
   }
 
   // ---- 1. Editor: type, add blocks, autosave ---------------------------------------------------
-  const editorUrl = `${origin}/studio/case-studies/${caseStudyId}`;
+  const editorUrl = `${origin}/studio/documents/${caseStudyId}/edit`;
   await navigate(page, editorUrl);
   await waitFor(page, `Boolean(document.querySelector('.ProseMirror')?.editor)`, {label: 'the editor', timeout: 60000});
   out.loadedTitle = await evaluate(page, 'document.title');
@@ -89,6 +89,40 @@ try {
   // Enter and more typing, through key events (ProseMirror's own keymap).
   for (const type of ['keyDown', 'keyUp']) await page.send('Input.dispatchKeyEvent', {type, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, ...(type === 'keyDown' ? {text: '\r'} : {})});
   await page.send('Input.insertText', {text: 'A second paragraph.'});
+
+  // Smart Insert is document-aware: "/" in an empty paragraph of a template section recommends that
+  // section's blocks; in a section of the user's own, the blocks recommended for this kind of document.
+  const slashAt = async where => {
+    await evaluate(page, `(() => {
+      const ed = document.querySelector('.ProseMirror').editor;
+      const end = ed.state.doc.content.size;
+      ${where === 'own'
+        ? `ed.chain().insertContentAt(end, [{type: 'heading', attrs: {level: 2}, content: [{type: 'text', text: 'My own section'}]}, {type: 'paragraph'}]).run();
+           ed.chain().focus().setTextSelection(ed.state.doc.content.size - 1).run();`
+        : `ed.chain().insertContentAt(end, {type: 'paragraph'}).run(); ed.chain().focus().setTextSelection(ed.state.doc.content.size - 1).run();`}
+    })()`);
+    await page.send('Input.insertText', {text: '/'});
+    await waitFor(page, `Boolean(document.querySelector('.write-slash [role="option"]'))`, {label: 'the slash menu', timeout: 10000});
+    const menu = await evaluate(page, `(() => {
+      const groups = Array.from(document.querySelectorAll('.write-slash .write-slash-group')).map(e => e.textContent.trim());
+      const first = document.querySelector('.write-slash .write-slash-group');
+      const options = [];
+      for (let el = first?.nextElementSibling; el && el.getAttribute('role') === 'option'; el = el.nextElementSibling) options.push(el.textContent.trim());
+      return {groups, options};
+    })()`);
+    // Take the "/" (and the scratch blocks) out again: the document must end as it started.
+    await evaluate(page, `(() => {
+      const ed = document.querySelector('.ProseMirror').editor;
+      const doc = ed.state.doc;
+      let from = doc.content.size - doc.lastChild.nodeSize;
+      ${where === 'own' ? 'from -= doc.child(doc.childCount - 2).nodeSize;' : ''}
+      ed.chain().deleteRange({from, to: doc.content.size}).run();
+    })()`);
+    return menu;
+  };
+  out.slashInSection = await slashAt('template');
+  out.slashInOwnSection = await slashAt('own');
+  out.docAfterSlash = await evaluate(page, `(() => { const d = document.querySelector('.ProseMirror').editor.state.doc; return {blocks: d.childCount, ownSections: d.textContent.includes('My own section')}; })()`);
 
   // Blocks with the attributes that must survive the save (as the editor's own commands add them).
   await evaluate(page, `(() => {
@@ -136,7 +170,7 @@ try {
   out.reloadedDoc = await evaluate(page, `JSON.parse(JSON.stringify(document.querySelector('.ProseMirror').editor.getJSON()))`);
 
   // ---- 3. PDF: the preview through Chrome's print path (the print stylesheet) -------------------
-  const previewUrl = `${origin}/studio/case-studies/${caseStudyId}/preview`;
+  const previewUrl = `${origin}/studio/documents/${caseStudyId}/preview`;
   await navigate(page, previewUrl);
   await waitFor(page, `document.fonts.status === 'loaded' && Array.from(document.images).every(i => i.complete)`, {label: 'the preview to load', timeout: 60000});
   out.previewImages = await evaluate(page, `Array.from(document.querySelectorAll('.preview-page img')).map(i => ({w: i.naturalWidth, src: i.getAttribute('src')}))`);

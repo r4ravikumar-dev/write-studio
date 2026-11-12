@@ -1,6 +1,6 @@
 """
 Live T7 test: version history (automatic, named, before a restore), restore, owner isolation and the
-deny-all access model of studio_case_study_revisions; new frameworks through project setup.
+deny-all access model of studio_document_revisions; new frameworks through project setup.
 Needs Django :8000 (console email), Express :4000, Next :3000 and the staging DB. Creates throwaway
 @example.test accounts and removes them at the end.
 
@@ -17,12 +17,12 @@ j = lambda b: json.loads(b or b'{}')
 tag = uuid.uuid4().hex[:6]
 A, B = sign_in(f'history-a-{tag}@example.test'), sign_in(f'history-b-{tag}@example.test')
 ta, tb = A['access'], B['access']
-CS = '/api/app/case-studies'
+CS = '/api/app/documents'
 db = psycopg.connect(ns['dj']['DATABASE_URL'], autocommit=True)
 p = lambda text: {'type': 'paragraph', 'content': [{'type': 'text', 'text': text}]}
 
 s, b, _ = API(ta, 'POST', CS, {'title': 'History test'}); cid = j(b)['id']
-s, b, _ = API(ta, 'GET', f'{CS}/{cid}'); st = j(b)['study']
+s, b, _ = API(ta, 'GET', f'{CS}/{cid}'); st = j(b)['document']
 draft = {k: st[k] for k in ['slug', 'title', 'subtitle', 'label', 'area', 'tags', 'summary', 'focus', 'thumbnail_path', 'thumbnail_alt', 'thumbnail_focus', 'cover_path', 'layout', 'project_type', 'role', 'team', 'timeline', 'platform', 'objective', 'challenge']}
 first = st['content']
 
@@ -54,7 +54,7 @@ s, b, _ = API(tb, 'POST', f'{CS}/{bid}/revisions/{named["id"]}/restore'); ok("B 
 s, b, _ = API(ta, 'GET', f'{CS}/{cid}/revisions/{named["id"]}'); rev = j(b).get('revision', {})
 ok('A opens the named version: it holds "Version two."', s == 200 and 'Version two.' in json.dumps(rev.get('content')), s)
 s, b, _ = API(ta, 'POST', f'{CS}/{cid}/revisions/{named["id"]}/restore'); ok('A restores it', s == 200 and j(b).get('updatedAt'), s)
-s, b, _ = API(ta, 'GET', f'{CS}/{cid}'); now = j(b)['study']
+s, b, _ = API(ta, 'GET', f'{CS}/{cid}'); now = j(b)['document']
 ok('the document and title are back to that version', 'Version two.' in json.dumps(now['content']) and now['title'] == 'History test', now['title'])
 s, b, _ = API(ta, 'GET', f'{CS}/{cid}/revisions'); kinds = [r['kind'] for r in j(b)['revisions']]
 ok('what A had before the restore is kept ("before a restore")', kinds[0] == 'before_restore', kinds)
@@ -67,27 +67,27 @@ s, b, _ = API(ta, 'POST', f'{CS}/{cid}/revisions/{named["id"]}/restore'); ok('an
 API(ta, 'POST', f'{CS}/{cid}/restore')
 s, _, _ = API(ta, 'DELETE', f'{CS}/{cid}/revisions/{named["id"]}'); ok('A deletes the named version', s == 200, s)
 
-anon = db.execute("select has_table_privilege('anon', 'public.studio_case_study_revisions', 'select'), has_table_privilege('authenticated', 'public.studio_case_study_revisions', 'select')").fetchone()
+anon = db.execute("select has_table_privilege('anon', 'public.studio_document_revisions', 'select'), has_table_privilege('authenticated', 'public.studio_document_revisions', 'select')").fetchone()
 ok('anon and authenticated have no access to versions', anon == (False, False), anon)
-pol = db.execute("select relrowsecurity, (select count(*) from pg_policies where tablename = 'studio_case_study_revisions') from pg_class where oid = 'public.studio_case_study_revisions'::regclass").fetchone()
+pol = db.execute("select relrowsecurity, (select count(*) from pg_policies where tablename = 'studio_document_revisions') from pg_class where oid = 'public.studio_document_revisions'::regclass").fetchone()
 ok('row-level security is on with no policies', pol == (True, 0), pol)
 try:
-    db.execute("insert into public.studio_case_study_revisions (case_study_id, owner_id, kind, content) values (%s, %s, 'auto', '{}'::jsonb)", (cid, B['user']['id']))
+    db.execute("insert into public.studio_document_revisions (document_id, owner_id, kind, content) values (%s, %s, 'auto', '{}'::jsonb)", (cid, B['user']['id']))
     ok("a version can't belong to someone other than the case study's owner", False)
 except psycopg.Error:
     ok("a version can't belong to someone other than the case study's owner", True)
 
 # New frameworks through project setup (T7)
 setup = {'step': 'outline', 'start': 'framework', 'project_type': 'research', 'title': 'Night bookings study', 'summary': '', 'role': '', 'team': '', 'timeline': '',
-         'platform': '', 'objective': '', 'challenge': '', 'framework_id': 'ux-research', 'framework_version': 1, 'cover_path': None, 'cover_alt': '',
+         'platform': '', 'objective': '', 'challenge': '', 'template_id': 'ux-research', 'template_version': 1, 'cover_path': None, 'cover_alt': '',
          'outline': [{'id': f'x{i}', 'key': k, 'title': ''} for i, k in enumerate(['research-context', 'research-question', 'research-findings'])]}
 s, b, _ = API(ta, 'POST', CS, {'setup': setup, 'finish': True}); rid = j(b).get('id')
-s, b, _ = API(ta, 'GET', f'{CS}/{rid}'); rs = j(b).get('study', {})
+s, b, _ = API(ta, 'GET', f'{CS}/{rid}'); rs = j(b).get('document', {})
 heads = [n['attrs'].get('section') for n in rs.get('content', {}).get('content', []) if n['type'] == 'heading']
-ok('a UX research case study is created with its framework and sections', (rs.get('framework_id'), rs.get('framework_version')) == ('ux-research', 1) and heads == ['research-context', 'research-question', 'research-findings'], (rs.get('framework_id'), heads))
+ok('a UX research case study is created with its framework and sections', (rs.get('template_id'), rs.get('template_version')) == ('ux-research', 1) and heads == ['research-context', 'research-question', 'research-findings'], (rs.get('template_id'), heads))
 
 db.execute("delete from django.accounts_user where email in (%s, %s)", (A['user']['email'], B['user']['email']))
-left = db.execute("select (select count(*) from public.studio_case_studies where owner_id = any(%s::uuid[])) + (select count(*) from public.studio_case_study_revisions where owner_id = any(%s::uuid[]))", ([A['user']['id'], B['user']['id']],) * 2).fetchone()[0]
+left = db.execute("select (select count(*) from public.studio_documents where owner_id = any(%s::uuid[])) + (select count(*) from public.studio_document_revisions where owner_id = any(%s::uuid[]))", ([A['user']['id'], B['user']['id']],) * 2).fetchone()[0]
 ok('everything created by the test is gone (versions cascade)', left == 0, left)
 print(f'\n{sum(results)}/{len(results)} passed')
 sys.exit(0 if all(results) else 1)

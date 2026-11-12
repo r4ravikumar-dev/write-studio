@@ -13,7 +13,7 @@ import {Icon} from '@astryxdesign/core/Icon';
 import {ArrowDown, ArrowUp, Plus} from 'lucide-react';
 import {SECTION_STATES, frameworkSection, type SuggestedVisual} from '@studio/shared';
 import {insertIdFor, suggestionLabel} from './blocks/registry';
-import {saveSectionNote} from '@/app/studio/case-study-actions';
+import {saveSectionNote} from '@/app/studio/document-actions';
 import {EYEBROW_STYLE} from '@/theme/eyebrow';
 import {goToSection, setSectionStatus, type OutlineSection} from './sections';
 import {frameworkOf, type InsertCommand} from './insertCommands';
@@ -25,7 +25,7 @@ const OWN_SECTION = {
   purpose: 'Your own section. Say in a sentence what the reader should take from it, then show the evidence.',
   prompts: ['What should the reader learn here?', 'Why does it matter to the story?', 'What shows it: a picture, a quote or a result?'],
   suggestedEvidence: [] as string[],
-  suggestedVisuals: [] as SuggestedVisual[],
+  suggestedBlocks: [] as SuggestedVisual[],
 };
 
 const OPEN_KEY = 'studio.guide.closed';
@@ -204,11 +204,11 @@ function Guide({
       {list('prompts', 'Questions to answer', guide.prompts)}
       {list('evidence', 'Evidence to include', guide.suggestedEvidence)}
 
-      {guide.suggestedVisuals.length > 0 && (
+      {guide.suggestedBlocks.length > 0 && (
         <details className="write-guide-group" open={!closed.includes('visuals')} onToggle={event => toggle('visuals', event.currentTarget.open)}>
-          <summary className="t-web-label-xl-semibold">Visuals that work here</summary>
+          <summary className="t-web-label-xl-semibold">Blocks that work here</summary>
           <VStack gap={2} className="write-guide-visuals">
-            {guide.suggestedVisuals.map(name => (
+            {guide.suggestedBlocks.map(name => (
               <Button
                 key={name}
                 label={`Add ${suggestionLabel(name).toLowerCase()}`}
@@ -226,7 +226,7 @@ function Guide({
       <VStack gap={2}>
         <TextArea
           label="Private note"
-          description="For your own reminders. It isn’t part of the case study, its preview or anything you export."
+          description="For your own reminders. It isn’t part of the document, its preview or anything you export."
           value={note}
           onChange={value => {
             const body = value.slice(0, 5000);

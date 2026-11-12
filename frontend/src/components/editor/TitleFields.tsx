@@ -1,5 +1,6 @@
 'use client';
 
+import {isUntitledTitle} from '@studio/shared';
 import {useLayoutEffect, useRef} from 'react';
 import type {Editor} from '@tiptap/react';
 
@@ -36,7 +37,7 @@ export function TitleFields({
   useAutoHeight(titleRef, title);
   useAutoHeight(subtitleRef, subtitle);
   const oneLine = (value: string) => value.replace(/\s*\n+\s*/g, ' ');
-  const shown = title === 'Untitled case study' ? '' : title;
+  const shown = isUntitledTitle(title) ? '' : title;
 
   return (
     <div className="write-titles">
@@ -45,7 +46,7 @@ export function TitleFields({
         className="write-title"
         rows={1}
         aria-label="Title"
-        placeholder="Case study title"
+        placeholder="Title"
         value={shown}
         maxLength={300}
         readOnly={!isEditable}

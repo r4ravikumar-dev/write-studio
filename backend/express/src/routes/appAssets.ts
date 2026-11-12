@@ -21,20 +21,20 @@ import {workspaceOf} from './app';
  */
 export const appAssetsRouter = Router();
 
-const FIELDS = 'id, workspace_id, owner_id, case_study_id, path, kind, mime, size, width, height, alt, original_name, created_at';
+const FIELDS = 'id, workspace_id, owner_id, document_id, path, kind, mime, size, width, height, alt, original_name, created_at';
 const storageUrl = (path: string) =>
   `${env.supabaseUrl}/storage/v1/object/authenticated/${STUDIO_BUCKET}/${path.split('/').map(encodeURIComponent).join('/')}`;
 const serviceHeaders = {apikey: env.supabaseServiceRoleKey, Authorization: `Bearer ${env.supabaseServiceRoleKey}`};
 const privateNoStore = (res: import('express').Response) => res.set('Cache-Control', 'private, no-store');
 
-/** A case study id, only if it is one of this user's (null for the library). */
-async function ownCaseStudy(userId: string, value: unknown): Promise<string | null> {
+/** A document id, only if it is one of this user's (null for the library). */
+async function ownDocument(userId: string, value: unknown): Promise<string | null> {
   if (value == null || value === '') return null;
   const id = String(value);
-  if (!UUID.test(id)) throw new HttpError(404, 'Case study not found.');
-  const {data, error} = await supabase.from('studio_case_studies').select('id').eq('id', id).eq('owner_id', userId).maybeSingle();
+  if (!UUID.test(id)) throw new HttpError(404, 'Document not found.');
+  const {data, error} = await supabase.from('studio_documents').select('id').eq('id', id).eq('owner_id', userId).maybeSingle();
   if (error) throw new HttpError(502, error.message);
-  if (!data) throw new HttpError(404, 'Case study not found.');
+  if (!data) throw new HttpError(404, 'Document not found.');
   return id;
 }
 
@@ -45,7 +45,7 @@ async function removeObjects(paths: string[]) {
   if (error) console.error('[studio media] cleanup failed:', error.message);
 }
 
-/** Every upload in the user's library, newest first. ?kind=image|video|file, ?case_study_id= */
+/** Every upload in the user's library, newest first. ?kind=image|video|file, ?document_id= */
 appAssetsRouter.get(
   '/',
   handle(async (req, res) => {
@@ -55,7 +55,7 @@ appAssetsRouter.get(
       if (!['image', 'video', 'file'].includes(kind)) throw new HttpError(400, 'Unknown kind of file.');
       query = query.eq('kind', kind);
     }
-    if (req.query.case_study_id) query = query.eq('case_study_id', requireUuid(String(req.query.case_study_id)));
+    if (req.query.document_id) query = query.eq('document_id', requireUuid(String(req.query.document_id)));
     const {data, error} = await query;
     if (error) throw new HttpError(502, error.message);
     privateNoStore(res);
@@ -80,8 +80,8 @@ appAssetsRouter.post(
       throw new HttpError(400, 'Files can be up to 50 MB. For long videos, use a YouTube, Vimeo or Loom link instead.');
     }
     const workspace = await workspaceOf(req.user!.id);
-    const caseStudyId = await ownCaseStudy(req.user!.id, body.case_study_id);
-    const path = `${req.user!.id}/${workspace.id}/${caseStudyId ?? 'library'}/${crypto.randomUUID()}.${type.ext}`;
+    const documentId = await ownDocument(req.user!.id, body.document_id);
+    const path = `${req.user!.id}/${workspace.id}/${documentId ?? 'library'}/${crypto.randomUUID()}.${type.ext}`;
     const {data, error} = await supabase.storage.from(STUDIO_BUCKET).createSignedUploadUrl(path);
     if (error) throw new HttpError(502, error.message);
     privateNoStore(res);
@@ -104,9 +104,9 @@ appAssetsRouter.post(
     if (!STUDIO_PATH.test(path) || !path.startsWith(`${req.user!.id}/${workspace.id}/`)) {
       throw new HttpError(404, 'Upload not found.');
     }
-    const caseStudyId = await ownCaseStudy(req.user!.id, body.case_study_id);
+    const documentId = await ownDocument(req.user!.id, body.document_id);
     const folder = path.split('/')[2];
-    if (folder !== (caseStudyId ?? 'library')) throw new HttpError(400, 'That upload belongs to a different case study.');
+    if (folder !== (documentId ?? 'library')) throw new HttpError(400, 'That upload belongs to a different document.');
 
     // What actually got stored.
     const head = await fetch(storageUrl(path), {method: 'HEAD', headers: serviceHeaders});
@@ -127,7 +127,7 @@ appAssetsRouter.post(
       .insert({
         workspace_id: workspace.id,
         owner_id: req.user!.id,
-        case_study_id: caseStudyId,
+        document_id: documentId,
         path,
         kind: type!.kind,
         mime: storedMime,

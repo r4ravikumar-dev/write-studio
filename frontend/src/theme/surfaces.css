@@ -217,6 +217,168 @@
   }
 }
 
+/* ── My documents (multi-vertical Phase 2) ───────────────────────────────────────────────────
+   Status on each card, the status and view filters, and the list view of the same cards. */
+.project-card-status {
+  color: var(--text-gray-primary);
+  font-weight: 500;
+}
+.project-card-status[data-status='in_progress'] {
+  color: var(--text-info-intense);
+}
+.project-card-status[data-status='ready_for_review'] {
+  color: var(--text-success-intense);
+}
+.project-card-status[data-status='setup'] {
+  color: var(--text-warning-intense);
+}
+.doc-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.doc-filter,
+.template-cat > span {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: calc(var(--size-32) + var(--size-04));
+  padding: 0 var(--space-16);
+  border: var(--border-width-100) solid var(--border-gray-normal);
+  border-radius: var(--radius-round);
+  background: var(--surface-container);
+  color: var(--text-gray-primary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color var(--glass-duration) ease, background var(--glass-duration) ease;
+}
+.doc-filter:hover,
+.template-cat:hover > span {
+  border-color: var(--border-brand-normal);
+}
+.doc-filter[aria-current],
+.template-cat:has(:checked) > span {
+  border-color: var(--border-brand-normal);
+  background: var(--bg-brand-light);
+  color: var(--text-brand-primary);
+}
+.doc-filter:focus-visible,
+.template-cat:has(:focus-visible) > span {
+  outline: var(--border-width-200) solid var(--border-brand-normal);
+  outline-offset: var(--space-2);
+}
+@media (pointer: coarse) {
+  .doc-filter,
+  .template-cat > span {
+    min-block-size: var(--size-40);
+  }
+}
+/* List view: the same cards as rows, without the thumbnail. */
+.project-grid[data-view='list'] {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-8);
+}
+.project-grid[data-view='list'] .project-card-thumb {
+  display: none;
+}
+.project-grid[data-view='list'] .project-card:hover {
+  transform: none;
+}
+.project-grid[data-view='list'] .project-card-body {
+  padding: var(--space-12) var(--space-12) var(--space-12) var(--space-16);
+}
+
+/* ── Template library (multi-vertical Phase 2) ───────────────────────────────────────────────
+   Search and category chips, template cards by category, and the chosen template's preview:
+   beside the list on wide screens, under it on narrow ones. */
+.template-gallery {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-24);
+  align-items: start;
+}
+@media screen and (min-width: 1100px) {
+  .template-gallery {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 24rem);
+  }
+  .template-preview {
+    position: sticky;
+    inset-block-start: calc(56px + var(--space-24));
+    max-block-size: calc(100dvh - 56px - var(--space-48));
+    overflow-y: auto;
+  }
+}
+/* Inside the wizard's card there is less room: the preview always sits under the list. */
+.setup-panel .template-gallery {
+  grid-template-columns: minmax(0, 1fr);
+}
+.setup-panel .template-preview {
+  position: static;
+  max-block-size: none;
+}
+.template-search {
+  flex: 1 1 18rem;
+  max-inline-size: 28rem;
+}
+.template-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+.template-cat {
+  position: relative;
+}
+.template-groups {
+  display: grid;
+  gap: var(--space-32);
+}
+.template-group {
+  display: grid;
+  gap: var(--space-12);
+}
+.template-planned {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-12) var(--space-16);
+  display: grid;
+  gap: var(--space-12);
+  border-radius: var(--radius-12);
+  background: var(--surface-container-high);
+  color: var(--text-gray-primary);
+}
+.template-planned li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-8);
+  align-items: center;
+}
+.template-planned-text {
+  flex-basis: 100%;
+  color: var(--text-gray-secondary);
+}
+.setup-badge.template-soon {
+  background: var(--surface-container);
+  color: var(--text-gray-secondary);
+}
+.template-facts {
+  display: grid;
+  gap: var(--space-12);
+  margin: 0;
+}
+.template-facts dt {
+  color: var(--text-gray-secondary);
+}
+.template-facts dd {
+  margin: 0;
+  color: var(--text-gray-primary);
+}
+
 /* ── Project setup (the new case study wizard, Stage 1) ───────────────────────────────────────
    Steps on the left (layer 0), the step on a layer-1 card. Phones: "Step 2 of 6" above the card. */
 .setup {
@@ -1246,4 +1408,32 @@
 }
 @media print {
   .block-handle { display: none; }
+}
+
+/* ── Template version (editor Details panel; multi-vertical Phase 2) ─────────────────────────── */
+.template-update {
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-12);
+  background: var(--bg-info-subtle);
+  color: var(--text-gray-primary);
+}
+.template-update-dialog {
+  padding: 0 var(--space-24) var(--space-24);
+}
+.template-update-list {
+  margin: 0;
+  padding-inline-start: var(--space-20);
+  display: grid;
+  gap: var(--space-8);
+  color: var(--text-gray-primary);
+}
+
+/* ── A block from a newer version of the app (block contract B2) ───────────────────────────── */
+.cs-unknown-block {
+  margin: var(--space-16) 0;
+  padding: var(--space-12) var(--space-16);
+  border: var(--border-width-100) dashed var(--border-gray-intense);
+  border-radius: var(--radius-8);
+  background: var(--surface-container-high);
+  color: var(--text-gray-secondary);
 }

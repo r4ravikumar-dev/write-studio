@@ -21,16 +21,16 @@ ta, tb = A['access'], B['access']
 ca, cb = f'studio_access={ta}', f'studio_access={tb}'
 
 # --- create -------------------------------------------------------------------
-s, b, _ = API(ta, 'POST', '/api/app/case-studies', {'title': 'Checkout redesign'}); cid = j(b).get('id'); ok('A creates a private case study', s == 201 and cid, s)
-s, b, _ = API(ta, 'GET', f'/api/app/case-studies/{cid}'); study = j(b)['study']
+s, b, _ = API(ta, 'POST', '/api/app/documents', {'title': 'Checkout redesign'}); cid = j(b).get('id'); ok('A creates a private case study', s == 201 and cid, s)
+s, b, _ = API(ta, 'GET', f'/api/app/documents/{cid}'); study = j(b)['document']
 ok('it starts as a draft from the 20-block template, slug from the title', study['status'] == 'draft' and len(study['content']['content']) == 20 and study['slug'].startswith('checkout-redesign-'))
 ok('owner and workspace were set by the server', study['owner_id'] == A['user']['id'])
 
 # --- every block type, with A's own private media --------------------------------
-_, img, _ = upload(ta, PNG, 'image/png', case_study_id=cid)
+_, img, _ = upload(ta, PNG, 'image/png', document_id=cid)
 _, lib, _ = upload(ta, PNG, 'image/png')
-_, vid, _ = upload(ta, bytes(range(256)) * 8, 'video/mp4', case_study_id=cid)
-_, pdf, _ = upload(ta, b'%PDF-1.4\n%test\n', 'application/pdf', case_study_id=cid)
+_, vid, _ = upload(ta, bytes(range(256)) * 8, 'video/mp4', document_id=cid)
+_, pdf, _ = upload(ta, b'%PDF-1.4\n%test\n', 'application/pdf', document_id=cid)
 ref = lambda a, alt='Alt': {'path': a['path'], 'kind': 'video' if a['kind'] == 'video' else 'image', 'mime': a['mime'], 'width': 1, 'height': 1, 'alt': alt}
 p = lambda t: {'type': 'paragraph', 'content': [{'type': 'text', 'text': t}]}
 doc = {'type': 'doc', 'content': [
@@ -52,9 +52,9 @@ doc = {'type': 'doc', 'content': [
 ]}
 draft = {k: study[k] for k in ['slug', 'title', 'subtitle', 'label', 'area', 'tags', 'summary', 'focus', 'thumbnail_path', 'thumbnail_alt', 'thumbnail_focus', 'cover_path', 'layout']}
 draft.update(content=doc, summary='A private test.', thumbnail_path=img['path'], cover_path=lib['path'], thumbnail_alt='Checkout')
-s, b, _ = API(ta, 'PUT', f'/api/app/case-studies/{cid}', {**draft, 'expected_updated_at': study['updated_at']}); saved = j(b)
+s, b, _ = API(ta, 'PUT', f'/api/app/documents/{cid}', {**draft, 'expected_updated_at': study['updated_at']}); saved = j(b)
 ok('A saves every block type with private media', s == 200 and saved.get('updatedAt'), f"{s} {saved.get('error', '')[:90]}")
-s, b, _ = API(ta, 'GET', f'/api/app/case-studies/{cid}'); back = j(b)['study']
+s, b, _ = API(ta, 'GET', f'/api/app/documents/{cid}'); back = j(b)['document']
 # Since Stage 2 the server gives every section heading (level 2) an id and a status; nothing else changes.
 first = back['content']['content'][0]['attrs']
 expected = copy.deepcopy(doc); expected['content'][0]['attrs'].update(sectionId=first.get('sectionId'), sectionStatus=None)
@@ -62,50 +62,50 @@ ok('reload returns the document exactly as saved, plus a section id (SEC-011)', 
 ok('stored JSON holds raw storage paths, never URLs', '/studio/files/' not in json.dumps(back['content']) and 'http' not in json.dumps(back['content']).replace('https://youtu.be', ''))
 
 # --- concurrency ----------------------------------------------------------------
-s, b, _ = API(ta, 'PUT', f'/api/app/case-studies/{cid}', {**draft, 'expected_updated_at': study['updated_at']}); ok('a save based on an old version is refused (another tab)', s == 409 and j(b).get('code') == 'conflict', s)
+s, b, _ = API(ta, 'PUT', f'/api/app/documents/{cid}', {**draft, 'expected_updated_at': study['updated_at']}); ok('a save based on an old version is refused (another tab)', s == 409 and j(b).get('code') == 'conflict', s)
 
 # --- only the owner's own files can be referenced ---------------------------------
 _, bimg, _ = upload(tb, PNG, 'image/png')
 def with_src(src):
     d = copy.deepcopy(draft); d['content'] = {'type': 'doc', 'content': [{'type': 'image', 'attrs': {'src': src, 'alt': 'x'}}]}; return d
 for name, src in [("B's private file", bimg['path']), ('an old-style (non-Studio) path', f"{cid}/1700000000-x.png"), ('an external URL', 'https://evil.test/x.png'), ('inline data', 'data:image/png;base64,AAAA')]:
-    s, _, _ = API(ta, 'PUT', f'/api/app/case-studies/{cid}', with_src(src)); ok(f'saving a document that points at {name} is refused', s == 422, s)
+    s, _, _ = API(ta, 'PUT', f'/api/app/documents/{cid}', with_src(src)); ok(f'saving a document that points at {name} is refused', s == 422, s)
 d = copy.deepcopy(draft); d['thumbnail_path'] = bimg['path']
-s, _, _ = API(ta, 'PUT', f'/api/app/case-studies/{cid}', d); ok("a thumbnail that is B's file is refused", s == 422, s)
+s, _, _ = API(ta, 'PUT', f'/api/app/documents/{cid}', d); ok("a thumbnail that is B's file is refused", s == 422, s)
 d = copy.deepcopy(draft); d['content'] = {'type': 'doc', 'content': [p('x' * 2_200_000)]}
-s, _, _ = API(ta, 'PUT', f'/api/app/case-studies/{cid}', d); ok('a document over 2 MB is refused', s in (413, 422), s)
+s, _, _ = API(ta, 'PUT', f'/api/app/documents/{cid}', d); ok('a document over 2 MB is refused', s in (413, 422), s)
 
 # --- B can't see or touch A's case study (SEC-005/006) ------------------------------
-for method, path, body in [('GET', f'/api/app/case-studies/{cid}', None), ('PUT', f'/api/app/case-studies/{cid}', draft), ('POST', f'/api/app/case-studies/{cid}/archive', None), ('DELETE', f'/api/app/case-studies/{cid}', None)]:
+for method, path, body in [('GET', f'/api/app/documents/{cid}', None), ('PUT', f'/api/app/documents/{cid}', draft), ('POST', f'/api/app/documents/{cid}/archive', None), ('DELETE', f'/api/app/documents/{cid}', None)]:
     s, _, _ = API(tb, method, path, body); ok(f'B: {method} on A\'s case study gets 404', s == 404, s)
-s, b, _ = API(tb, 'GET', '/api/app/case-studies'); ok("B's list doesn't include A's case study", all(x['id'] != cid for x in j(b)['studies']))
-s, _, _ = API(None, 'GET', '/api/app/case-studies'); ok('no token: 401', s == 401, s)
+s, b, _ = API(tb, 'GET', '/api/app/documents'); ok("B's list doesn't include A's case study", all(x['id'] != cid for x in j(b)['documents']))
+s, _, _ = API(None, 'GET', '/api/app/documents'); ok('no token: 401', s == 401, s)
 
 # --- no publishing at all (SEC-013) -----------------------------------------------------
-s, _, _ = API(ta, 'POST', f'/api/app/case-studies/{cid}/publish', draft); ok('there is no Studio publish endpoint', s == 404, s)
+s, _, _ = API(ta, 'POST', f'/api/app/documents/{cid}/publish', draft); ok('there is no Studio publish endpoint', s == 404, s)
 s, _, _ = WEB(f'/work/{back["slug"]}'); ok('the case study has no public page', s == 404, s)
 
 # --- pages ---------------------------------------------------------------------------
 s, html, _ = WEB('/studio', ca); ok("A's dashboard lists the draft", s == 200 and b'Checkout redesign' in html, s)
-s, html, _ = WEB(f'/studio/case-studies/{cid}', ca); ok('A opens the editor (SEC-012)', s == 200 and b'Archive' in html and b'Publish' not in html, s)
-s, html, _ = WEB(f'/studio/case-studies/{cid}/preview', ca)
+s, html, _ = WEB(f'/studio/documents/{cid}/edit', ca); ok('A opens the editor (SEC-012)', s == 200 and b'Archive' in html and b'Publish' not in html, s)
+s, html, _ = WEB(f'/studio/documents/{cid}/preview', ca)
 ok('A opens the private preview, media via /studio/files', s == 200 and b'/studio/files/' in html, s)
 ok('preview has no public media URLs', b'/storage/v1/object/public/' not in html)
-s, _, _ = WEB(f'/studio/case-studies/{cid}', cb); ok("B gets 404 for A's editor", s == 404, s)
-s, _, _ = WEB(f'/studio/case-studies/{cid}/preview', cb); ok("B gets 404 for A's preview", s == 404, s)
-s, _, h = WEB(f'/studio/case-studies/{cid}'); ok('signed out: redirected to sign in, nothing rendered (SEC-004)', s == 307 and '/studio/login' in h.get('Location', ''), s)
+s, _, _ = WEB(f'/studio/documents/{cid}/edit', cb); ok("B gets 404 for A's editor", s == 404, s)
+s, _, _ = WEB(f'/studio/documents/{cid}/preview', cb); ok("B gets 404 for A's preview", s == 404, s)
+s, _, h = WEB(f'/studio/documents/{cid}/edit'); ok('signed out: redirected to sign in, nothing rendered (SEC-004)', s == 307 and '/studio/login' in h.get('Location', ''), s)
 
 # --- archive / restore ------------------------------------------------------------------
-s, b, _ = API(ta, 'POST', f'/api/app/case-studies/{cid}/archive'); ok('A archives it', s == 200 and j(b)['status'] == 'archived', s)
-s, _, _ = API(ta, 'PUT', f'/api/app/case-studies/{cid}', draft); ok('an archived case study is read-only', s == 409, s)
-s, b, _ = API(ta, 'GET', '/api/app/case-studies?status=archived'); ok('it shows under Archived', any(x['id'] == cid for x in j(b)['studies']))
-s, b, _ = API(ta, 'POST', f'/api/app/case-studies/{cid}/restore'); ok('A restores it', s == 200 and j(b)['status'] == 'draft', s)
-s, b, _ = API(ta, 'PUT', f'/api/app/case-studies/{cid}', draft); ok('and can edit again', s == 200, s)
+s, b, _ = API(ta, 'POST', f'/api/app/documents/{cid}/archive'); ok('A archives it', s == 200 and j(b)['status'] == 'archived', s)
+s, _, _ = API(ta, 'PUT', f'/api/app/documents/{cid}', draft); ok('an archived case study is read-only', s == 409, s)
+s, b, _ = API(ta, 'GET', '/api/app/documents?status=archived'); ok('it shows under Archived', any(x['id'] == cid for x in j(b)['documents']))
+s, b, _ = API(ta, 'POST', f'/api/app/documents/{cid}/restore'); ok('A restores it', s == 200 and j(b)['status'] == 'draft', s)
+s, b, _ = API(ta, 'PUT', f'/api/app/documents/{cid}', draft); ok('and can edit again', s == 200, s)
 
 # --- delete keeps the library (SEC-016) -----------------------------------------------------
-s, _, _ = API(ta, 'DELETE', f'/api/app/case-studies/{cid}'); ok('A deletes the case study', s == 200, s)
+s, _, _ = API(ta, 'DELETE', f'/api/app/documents/{cid}'); ok('A deletes the case study', s == 200, s)
 s, b, _ = API(ta, 'GET', '/api/app/assets'); mine = {x['id']: x for x in j(b)['assets']}
-ok('its uploads stay in A\'s library, detached', img['id'] in mine and mine[img['id']]['case_study_id'] is None)
+ok('its uploads stay in A\'s library, detached', img['id'] in mine and mine[img['id']]['document_id'] is None)
 s, _, _ = WEB(f"/studio/files/{img['path']}", ca); ok('and still open for A', s == 200, s)
 
 # --- the old portfolio is gone (SEC-014/015) -------------------------------------------------
@@ -130,7 +130,7 @@ call('DELETE', f"{ns['SUPA']}/storage/v1/object/studio-private-media", {'prefixe
 with psycopg.connect(ns['dj']['DATABASE_URL']) as c:
     c.execute("delete from django.accounts_user where email in (%s, %s)", (A['user']['email'], B['user']['email']))
     ids = (A['user']['id'], B['user']['id'])
-    left = c.execute("select (select count(*) from public.studio_case_studies where owner_id = any(%s::uuid[])) + (select count(*) from public.studio_assets where owner_id = any(%s::uuid[]))", (list(ids), list(ids))).fetchone()[0]
+    left = c.execute("select (select count(*) from public.studio_documents where owner_id = any(%s::uuid[])) + (select count(*) from public.studio_assets where owner_id = any(%s::uuid[]))", (list(ids), list(ids))).fetchone()[0]
 ok('everything created by the test is gone', left == 0, left)
 print(f'\n{sum(results)}/{len(results)} passed')
 sys.exit(0 if all(results) else 1)
