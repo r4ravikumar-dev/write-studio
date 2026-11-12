@@ -6,7 +6,8 @@ import {DropdownMenu} from '@astryxdesign/core/DropdownMenu';
 import {Button} from '@astryxdesign/core/Button';
 import {IconButton} from '@astryxdesign/core/IconButton';
 import {Icon} from '@astryxdesign/core/Icon';
-import {Download, FileCode2, FileText} from 'lucide-react';
+import {Download, FileCode2, FileDown, FileJson, FileText} from 'lucide-react';
+import {CONTENT_SCHEMA_VERSION, documentMediaPaths, exportStudyMarkdown, type StudioCaseStudy} from '@studio/shared';
 
 /** Files bigger than this aren't embedded in the HTML export (it would be unwieldy to open). */
 const MAX_EMBED_BYTES = 20 * 1024 * 1024;
@@ -73,6 +74,7 @@ export function ExportMenu({
   previewHref,
   beforeOpen,
   isIconOnly = false,
+  study,
 }: {
   title: string;
   /** From the editor: export opens the private preview in a new tab and runs there. */
@@ -80,11 +82,25 @@ export function ExportMenu({
   /** Runs before the preview opens (the editor saves first). */
   beforeOpen?: () => Promise<unknown>;
   isIconOnly?: boolean;
+  study?: StudioCaseStudy;
 }) {
   const [isWorking, setIsWorking] = useState(false);
   const [message, setMessage] = useState('');
   const hasAutoRun = useRef(false);
   const router = useRouter();
+
+  const getFileBase = () => {
+    return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'document';
+  };
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  };
 
   const exportHtml = async () => {
     const page = document.querySelector<HTMLElement>('.preview-page');
@@ -126,12 +142,8 @@ export function ExportMenu({
 <script>${SLIDER_SCRIPT}</script>
 </body>
 </html>`;
-      const url = URL.createObjectURL(new Blob([html], {type: 'text/html'}));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'case-study'}.html`;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      const blob = new Blob([html], {type: 'text/html'});
+      downloadBlob(blob, `${getFileBase()}.html`);
       setMessage(skipped ? `HTML file downloaded. ${skipped} file${skipped === 1 ? ' was' : 's were'} too large to include.` : 'HTML file downloaded.');
     } catch {
       setMessage('We couldn’t make the HTML file. Reload the page and try again.');
@@ -140,11 +152,49 @@ export function ExportMenu({
     }
   };
 
+  const exportMarkdown = () => {
+    if (!study) return;
+    setIsWorking(true);
+    setMessage('Preparing Markdown file…');
+    try {
+      const md = exportStudyMarkdown(study);
+      const blob = new Blob([md], {type: 'text/markdown;charset=utf-8'});
+      downloadBlob(blob, `${getFileBase()}.md`);
+      setMessage('Markdown file downloaded.');
+    } catch {
+      setMessage('We couldn’t make the Markdown file.');
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  const exportJson = () => {
+    if (!study) return;
+    setIsWorking(true);
+    setMessage('Preparing JSON backup…');
+    try {
+      const backup = {
+        schema_version: CONTENT_SCHEMA_VERSION,
+        exported_at: new Date().toISOString(),
+        document: study,
+        asset_manifest: documentMediaPaths(study.content),
+      };
+      const json = JSON.stringify(backup, null, 2);
+      const blob = new Blob([json], {type: 'application/json;charset=utf-8'});
+      downloadBlob(blob, `${getFileBase()}-backup.json`);
+      setMessage('Backup JSON downloaded.');
+    } catch {
+      setMessage('We couldn’t make the backup file.');
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
   /**
    * From the editor: open the tab straight away (inside the click, so it isn't blocked as a
-   * pop-up), save, then point it at the preview with ?export=pdf|html.
+   * pop-up), save, then point it at the preview with ?export=pdf|html|markdown|json.
    */
-  const openPreview = (kind: 'pdf' | 'html') => {
+  const openPreview = (kind: 'pdf' | 'html' | 'markdown' | 'json') => {
     const tab = window.open('', '_blank');
     void Promise.resolve(beforeOpen?.()).finally(() => {
       const url = `${previewHref}?export=${kind}`;
@@ -153,12 +203,12 @@ export function ExportMenu({
     });
   };
 
-  // On the preview page, ?export=pdf|html (from the editor) runs that export once everything has
+  // On the preview page, ?export=pdf|html|markdown|json (from the editor) runs that export once everything has
   // loaded, then removes the parameter so a reload doesn't repeat it.
   useEffect(() => {
     if (previewHref || hasAutoRun.current) return;
     const kind = new URLSearchParams(window.location.search).get('export');
-    if (kind !== 'pdf' && kind !== 'html') return;
+    if (kind !== 'pdf' && kind !== 'html' && kind !== 'markdown' && kind !== 'json') return;
     hasAutoRun.current = true;
     const run = async () => {
       await document.fonts.ready;
@@ -169,12 +219,14 @@ export function ExportMenu({
       url.searchParams.delete('export');
       window.history.replaceState(null, '', url);
       if (kind === 'pdf') window.print();
-      else await exportHtml();
+      else if (kind === 'html') await exportHtml();
+      else if (kind === 'markdown') exportMarkdown();
+      else if (kind === 'json') exportJson();
     };
     void run();
-    // exportHtml reads only the DOM; running once on load is intended.
+    // exportHtml/exportMarkdown reads only the DOM and study; running once on load is intended.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previewHref]);
+  }, [previewHref, study]);
 
   return (
     <>
@@ -199,8 +251,20 @@ export function ExportMenu({
             icon: <Icon icon={FileCode2} size="sm" color="inherit" />,
             onClick: () => (previewHref ? openPreview('html') : void exportHtml()),
           },
+          {
+            label: 'Download Markdown',
+            description: 'GitHub-flavoured Markdown document',
+            icon: <Icon icon={FileDown} size="sm" color="inherit" />,
+            onClick: () => (previewHref ? openPreview('markdown') : exportMarkdown()),
+          },
+          {
+            label: 'Backup (JSON)',
+            description: 'Full document data and asset manifest',
+            icon: <Icon icon={FileJson} size="sm" color="inherit" />,
+            onClick: () => (previewHref ? openPreview('json') : exportJson()),
+          },
         ]}
-        menuWidth={280}
+        menuWidth={300}
       />
       <span className="sr-only" aria-live="polite">
         {message}

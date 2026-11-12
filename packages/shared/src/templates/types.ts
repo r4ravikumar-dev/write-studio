@@ -69,10 +69,9 @@ export const EXPORT_LABELS: Record<ExportProfile, string> = {
 };
 
 /**
- * The formats that can be exported today. A template lists every format it is meant for; the
- * product offers, and the template preview names, only the ones in this list (Phase 6 adds the rest).
+ * The formats that can be exported today (Phase 6 enables all 4 profiles).
  */
-export const EXPORTS_READY: readonly ExportProfile[] = ['pdf', 'html_zip'];
+export const EXPORTS_READY: readonly ExportProfile[] = ['pdf', 'html_zip', 'markdown', 'json_backup'];
 
 /**
  * A detail the template asks for (role, version number, client name). `column` fields are the
