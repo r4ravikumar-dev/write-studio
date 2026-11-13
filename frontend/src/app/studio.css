@@ -1,0 +1,2241 @@
+/*
+ * Studio styles (workspace, editor, preview, auth). Loaded after app/globals.css (the reset) by
+ * app/studio/layout.tsx and by the /login, /signup and /forgot-password pages.
+ * Order matters and is the original global order: Astryx → theme → DNA tokens → bridge →
+ * foundation → typography → surfaces → structured blocks → Liquid Glass → the rules below.
+ */
+@import '@astryxdesign/core/astryx.css';
+/* theme: Astryx Stone (src/theme). */
+@import '../theme/theme.css';
+/* DNA design system v2.0 tokens (copied from the DNA skill) and their bridge to Astryx. */
+@import '../theme/dna-tokens.css';
+@import '../theme/dna-bridge.css';
+/* Studio layout defaults from DNA tokens (src/theme/foundation.css). */
+@import '../theme/foundation.css';
+/* Studio typography: fonts, web/mobile scale, utilities (src/theme/typography.css). */
+@import '../theme/typography.css';
+@import '../theme/surfaces.css';
+@import '../theme/structured.css';
+/* Liquid Glass for floating navigation and controls only (src/theme/liquid-glass.css). */
+@import '../theme/liquid-glass.css';
+
+html {
+  scroll-behavior: smooth;
+  /*
+   * Jumps to #sections stop below the sticky header (its padding on both sides
+   * plus its 32px content row) with a little breathing room.
+   */
+  scroll-padding-top: calc(
+    var(--nav-padding-block) * 2 + var(--size-element-lg) + var(--spacing-4)
+  );
+  /* Match the page surface so overscroll and safe areas follow light/dark mode too. */
+  background-color: var(--color-background-surface);
+  color: var(--color-text-primary);
+}
+
+/* Header vertical padding: 16px top and bottom at every viewport. The hero
+   height, sticky offsets, anchor scroll offset and mobile menu header all
+   follow this variable. */
+:root {
+  --nav-padding-block: var(--spacing-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Buttons, inputs and the header use the Astryx components as styled by the DNA tokens
+   (src/theme/dna-bridge.css): no extra material layer on top. */
+
+/* Navbar page links: 20px between them. */
+/* Each link sits in its own wrapper (for the hover hint); the row holding
+   the wrappers sets the spacing. */
+:has(> * > .astryx-top-nav-item):not(#\#):not(#\#):not(#\#):not(#\#) {
+  gap: var(--spacing-5);
+}
+
+/* Form fields: the "∙ Required" marker in brand blue ("∙ Optional" stays
+   secondary). Astryx renders both in the same span, so required fields are
+   picked out by their required input. */
+.astryx-field:has(:is(input, textarea, select)[required], [aria-required='true'])
+  > *
+  > .astryx-field-label
+  > span,
+.astryx-field:has(:is(input, textarea, select)[required], [aria-required='true'])
+  .astryx-field-label
+  > span {
+  color: var(--color-brand-text);
+}
+
+/* ---------- Popup backdrop ---------- */
+/* The scrim fades in with the popup instead of snapping to dark first, and
+   stays light enough (with a soft blur) that the page still shows behind. */
+/* The popup itself reads as a card: the popover surface, a visible edge
+   and a real drop shadow, so it never melts into the page (dark mode
+   especially). */
+dialog.astryx-dialog {
+  background-color: var(--color-background-popover);
+  border: 1px solid var(--color-border-emphasized);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    0 24px 64px -16px rgb(0 0 0 / 0.55),
+    0 2px 8px rgb(0 0 0 / 0.25);
+}
+/* Confirmations get room to breathe inside the card. */
+dialog.astryx-alert-dialog > div {
+  padding: var(--spacing-6);
+}
+dialog.astryx-dialog::backdrop {
+  /* Dim the page so the card stands forward; the blur keeps it visible. */
+  background-color: light-dark(rgb(15 15 20 / 0.35), rgb(0 0 0 / 0.6));
+  backdrop-filter: blur(6px);
+  animation: popup-backdrop-in 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes popup-backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  dialog.astryx-dialog::backdrop {
+    animation: none;
+  }
+}
+
+
+
+
+
+/* =====================================================================
+   Case studies: the prose (editor and live page share it)
+   ===================================================================== */
+.cs-prose {
+  color: var(--color-text-primary);
+  gap: var(--space-block);
+}
+.cs-prose > * {
+  margin: 0;
+}
+/* Sections breathe; the story reads in a steady column. */
+.cs-prose .cs-section-heading,
+.write-prose h2 {
+  margin-block-start: var(--space-chapter-gap);
+}
+.cs-prose > .cs-section-heading:first-child,
+.write-prose > h2:first-child {
+  margin-block-start: 0;
+}
+/* Story sections in the preview: a <section> that doesn't change the layout (its children stay
+   in the article's column and gap). */
+.cs-section {
+  display: contents;
+}
+.cs-section > * {
+  margin: 0;
+}
+.cs-article > .cs-section:first-child > .cs-section-heading:first-child {
+  margin-block-start: 0;
+}
+.cs-paragraph,
+.write-prose p {
+  color: var(--color-text-secondary);
+  text-wrap: pretty;
+}
+.cs-prose strong,
+.write-prose strong {
+  color: var(--color-text-primary);
+}
+.cs-link,
+.write-prose a {
+  color: var(--color-brand-text);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+.cs-prose blockquote,
+.write-prose blockquote {
+  margin: 0;
+  padding-inline-start: var(--spacing-6);
+  border-inline-start: 2px solid var(--color-brand-text);
+  font-family: var(--font-family-accent);
+  font-style: italic;
+  font-size: var(--type-headline-m-size);
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+.cs-prose ul,
+.cs-prose ol,
+.write-prose ul,
+.write-prose ol {
+  padding-inline-start: var(--spacing-6);
+  color: var(--color-text-secondary);
+  display: grid;
+  gap: var(--spacing-2);
+}
+.cs-prose hr,
+.write-prose hr {
+  border: 0;
+  border-block-start: 1px solid var(--color-border);
+  margin-block: var(--space-block);
+}
+.cs-prose pre,
+.write-prose pre {
+  padding: var(--spacing-4);
+  border-radius: var(--radius-container);
+  background: var(--color-background-muted);
+  font-family: var(--font-family-code);
+  overflow-x: auto;
+}
+.cs-prose mark,
+.write-prose mark {
+  color: inherit;
+  border-radius: 2px;
+  padding-inline: 0.1em;
+}
+/* Inline code, sub and superscript. */
+.cs-prose :not(pre) > code,
+.write-prose :not(pre) > code {
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-inner);
+  background: var(--color-background-muted);
+  font-family: var(--font-family-code);
+  font-size: 0.9em;
+}
+.cs-prose sub,
+.cs-prose sup,
+.write-prose sub,
+.write-prose sup {
+  font-size: 0.75em;
+  line-height: 0;
+}
+/* Checklists: a box and its text on one line, nested lists indented. */
+.cs-prose ul[data-type='taskList'],
+.write-prose ul[data-type='taskList'] {
+  list-style: none;
+  padding-inline-start: 0;
+}
+.cs-prose ul[data-type='taskList'] ul[data-type='taskList'],
+.write-prose ul[data-type='taskList'] ul[data-type='taskList'] {
+  padding-inline-start: var(--spacing-6);
+}
+.cs-prose li[data-checked],
+.write-prose li[data-checked] {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-3);
+}
+.cs-prose li[data-checked] > label,
+.write-prose li[data-checked] > label {
+  flex: 0 0 auto;
+  margin-block-start: 0.3em;
+}
+.cs-prose li[data-checked] > label input,
+.write-prose li[data-checked] > label input {
+  accent-color: var(--color-brand-text);
+}
+.cs-prose li[data-checked] > div,
+.write-prose li[data-checked] > div {
+  flex: 1;
+  min-inline-size: 0;
+}
+.cs-prose li[data-checked='true'] > div,
+.write-prose li[data-checked='true'] > div {
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+  text-decoration: line-through;
+}
+/* The live page's checkboxes are a record, not a control. */
+.cs-prose li[data-checked] input {
+  pointer-events: none;
+}
+/* Space blocks: empty air on the page, a dashed outline only while writing. */
+.cs-spacer[data-size='sm'] {
+  block-size: var(--spacing-6);
+}
+.cs-spacer,
+.cs-spacer[data-size='md'] {
+  block-size: var(--spacing-12);
+}
+.cs-spacer[data-size='lg'] {
+  block-size: var(--spacing-20, calc(var(--spacing-12) * 2));
+}
+.cs-spacer[data-size='xl'] {
+  block-size: var(--spacing-32, calc(var(--spacing-12) * 3));
+}
+.write-prose .cs-spacer {
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-inner);
+}
+.write-prose .cs-spacer.ProseMirror-selectednode {
+  border-color: var(--color-brand-text);
+}
+/* Collapsible sections: a summary line that opens to more. */
+.cs-prose details.cs-details,
+.write-prose [data-type='details'] {
+  border-block: 1px solid var(--color-border);
+  padding-block: var(--spacing-4);
+}
+.cs-prose details.cs-details > summary {
+  cursor: pointer;
+  color: var(--color-text-primary);
+  font-weight: 600;
+  list-style-position: outside;
+}
+.cs-prose details.cs-details > summary::marker {
+  color: var(--color-brand-text);
+}
+.cs-prose details.cs-details > [data-type='detailsContent'] {
+  display: grid;
+  gap: var(--spacing-4);
+  padding-block-start: var(--spacing-4);
+  color: var(--color-text-secondary);
+}
+.write-prose [data-type='details'] {
+  display: flex;
+  gap: var(--spacing-3);
+}
+.write-prose [data-type='details'] > button {
+  flex: 0 0 auto;
+  inline-size: var(--spacing-6);
+  block-size: var(--spacing-6);
+  border: 0;
+  border-radius: var(--radius-inner);
+  background: var(--color-background-muted);
+  color: var(--color-brand-text);
+  cursor: pointer;
+}
+.write-prose [data-type='details'] > button::before {
+  content: '▸';
+}
+.write-prose [data-type='details'].is-open > button::before {
+  content: '▾';
+}
+.write-prose [data-type='details'] > div {
+  flex: 1;
+  display: grid;
+  gap: var(--spacing-3);
+}
+.write-prose [data-type='details'] summary {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+.write-prose [data-type='details']:not(.is-open) [data-type='detailsContent'] {
+  display: none;
+}
+/* Tables: hairline rows, a tinted header, scrolling sideways when wide. */
+.cs-prose .tableWrapper,
+.write-prose .tableWrapper {
+  margin: 0;
+  overflow-x: auto;
+}
+.cs-prose table,
+.write-prose table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  color: var(--color-text-secondary);
+}
+.cs-prose th,
+.cs-prose td,
+.write-prose th,
+.write-prose td {
+  position: relative;
+  min-inline-size: 6rem;
+  padding: var(--spacing-3);
+  border: 1px solid var(--color-border);
+  text-align: start;
+  vertical-align: top;
+}
+.cs-prose th,
+.write-prose th {
+  background: var(--color-background-muted);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+.cs-prose th > p,
+.cs-prose td > p,
+.write-prose th > p,
+.write-prose td > p {
+  margin: 0;
+}
+/* Table inspector options (data-* on <table>). */
+:is(.cs-prose, .write-prose) table[data-tablestyle='rows'] :is(th, td) {
+  border-inline: 0;
+}
+:is(.cs-prose, .write-prose) table[data-tablestyle='minimal'] :is(th, td) {
+  border: 0;
+}
+:is(.cs-prose, .write-prose) table[data-tablestyle='minimal'] th {
+  background: transparent;
+  border-block-end: var(--border-width-200) solid var(--border-gray-intense);
+}
+:is(.cs-prose, .write-prose) table[data-striped='true'] tr:nth-child(even) td {
+  background: var(--bg-gray-subtle);
+}
+:is(.cs-prose, .write-prose) table[data-density='compact'] :is(th, td) {
+  padding: var(--space-6) var(--space-8);
+  font-size: var(--body-lg-size);
+}
+@media screen and (max-width: 767.98px) {
+  /* "Fit to screen": columns shrink to the screen instead of scrolling sideways. */
+  :is(.cs-prose, .write-prose) table[data-mobile='fit'] {
+    table-layout: auto;
+    font-size: var(--body-lg-size);
+  }
+  :is(.cs-prose, .write-prose) table[data-mobile='fit'] :is(th, td) {
+    min-inline-size: 0;
+    padding: var(--space-6);
+    overflow-wrap: anywhere;
+  }
+}
+.write-prose .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, var(--color-brand-text) 14%, transparent);
+  pointer-events: none;
+}
+
+/* Media: images, video and embeds sit in the work-frame style. */
+.cs-media {
+  margin: 0;
+  display: grid;
+  gap: var(--spacing-3);
+}
+.cs-image,
+.cs-video,
+.write-prose img {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+}
+.cs-embed {
+  display: block;
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-background-muted);
+}
+.cs-embed[data-provider='figma'] {
+  aspect-ratio: 4 / 3;
+}
+.cs-caption {
+  font-size: var(--type-caption-l-size);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+/* Files: a quiet bar with a download, and an optional preview above it. */
+.cs-file {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  overflow: hidden;
+  background: var(--color-background-surface);
+}
+.cs-file-preview {
+  display: block;
+  inline-size: 100%;
+  block-size: min(80svh, 44rem);
+  border: 0;
+  border-block-end: 1px solid var(--color-border);
+  background: var(--color-background-muted);
+}
+.cs-file-bar {
+  padding: var(--spacing-4);
+  color: var(--color-text-primary);
+}
+.cs-file-download {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.cs-file-download:hover {
+  border-color: var(--color-brand-text);
+  color: var(--color-brand-text);
+}
+
+/* Callouts: a brand-tinted note. */
+.cs-callout {
+  padding: var(--spacing-5);
+  border-radius: var(--radius-container);
+  border: 1px solid color-mix(in srgb, var(--color-brand-text) 30%, transparent);
+  background: color-mix(in srgb, var(--color-brand-text) 8%, transparent);
+  color: var(--color-brand-text);
+}
+.cs-callout p {
+  color: var(--color-text-primary);
+}
+
+/* =====================================================================
+   The writing studio (/write)
+   ===================================================================== */
+.studio,
+.write {
+  min-block-size: 100svh;
+  background: var(--color-background-body);
+}
+.studio-bar {
+  /* Edge-to-edge Liquid Glass header: see .glass / .glass-bar in src/theme/liquid-glass.css. */
+}
+.studio-home {
+  color: inherit;
+  text-decoration: none;
+}
+.studio-body {
+  inline-size: min(100% - 2 * var(--spacing-5), 72rem);
+  margin-inline: auto;
+  padding-block: var(--spacing-10);
+}
+.studio-empty {
+  padding: var(--spacing-10);
+  background: var(--surface-container);
+  border: var(--border-width-100) solid var(--surface-outline);
+  border-radius: var(--surface-container-radius);
+  text-align: center;
+  align-items: center;
+}
+.studio-centered {
+  /* A layer-1 card on the base. */
+  inline-size: min(100% - 2 * var(--spacing-5), 30rem);
+  margin: 18svh auto 0;
+  padding: var(--surface-container-padding);
+  background: var(--surface-container);
+  border: var(--border-width-100) solid var(--surface-outline);
+  border-radius: var(--surface-container-radius);
+}
+
+/* Editor: the canvas, and the settings panel beside it. */
+.write-main {
+  align-items: stretch;
+  min-block-size: 0;
+}
+.write-canvas {
+  position: relative;
+  flex: 1;
+  min-inline-size: 0;
+}
+.write-toolbar {
+  /* Edge-to-edge Liquid Glass bar pinned under the header (square, no inset; product decision). */
+  position: sticky;
+  inset-block-start: var(--glass-bar-height);
+  z-index: 10;
+  margin: 0;
+  padding: var(--space-8) var(--space-24);
+}
+.write-toolbar.glass:not(#\#) {
+  border-radius: 0;
+  box-shadow: inset 0 calc(-1 * var(--border-width-100)) 0 0 var(--border-gray-subtle);
+}
+.write-toolbar.glass:not(#\#)::before {
+  border-radius: 0;
+}
+/* Toolbar 2.0 (desktop/tablet): one row, no tabs; Insert pushed to the right edge. */
+.write-toolbar--row:not(#\#):not(#\#):not(#\#) {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-4);
+  min-inline-size: 0;
+}
+.write-toolbar--row .write-tool-end {
+  margin-inline-start: auto;
+}
+.write-toolbar--row .write-tool-separator {
+  block-size: var(--space-24);
+  align-self: center;
+}
+/* The More (⋯) panel: labelled groups. */
+.write-more {
+  inline-size: min(22rem, 88vw);
+}
+.write-more-label {
+  text-transform: uppercase;
+  letter-spacing: var(--overline-sm-tracking);
+  font-size: var(--overline-sm-size);
+  font-weight: 600;
+}
+/* Find and replace: a glass panel docked under the toolbar, at the right. */
+.write-canvas {
+  position: relative;
+}
+.write-find {
+  position: absolute;
+  z-index: 20;
+  inset-block-start: calc(var(--size-56) + var(--space-8));
+  inset-inline-end: var(--space-16);
+  inline-size: min(26rem, calc(100% - 2 * var(--space-16)));
+  padding: var(--space-12) var(--space-16);
+}
+.write-find-count {
+  white-space: nowrap;
+  min-inline-size: 4.5rem;
+  text-align: end;
+  padding-block-end: var(--space-8);
+}
+/* Search matches (decorations, never stored): all matches tinted, the current one stronger. */
+.write-match {
+  background: var(--bg-warning-subtle, var(--color-background-yellow));
+  border-radius: var(--radius-2);
+}
+.write-match--current {
+  background: var(--bg-brand-light);
+  box-shadow: 0 0 0 var(--border-width-200) var(--border-brand-normal);
+}
+/* Table bar and selection bubble: small glass capsules. */
+.write-table-bar,
+.write-bubble {
+  padding: var(--space-4);
+}
+@media screen and (max-width: 767px) {
+  .write-find {
+    position: fixed;
+    inset-block-start: calc(var(--glass-bar-height) + var(--space-8));
+    inset-inline: var(--space-8);
+    inline-size: auto;
+  }
+}
+/* Phone sheet: tool group rows (the base rules below are overridden by the phone block). */
+.write-tool-separator {
+  align-self: stretch;
+  margin-inline: var(--spacing-1);
+}
+.write-tool-tabs {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding-block-end: var(--spacing-1);
+}
+/* Undo and redo at the left edge, the tabs in the middle, Insert at the right. */
+.write-tool-quick {
+  grid-column: 1;
+  justify-self: start;
+}
+.write-tool-centre {
+  grid-column: 2;
+  min-inline-size: 0;
+}
+.write-tool-end {
+  grid-column: 3;
+  justify-self: end;
+}
+.write-tool-panel {
+  justify-content: center;
+  min-block-size: var(--spacing-10);
+  padding-block: var(--spacing-2) 0;
+}
+/* Phones follow Word / Google Docs mobile. The toolbar is a bar pinned to the BOTTOM:
+   - collapsed: quick tools (the Format group) in one swipeable row, ⌃ at the right;
+   - expanded (⌃): a sheet that grows upward: header = tab picker ("Format ▾"), undo/redo, ⌄;
+     body = that tab's tools, wrapped. Insert is the floating action button (.write-fab). */
+@media screen and (max-width: 767px) {
+  .write-toolbar:not(#\#):not(#\#):not(#\#) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--space-8);
+    position: fixed;
+    inset-inline: 0;
+    inset-block: auto 0;
+    z-index: 25;
+    min-block-size: var(--size-56);
+    padding: var(--space-6) var(--space-12) calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+  }
+  .write-toolbar.glass:not(#\#):not(#\#):not(#\#) {
+    box-shadow: inset 0 var(--border-width-100) 0 0 var(--border-gray-subtle);
+  }
+  /* Room under the document for the bar; the FAB sits above it. */
+  .write-document:not(#\#) {
+    margin-block-end: calc(var(--size-56) + var(--space-24));
+  }
+  .write-fab:not(#\#) {
+    inset-block-end: calc(var(--size-56) + var(--space-16) + env(safe-area-inset-bottom, 0px));
+  }
+  .write-tool-tabs:not(#\#):not(#\#):not(#\#) {
+    display: contents;
+  }
+  /* Collapsed: no picker, no undo/redo. */
+  .write-toolbar:not([data-expanded]) .write-tool-centre:not(#\#):not(#\#):not(#\#) {
+    display: none;
+  }
+  .write-tool-panel:not(#\#):not(#\#):not(#\#) {
+    grid-column: 1;
+    grid-row: 1;
+    min-block-size: 0;
+    padding-block: 0;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+  .write-tool-panel::-webkit-scrollbar {
+    display: none;
+  }
+  .write-tool-panel > * {
+    flex-shrink: 0;
+  }
+  .write-tool-toggle {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  /* Expanded sheet. */
+  .write-toolbar[data-expanded]:not(#\#):not(#\#):not(#\#) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    row-gap: var(--space-12);
+    max-block-size: calc(100svh - var(--glass-bar-height));
+    overflow-y: auto;
+    padding-block-start: var(--space-8);
+  }
+  .write-toolbar[data-expanded] .write-tool-centre:not(#\#):not(#\#):not(#\#) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  /* Undo / redo come back in the sheet header (they are hidden on phones elsewhere). */
+  .write-toolbar[data-expanded] .write-tool-quick.only-wide:not(#\#):not(#\#):not(#\#):not(#\#) {
+    display: flex;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+  .write-toolbar[data-expanded] .write-tool-toggle {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .write-toolbar[data-expanded] .write-tool-panel:not(#\#):not(#\#):not(#\#) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding-block-start: var(--space-8);
+    border-block-start: var(--border-width-100) solid var(--border-gray-subtle);
+  }
+  .write-toolbar[data-expanded] ~ .write-fab:not(#\#):not(#\#):not(#\#) {
+    display: none;
+  }
+}
+/* Insert as a floating action button on phones: bottom-right, above the content, clear of the
+   home indicator. 48px (the mobile maximum), brand glass, floating elevation. */
+.write-fab {
+  position: fixed;
+  z-index: 30;
+  inset-inline-end: var(--space-16);
+  inset-block-end: calc(var(--space-16) + env(safe-area-inset-bottom, 0px));
+}
+/* The FAB's Insert menu: 75% of the screen width (descriptions truncate). The menu layer
+   renders inside .write-fab, so it is capped there. */
+.write-fab div:has(> .astryx-popover):not(#\#):not(#\#):not(#\#):not(#\#) {
+  inline-size: 75vw;
+  min-inline-size: 0;
+  max-inline-size: 75vw;
+}
+.write-fab .astryx-popover:not(#\#):not(#\#):not(#\#):not(#\#) {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+.write-fab .astryx-button:not(#\#):not(#\#):not(#\#):not(#\#):not(#\#) {
+  block-size: var(--size-48);
+  inline-size: var(--size-48);
+  box-shadow: var(--glass-button-rim), var(--elevation-500);
+}
+.write-document {
+  padding: var(--spacing-10) var(--spacing-5) 40svh;
+}
+.write-prose {
+  inline-size: min(100%, 44rem);
+  margin-inline: auto;
+  display: grid;
+  outline: none;
+  /* Type comes from .cs-prose in src/theme/typography.css. */
+}
+.write-prose .is-empty::before {
+  /* Placeholder hints: shown only while a block is empty, never saved. */
+  content: attr(data-placeholder);
+  float: left;
+  block-size: 0;
+  pointer-events: none;
+  /* Same style as the text it becomes (it inherits the block's font, size and weight), only
+     the colour differs, so the writer sees the style before typing. */
+  color: var(--text-gray-placeholder);
+}
+.write-settings {
+  inline-size: 22rem;
+  flex: none;
+  padding: var(--spacing-6) var(--spacing-5) var(--spacing-10);
+  border-inline-start: 1px solid var(--color-border);
+  background: var(--color-background-surface);
+  position: sticky;
+  inset-block-start: 57px;
+  max-block-size: calc(100svh - 57px);
+  overflow-y: auto;
+}
+@media screen and (max-width: 1023.98px) {
+  .write-main {
+    flex-direction: column;
+  }
+  .write-settings {
+    inline-size: 100%;
+    position: static;
+    max-block-size: none;
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--color-border);
+  }
+}
+.write-image-field {
+  inline-size: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+}
+.write-image-empty {
+  /* Layer 2 well inside the settings panel (see theme/surfaces.css). */
+  border-color: transparent;
+  background: var(--surface-container-high);
+}
+/* A chosen picture with its actions over its foot (glass buttons, on the image). */
+.write-image-frame {
+  position: relative;
+}
+.write-image-frame .write-image-field {
+  display: block;
+}
+.write-image-actions {
+  position: absolute;
+  inset-inline: var(--space-8);
+  inset-block-end: var(--space-8);
+  justify-content: center;
+}
+.write-swatch {
+  display: block;
+  inline-size: 16px;
+  block-size: 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--swatch);
+}
+.write-swatch[data-empty] {
+  background: linear-gradient(135deg, transparent 45%, var(--color-text-error) 46% 54%, transparent 55%);
+}
+.write-bubble {
+  /* A floating Liquid Glass capsule (.glass .glass-group .glass--interactive). */
+}
+.write-slash {
+  position: absolute;
+  z-index: 30;
+  inline-size: 17rem;
+  max-block-size: 22rem;
+  overflow-y: auto;
+  padding: var(--spacing-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-background-popover);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--color-overlay) 35%, transparent);
+}
+.write-slash .astryx-button {
+  justify-content: flex-start;
+}
+.write-slash-empty {
+  padding: var(--spacing-3);
+}
+.write-slash-group {
+  padding: var(--space-8) var(--space-12) var(--space-4);
+  text-transform: uppercase;
+  letter-spacing: var(--overline-sm-tracking);
+  font-size: var(--overline-sm-size);
+  font-weight: 600;
+}
+/* Rich blocks: an outline when selected, and their settings beneath. */
+.write-block {
+  display: grid;
+  gap: var(--spacing-2);
+  border-radius: var(--radius-container);
+  outline: 2px solid transparent;
+  outline-offset: 4px;
+}
+.write-block[data-selected] {
+  outline-color: var(--color-brand-text);
+}
+.write-dialog-body {
+  padding: var(--spacing-4);
+}
+.preview-bar {
+  background: color-mix(in srgb, var(--color-brand-text) 14%, var(--color-background-surface));
+}
+
+/* =====================================================================
+   Visual blocks (components/caseStudy/visualBlocks): shared by the editor
+   preview and the published page. Responsive by default.
+   ===================================================================== */
+.vb {
+  margin: 0;
+  display: grid;
+  gap: var(--spacing-3);
+  min-inline-size: 0;
+}
+.vb-media {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  border-radius: var(--radius-container);
+  background: var(--color-background-muted);
+}
+.vb-replace {
+  display: block;
+  inline-size: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--radius-container);
+}
+.vb-replace:hover .vb-media,
+.vb-replace:focus-visible .vb-media {
+  outline: 2px solid var(--color-brand-text);
+  outline-offset: 2px;
+}
+.vb-empty {
+  inline-size: 100%;
+  border: 1px dashed var(--color-border-emphasized);
+  border-radius: var(--radius-container);
+  background: var(--color-background-muted);
+}
+
+/* 1. Image grid: even, asymmetric (first image double) or masonry. */
+.vb-grid {
+  --vb-gap: var(--spacing-4);
+  display: grid;
+  grid-template-columns: repeat(var(--vb-columns, 2), minmax(0, 1fr));
+  gap: var(--vb-gap);
+}
+.vb-grid[data-gap='none'] { --vb-gap: 0px; }
+.vb-grid[data-gap='sm'] { --vb-gap: var(--spacing-2); }
+.vb-grid[data-gap='lg'] { --vb-gap: var(--spacing-8); }
+.vb-grid[data-gap='none'] .vb-media { border-radius: 0; }
+.vb-grid[data-arrangement='asymmetric'] > :first-child {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+.vb-grid[data-arrangement='asymmetric'] > :first-child .vb-media,
+.vb-grid[data-arrangement='asymmetric'] > .vb-media:first-child {
+  block-size: 100%;
+  object-fit: cover;
+}
+.vb-grid[data-arrangement='masonry'] {
+  display: block;
+  columns: var(--vb-columns, 2);
+  column-gap: var(--vb-gap);
+}
+.vb-grid[data-arrangement='masonry'] > * {
+  break-inside: avoid;
+  margin-block-end: var(--vb-gap);
+}
+@media screen and (max-width: 767.98px) {
+  .vb-grid { grid-template-columns: repeat(min(var(--vb-columns, 2), 2), minmax(0, 1fr)); }
+  .vb-grid[data-arrangement='masonry'] { columns: 2; }
+}
+@media screen and (max-width: 479.98px) {
+  .vb-grid { grid-template-columns: minmax(0, 1fr); }
+  .vb-grid[data-arrangement='asymmetric'] > :first-child { grid-column: auto; grid-row: auto; }
+  .vb-grid[data-arrangement='masonry'] { columns: 1; }
+}
+
+/* 2. Comparison: two sides at 50/50, 60/40 or 40/60; stacked on phones. */
+.vb-compare-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--spacing-6);
+  align-items: start;
+}
+.vb-compare[data-split='60-40'] .vb-compare-grid { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+.vb-compare[data-split='40-60'] .vb-compare-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+.vb-compare-side[data-tone='after'] .vb-media {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-brand-text) 45%, transparent);
+}
+@media screen and (max-width: 639.98px) {
+  .vb-compare .vb-compare-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* 3. Showcase: a large image or video at the content width (like the text
+   and every other block), or wider up to the page's frame lines. Never
+   edge to edge. */
+.vb-showcase[data-width='frame'] {
+  inline-size: min(100vw - 2 * var(--space-gutter), var(--content-max));
+  margin-inline: calc(50% - min(50vw - var(--space-gutter), var(--content-max) / 2));
+}
+.vb-showcase[data-surface='muted'] { background: var(--color-background-muted); }
+.vb-showcase[data-surface='brand'] { background: color-mix(in srgb, var(--color-brand-text) 12%, var(--color-background-surface)); }
+.vb-showcase[data-surface='inverse'] { background: var(--color-background-inverted); }
+.vb-showcase[data-inset='sm'] { padding: var(--spacing-4); }
+.vb-showcase[data-inset='md'] { padding: var(--space-block); }
+.vb-showcase[data-inset='lg'] { padding: var(--space-chapter-gap); }
+.vb-showcase:not([data-surface='none']) { border-radius: var(--radius-container); }
+/* Keep a frame-wide showcase from ever widening the page. */
+
+/* 4. Device mockups: devices placed on a stage by %, so the composition
+   scales as one. Frames are drawn in CSS from theme tokens. */
+.vb-devices {
+  padding: var(--spacing-6);
+  border-radius: var(--radius-container);
+}
+.vb-devices[data-surface='none'] { padding: 0; }
+.vb-devices[data-surface='muted'] { background: var(--color-background-muted); }
+.vb-devices[data-surface='brand'] { background: color-mix(in srgb, var(--color-brand-text) 12%, var(--color-background-surface)); }
+.vb-devices[data-surface='inverse'] { background: var(--color-background-inverted); }
+.vb-stage {
+  position: relative;
+  inline-size: 100%;
+  container-type: inline-size;
+}
+.vb-device-slot {
+  position: absolute;
+  transform-origin: center;
+}
+.vb-device-slot[data-selected] .vb-device { outline: 2px solid var(--color-brand-text); outline-offset: 4px; }
+.vb-device {
+  position: relative;
+  display: grid;
+  background: var(--color-background-inverted);
+  border: 1px solid var(--color-border-emphasized);
+}
+.vb-devices[data-shadow] .vb-device {
+  box-shadow:
+    0 2cqi 5cqi color-mix(in srgb, var(--color-overlay) 30%, transparent),
+    0 0.4cqi 1cqi color-mix(in srgb, var(--color-overlay) 25%, transparent);
+}
+.vb-device-screen {
+  overflow: hidden;
+  background: var(--color-background-surface);
+}
+.vb-device-screen .vb-media,
+.vb-device-screen .vb-empty,
+.vb-device-screen .vb-replace {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 0;
+}
+.vb-device-screen .vb-replace .vb-media { block-size: 100%; }
+.vb-device[data-type='phone'] { padding: 2.6%; border-radius: 16% / 7.5%; }
+.vb-device[data-type='phone'] .vb-device-screen { aspect-ratio: 9 / 19.5; border-radius: 13% / 6%; }
+.vb-device[data-type='tablet'] { padding: 3%; border-radius: 6%; }
+.vb-device[data-type='tablet'] .vb-device-screen { aspect-ratio: 4 / 3; border-radius: 2%; }
+.vb-device[data-type='laptop'] { padding: 2.2% 2.2% 0; border-radius: 3% 3% 0 0; }
+.vb-device[data-type='laptop'] .vb-device-screen { aspect-ratio: 16 / 10; border-radius: 1%; }
+.vb-device-base {
+  block-size: 0;
+  padding-block-end: 4%;
+  margin-inline: -9%;
+  background: var(--color-border-emphasized);
+  border-radius: 0 0 40% 40% / 0 0 100% 100%;
+}
+.vb-device[data-type='browser'] { padding: 0; border-radius: 1.6%; overflow: hidden; background: var(--color-background-muted); }
+.vb-device[data-type='browser'] .vb-device-screen { aspect-ratio: 16 / 10; }
+.vb-device-chrome {
+  display: flex;
+  gap: 1.2%;
+  padding: 1.6% 2%;
+  border-block-end: 1px solid var(--color-border);
+}
+.vb-device-chrome i {
+  inline-size: 1.4%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--color-border-emphasized);
+}
+@media screen and (max-width: 639.98px) {
+  .vb-devices[data-mobile='stack'] .vb-stage {
+    aspect-ratio: auto !important;
+    display: grid;
+    justify-items: center;
+    gap: var(--spacing-6);
+  }
+  .vb-devices[data-mobile='stack'] .vb-device-slot {
+    position: static;
+    transform: none !important;
+    inline-size: min(100%, 16rem) !important;
+  }
+  .vb-devices[data-mobile='stack'] .vb-device-slot:has([data-type='laptop']),
+  .vb-devices[data-mobile='stack'] .vb-device-slot:has([data-type='browser']) {
+    inline-size: 100% !important;
+  }
+  .vb-devices[data-mobile='first'] .vb-device-slot:not(:first-child) { display: none; }
+  .vb-devices[data-mobile='first'] .vb-device-slot:first-child {
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    inline-size: 40% !important;
+  }
+  .vb-devices { padding: var(--spacing-4); }
+}
+
+/* 5. Split editorial: media and text, proportions adjustable; stacked on phones. */
+.vb-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-block);
+  align-items: center;
+}
+.vb-split[data-proportion='60-40'] { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+.vb-split[data-proportion='40-60'] { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+.vb-split[data-proportion='67-33'] { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.vb-split[data-proportion='33-67'] { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+.vb-split[data-align='start'] { align-items: start; }
+.vb-split[data-align='end'] { align-items: end; }
+.vb-split[data-order='text-media'] .vb-split-media { order: 2; }
+.vb-split-text {
+  display: grid;
+  gap: var(--spacing-4);
+  min-inline-size: 0;
+}
+.vb-split-text > * { margin: 0; }
+@media screen and (max-width: 767.98px) {
+  .vb-split { grid-template-columns: minmax(0, 1fr) !important; }
+  .vb-split .vb-split-media { order: 0 !important; }
+}
+
+/* 6. Quote, callout, metrics. */
+.vb-quote-text {
+  margin: 0;
+  color: var(--color-text-primary);
+  text-wrap: balance;
+}
+.vb-quote[data-style='serif'] .vb-quote-text {
+  font-family: var(--font-family-accent);
+  font-style: italic;
+  font-size: var(--type-headline-xl-size);
+  line-height: 1.25;
+}
+.vb-quote[data-style='large'] .vb-quote-text {
+  font-size: var(--type-section-title-size);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+}
+.vb-quote[data-style='bordered'] {
+  padding-inline-start: var(--spacing-6);
+  border-inline-start: 3px solid var(--color-brand-text);
+}
+.vb-quote[data-style='bordered'] .vb-quote-text {
+  font-size: var(--type-headline-l-size);
+  line-height: 1.3;
+}
+.vb-quote-by { display: grid; gap: var(--spacing-1); }
+.cs-callout[data-tone='neutral'] {
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+  background: var(--color-background-muted);
+}
+.cs-callout[data-tone='success'] {
+  color: var(--color-text-success);
+  border-color: color-mix(in srgb, var(--color-text-success) 30%, transparent);
+  background: color-mix(in srgb, var(--color-text-success) 8%, transparent);
+}
+.cs-callout[data-tone='warning'] {
+  color: var(--color-text-warning);
+  border-color: color-mix(in srgb, var(--color-text-warning) 30%, transparent);
+  background: color-mix(in srgb, var(--color-text-warning) 8%, transparent);
+}
+.vb-metrics-grid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--vb-columns, 3), minmax(0, 1fr));
+  gap: var(--spacing-6);
+}
+.vb-metric {
+  display: grid;
+  gap: var(--spacing-1);
+  align-content: start;
+  padding-block-start: var(--spacing-4);
+  border-block-start: 1px solid var(--color-border);
+}
+.vb-metric dd { margin: 0; }
+.vb-metric-label {
+  order: 2;
+  font-family: var(--font-family-eyebrow);
+  font-size: var(--type-caption-l-size);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-secondary);
+}
+.vb-metric-value {
+  order: 1;
+  font-size: var(--type-section-title-size);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.vb-metric-detail { order: 3; color: var(--color-text-secondary); }
+.vb-metrics[data-style='brand'] .vb-metric-value { color: var(--color-brand-text); }
+.vb-metrics[data-style='cards'] .vb-metric {
+  padding: var(--spacing-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+}
+@media screen and (max-width: 767.98px) {
+  .vb-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media screen and (max-width: 399.98px) {
+  .vb-metrics-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Image grid: "Columns on phones" (Inspector 2.0). */
+@media screen and (max-width: 767.98px) {
+  .vb-grid[data-mobile-columns='1'] { grid-template-columns: minmax(0, 1fr); }
+}
+@media screen and (max-width: 479.98px) {
+  .vb-grid[data-mobile-columns='2'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Comparison slider: "after" underneath, "before" clipped at the divider. */
+.vb-slider {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-12);
+  background: var(--surface-container-high);
+}
+.vb-slider .vb-slider-media {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+.vb-slider-before {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 calc(100% - var(--vb-reveal, 50%)) 0 0);
+}
+.vb-slider-handle {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: var(--vb-reveal, 50%);
+  inline-size: var(--border-width-200);
+  transform: translateX(-50%);
+  background: var(--color-base-white);
+  box-shadow: var(--elevation-200);
+  pointer-events: none;
+}
+.vb-slider-handle::after {
+  content: '↔';
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  inline-size: var(--size-40);
+  block-size: var(--size-40);
+  border-radius: var(--radius-round);
+  background: var(--color-base-white);
+  color: var(--text-brand-primary);
+  font-weight: 600;
+  box-shadow: var(--elevation-300);
+}
+.vb-slider:has(.vb-slider-input:focus-visible) .vb-slider-handle::after {
+  outline: var(--border-width-200) solid var(--border-brand-normal);
+  outline-offset: var(--space-2);
+}
+.vb-slider-label {
+  position: absolute;
+  inset-block-start: var(--space-12);
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-round);
+  background: color-mix(in oklab, var(--bg-gray-dark) calc(var(--opacity-70) * 100%), transparent);
+  color: var(--text-gray-inverse);
+  font-size: var(--overline-sm-size);
+  font-weight: 600;
+  letter-spacing: var(--overline-sm-tracking);
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.vb-slider-label[data-side='before'] { inset-inline-start: var(--space-12); }
+.vb-slider-label[data-side='after'] { inset-inline-end: var(--space-12); }
+.vb-slider-input {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+}
+.vb-compare--slider .vb-compare-grid {
+  margin-block-start: var(--space-16);
+}
+
+/* Device mockups in the editor: drag a device on the stage (unless it's locked). */
+.vb-device-slot[data-draggable] {
+  cursor: grab;
+  touch-action: none;
+}
+.vb-device-slot[data-dragging] {
+  cursor: grabbing;
+  outline: var(--border-width-200) dashed var(--border-brand-normal);
+  outline-offset: var(--space-4);
+}
+
+/* =====================================================================
+   Insert 2.0 blocks: process timeline, screen sequence, annotated
+   screenshot, flow diagram. DNA tokens only; horizontal layouts stack on
+   phones. Markers and arrows are decorative (the lists carry the meaning).
+   ===================================================================== */
+.vb .vb-timeline-list,
+.vb .vb-sequence-list,
+.vb .vb-annotations,
+.vb .vb-flow-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.vb-timeline .cs-prose p,
+.vb :is(.vb-phase-when, .vb-phase-title, .vb-phase-text, .vb-step-title, .vb-step-text, .vb-annotation-title, .vb-annotation-text) {
+  margin: 0;
+}
+.vb-visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- Process timeline ---- */
+.vb .vb-timeline-list {
+  display: grid;
+  gap: var(--space-24);
+}
+.vb-timeline[data-layout='horizontal'] .vb-timeline-list {
+  grid-template-columns: repeat(min(var(--vb-count, 4), 4), minmax(0, 1fr));
+}
+.vb-phase {
+  position: relative;
+  display: grid;
+  gap: var(--space-12);
+  align-content: start;
+}
+.vb-phase-marker {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  inline-size: var(--size-32);
+  block-size: var(--size-32);
+  border-radius: var(--radius-round);
+  background: var(--bg-brand-normal);
+  color: var(--text-brand-on-primary);
+  font-size: var(--label-lg-size);
+  font-weight: 600;
+}
+/* Connecting line: across between markers… */
+.vb-timeline[data-layout='horizontal'] .vb-phase:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  inset-block-start: calc(var(--size-32) / 2);
+  inset-inline: calc(var(--size-32) + var(--space-8)) calc(-1 * var(--space-24) + var(--space-8));
+  border-block-start: var(--border-width-200) solid var(--border-brand-light);
+}
+.vb-phase-when {
+  font-size: var(--overline-lg-size);
+  font-weight: 600;
+  letter-spacing: var(--overline-lg-tracking);
+  text-transform: uppercase;
+  color: var(--text-brand-primary);
+}
+.vb-phase-title {
+  font-size: var(--heading-sm-size);
+  font-weight: 600;
+  color: var(--text-gray-primary);
+}
+.vb-phase-text {
+  font-size: var(--body-lg-size);
+  line-height: var(--body-leading);
+  color: var(--text-gray-secondary);
+}
+.vb-phase-body {
+  display: grid;
+  gap: var(--space-4);
+}
+.vb-timeline[data-style='cards'] .vb-phase-body {
+  padding: var(--space-16);
+  background: var(--surface-container);
+  border: var(--border-width-100) solid var(--surface-outline);
+  border-radius: var(--radius-12);
+}
+/* …or down, beside the markers (vertical layout, and every timeline on phones). */
+.vb-timeline[data-layout='vertical'] .vb-phase {
+  grid-template-columns: var(--size-32) minmax(0, 1fr);
+  column-gap: var(--space-16);
+}
+.vb-timeline[data-layout='vertical'] .vb-phase:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: calc(var(--size-32) / 2 - var(--border-width-100));
+  inset-block: calc(var(--size-32) + var(--space-4)) calc(-1 * var(--space-24) + var(--space-4));
+  border-inline-start: var(--border-width-200) solid var(--border-brand-light);
+}
+@media screen and (max-width: 767.98px) {
+  .vb-timeline[data-layout='horizontal'] .vb-timeline-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .vb-timeline[data-layout='horizontal'] .vb-phase {
+    grid-template-columns: var(--size-32) minmax(0, 1fr);
+    column-gap: var(--space-16);
+  }
+  .vb-timeline[data-layout='horizontal'] .vb-phase:not(:last-child)::after {
+    inset-inline: calc(var(--size-32) / 2 - var(--border-width-100)) auto;
+    inset-block: calc(var(--size-32) + var(--space-4)) calc(-1 * var(--space-24) + var(--space-4));
+    border-block-start: 0;
+    border-inline-start: var(--border-width-200) solid var(--border-brand-light);
+  }
+}
+
+/* ---- Screen sequence ---- */
+.vb .vb-sequence-list {
+  display: grid;
+  grid-template-columns: repeat(var(--vb-columns, 3), minmax(0, 1fr));
+  gap: var(--space-32) var(--space-24);
+}
+.vb-step {
+  position: relative;
+  display: grid;
+  gap: var(--space-8);
+  align-content: start;
+}
+.vb-step-screen {
+  overflow: hidden;
+}
+.vb-step-screen[data-frame='phone'] {
+  padding: var(--space-6);
+  border-radius: var(--radius-24);
+  background: var(--bg-gray-dark);
+}
+.vb-step-screen[data-frame='phone'] .vb-media,
+.vb-step-screen[data-frame='phone'] .vb-empty {
+  border-radius: var(--radius-20);
+}
+.vb-step-screen[data-frame='browser'] {
+  padding-block-start: var(--space-20);
+  border: var(--border-width-100) solid var(--border-gray-normal);
+  border-radius: var(--radius-12);
+  background: var(--surface-container-high);
+}
+.vb-step-screen .vb-media {
+  display: block;
+  inline-size: 100%;
+}
+.vb-step-title {
+  display: flex;
+  gap: var(--space-8);
+  align-items: center;
+  font-size: var(--label-lg-size);
+  font-weight: 600;
+  color: var(--text-gray-primary);
+}
+.vb-step-number {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  inline-size: var(--size-24);
+  block-size: var(--size-24);
+  border-radius: var(--radius-round);
+  background: var(--bg-brand-light);
+  color: var(--text-brand-primary);
+  font-size: var(--label-md-size);
+}
+.vb-step-text {
+  font-size: var(--body-lg-size);
+  line-height: var(--body-leading);
+  color: var(--text-gray-secondary);
+}
+.vb-sequence[data-arrows] .vb-step:not(:last-child)::after {
+  content: '→';
+  position: absolute;
+  inset-block-start: 40%;
+  inset-inline-end: calc(-1 * var(--space-24) / 2 - var(--space-6));
+  font-size: var(--heading-md-size);
+  color: var(--text-brand-primary);
+}
+@media screen and (max-width: 767.98px) {
+  .vb .vb-sequence-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .vb-sequence[data-arrows] .vb-step::after {
+    display: none;
+  }
+}
+
+/* ---- Annotated screenshot ---- */
+.vb-annotated-stage {
+  position: relative;
+}
+.vb-annotated-stage .vb-media {
+  display: block;
+  inline-size: 100%;
+}
+.vb-marker {
+  position: absolute;
+  z-index: 1;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  inline-size: var(--size-28);
+  block-size: var(--size-28);
+  border-radius: var(--radius-round);
+  background: var(--bg-brand-normal);
+  color: var(--text-brand-on-primary);
+  font-size: var(--label-md-size);
+  font-weight: 600;
+  box-shadow: 0 0 0 var(--border-width-200) var(--color-base-white), var(--elevation-200);
+  pointer-events: none;
+}
+.vb-marker[data-selected] {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+.vb-marker--static {
+  position: static;
+  transform: none;
+  flex: none;
+}
+.vb-annotated-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: crosshair;
+}
+.vb .vb-annotations {
+  display: grid;
+  gap: var(--space-12);
+  margin-block-start: var(--space-16);
+}
+.vb-annotation {
+  display: flex;
+  gap: var(--space-12);
+  align-items: start;
+}
+.vb-annotation-title {
+  font-weight: 600;
+  color: var(--text-gray-primary);
+}
+.vb-annotation-text {
+  font-size: var(--body-lg-size);
+  line-height: var(--body-leading);
+  color: var(--text-gray-secondary);
+}
+@media (min-width: 1024px) {
+  .vb-annotated[data-notes='side'] {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: var(--space-24);
+    align-items: start;
+  }
+  .vb-annotated[data-notes='side'] .vb-annotations {
+    margin-block-start: 0;
+  }
+  .vb-annotated[data-notes='side'] .cs-caption {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---- Flow diagram ---- */
+.vb .vb-flow-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: var(--space-16);
+}
+.vb-flow-item {
+  display: flex;
+  align-items: center;
+}
+.vb-flow-node {
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: var(--size-96, 6rem);
+  max-inline-size: 12rem;
+  padding: var(--space-12) var(--space-16);
+  border: var(--border-width-150) solid var(--border-gray-intense);
+  border-radius: var(--radius-8);
+  background: var(--surface-container);
+  color: var(--text-gray-primary);
+  font-size: var(--label-lg-size);
+  font-weight: 500;
+  text-align: center;
+}
+.vb-flow-node:is([data-kind='start'], [data-kind='end']) {
+  border-color: var(--border-brand-light);
+  border-radius: var(--radius-round);
+  background: var(--bg-brand-light);
+  color: var(--text-brand-primary);
+  font-weight: 600;
+}
+.vb-flow-node[data-kind='decision'] {
+  min-block-size: var(--size-80, 5rem);
+  padding: var(--space-24) var(--space-32);
+  border: 0;
+  background: var(--bg-gray-moderate);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.vb-flow-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-inline-size: var(--size-56);
+  padding-inline: var(--space-8);
+  color: var(--text-gray-tertiary);
+  font-size: var(--caption-md-size);
+  line-height: var(--caption-leading);
+}
+.vb-flow-arrow::after {
+  content: '→';
+  font-size: var(--heading-md-size);
+  line-height: 1;
+  color: var(--text-brand-primary);
+}
+.vb-flow[data-direction='vertical'] .vb-flow-list,
+.vb-flow[data-direction='vertical'] .vb-flow-item {
+  flex-direction: column;
+}
+.vb-flow[data-direction='vertical'] .vb-flow-arrow {
+  padding-block: var(--space-4);
+}
+.vb-flow[data-direction='vertical'] .vb-flow-arrow::after {
+  content: '↓';
+}
+@media screen and (max-width: 767.98px) {
+  .vb-flow .vb-flow-list,
+  .vb-flow .vb-flow-item {
+    flex-direction: column;
+  }
+  .vb-flow .vb-flow-arrow {
+    padding-block: var(--space-4);
+  }
+  .vb-flow .vb-flow-arrow::after {
+    content: '↓';
+  }
+}
+
+/* =====================================================================
+   Editor chrome for blocks, the side panel, the media library, preview.
+   ===================================================================== */
+.write-block[data-content] .write-block-content { display: grid; gap: var(--spacing-3); }
+.write-block .vb-showcase {
+  /* In the editor a frame-wide showcase stays within the canvas. */
+  inline-size: auto;
+  margin-inline: 0;
+}
+.write-side {
+  inline-size: 22rem;
+  flex: none;
+  border-inline-start: 1px solid var(--color-border);
+  background: var(--color-background-surface);
+  position: sticky;
+  inset-block-start: 57px;
+  max-block-size: calc(100svh - 57px);
+}
+.write-side .write-settings {
+  inline-size: auto;
+  position: static;
+  max-block-size: none;
+  border: 0;
+  flex: 1;
+  min-block-size: 0;
+}
+.write-side-tabs {
+  padding: var(--spacing-3) var(--spacing-5);
+  border-block-end: 1px solid var(--color-border);
+}
+/* Below 1024px the side panel is a drawer from the right, over the document, under the
+   top bar; a scrim behind it closes it. */
+.write-side-scrim {
+  display: none;
+}
+@media screen and (max-width: 1023.98px) {
+  .write-side:not(#\#) {
+    position: fixed;
+    z-index: 40;
+    inset-block: var(--glass-bar-height) 0;
+    inset-inline-end: 0;
+    inline-size: min(22rem, 88vw);
+    max-block-size: none;
+    overflow-y: auto;
+    border-inline-start: var(--border-width-100) solid var(--surface-outline);
+    box-shadow: var(--elevation-500);
+    animation: write-drawer-in var(--glass-duration) var(--glass-ease);
+  }
+  .write-side-scrim {
+    display: block;
+    position: fixed;
+    z-index: 39;
+    inset: var(--glass-bar-height) 0 0 0;
+    border: 0;
+    padding: 0;
+    background: color-mix(in oklab, var(--bg-gray-dark) calc(var(--opacity-30) * 100%), transparent);
+    cursor: default;
+  }
+}
+@keyframes write-drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .write-side:not(#\#) { animation: none; }
+}
+.inspector-thumb {
+  inline-size: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+}
+.inspector-thumb-sm {
+  inline-size: 40px;
+  block-size: 40px;
+  object-fit: cover;
+  border-radius: var(--radius-container);
+  border: 1px solid var(--color-border);
+}
+.inspector-item {
+  padding: var(--spacing-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+}
+.media-library {
+  padding: var(--spacing-4);
+  overflow-y: auto;
+}
+.media-empty {
+  padding: var(--spacing-10);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-container);
+}
+.media-tile {
+  display: grid;
+  gap: var(--spacing-1);
+  padding: var(--spacing-2);
+  text-align: start;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+  color: inherit;
+  cursor: pointer;
+}
+.media-tile:hover,
+.media-tile:focus-visible {
+  border-color: var(--color-brand-text);
+}
+.media-tile img,
+.media-tile-icon {
+  inline-size: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-container);
+  background: var(--color-background-muted);
+  color: var(--color-text-secondary);
+}
+.write-preview-stage {
+  flex: 1;
+  padding: var(--spacing-4);
+  background: var(--color-background-muted);
+  overflow: auto;
+}
+.write-preview-frame {
+  block-size: calc(100dvh - 120px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-background-body);
+}
+/* The pull quote has its own styles; the plain-blockquote rule stays off it. */
+.cs-prose .vb-quote-text,
+.write-prose .vb-quote-text {
+  padding: 0;
+  border: 0;
+}
+.vb-quote[data-style='large'] .vb-quote-text,
+.vb-quote[data-style='bordered'] .vb-quote-text {
+  font-family: inherit;
+  font-style: normal;
+}
+
+/* A case study's downloads (PDF, presentation): a quiet row above the story. */
+
+/* The end-of-story PDF offer (CaseStudyPdfRequest). */
+/* The bot trap stays out of sight and out of the tab order. */
+
+/* Side work (SideWorkTicker): a looping row of small pieces on Home and Work. */
+/* A frosted blur over each edge, strongest at the screen edge and easing
+   off just inside the frame line. */
+/* Hovering slows the loop down (SideWorkTicker eases its speed); keyboard
+   focus and the pause button stop it. */
+/* Reduced motion: no loop, just a row to scroll through, without the copy. */
+
+/* Studio: media library page (MediaManager). */
+.studio-media-item {
+  padding: var(--spacing-3);
+  background: var(--surface-container);
+  border: var(--border-width-100) solid var(--surface-outline);
+  border-radius: var(--surface-container-radius);
+}
+.studio-media-image {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-container);
+  background: var(--color-background-muted);
+}
+.studio-media-error {
+  padding: var(--spacing-3) var(--spacing-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-container);
+}
+
+/* Inner-page heroes (Work, About, Contact) with the dot grid behind them
+   (EditorialHero hasBackdrop, RippleGrid variant "hero"). The grid runs the
+   full width; the text sits above it. */
+.hero-backdrop {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.hero-backdrop > :not(.ripple-grid) {
+  position: relative;
+}
+.ripple-grid.ripple-grid-hero {
+  z-index: -1;
+  opacity: 1;
+  /* The fade: 40% at the very top, evenly down to 0% at 70% of the hero's
+     height. The wave and ripples play inside it and never break through. */
+  mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.4) 0%, transparent 70%);
+  -webkit-mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.4) 0%, transparent 70%);
+}
+/* The studio's Case studies / Side work switch, in the CTAs' liquid glass:
+   the track is frosted clear glass (like a secondary CTA) and the chosen
+   section is brand-blue tinted glass (like the primary CTA; the shared
+   material is above). The control's sliding highlight copies the chosen
+   segment's surface, so the glass slides across; labels ease their colour. */
+/* Remove a side work photo: a quiet button in the destructive red. */
+/* A studio section arriving after a switch (template.tsx): fades and rises. */
+/* 64px between the studio switch and the section under it. */
+
+/* Studio (public): sign-in links and settings sections. */
+.studio-auth-link {
+  color: var(--color-brand-text);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+/* Tablet and desktop: the editor fills the screen and the WINDOW does not scroll. The writing
+   section scrolls on its own, so its scrollbar sits beside the page being written, from below the
+   formatting toolbar (not the far right of the window, past the settings panel); the settings
+   panel scrolls separately under its Block / Case study switch.
+   Phones keep window scrolling (their toolbar is a fixed bottom bar). */
+@media (min-width: 768px) {
+  .write:not(#\#):not(#\#):not(#\#) {
+    block-size: 100svh;
+    min-block-size: 0;
+    overflow: hidden;
+  }
+  .write-main:not(#\#):not(#\#):not(#\#) {
+    flex: 1;
+    min-block-size: 0;
+    align-items: stretch;
+  }
+  /* The canvas is a column: the toolbar stays put on top, only .write-scroll (the writing)
+     scrolls, so the scrollbar runs beside the page from below the toolbar down. */
+  .write-canvas:not(#\#):not(#\#):not(#\#) {
+    min-block-size: 0;
+    overflow: hidden;
+  }
+  .write-toolbar:not(#\#):not(#\#):not(#\#) {
+    position: relative;
+    inset-block-start: 0;
+    flex: none;
+  }
+  .write-scroll {
+    flex: 1;
+    min-block-size: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+@media (min-width: 1024px) {
+  .write-side:not(#\#):not(#\#) {
+    position: relative;
+    inset-block-start: auto;
+    max-block-size: none;
+    min-block-size: 0;
+  }
+  .write-side .write-settings:not(#\#):not(#\#) {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* =====================================================================
+   Stage 4: shared layout options (width, background) and new block options
+   ===================================================================== */
+/* Wide: wider than the text column (up to --block-wide-max), centred on it, never past the
+   window's gutters. The text column itself is --content-max (720px), so "wide" needs its own
+   limit; the frame-wide showcase uses the same one. */
+:root { --block-wide-max: 64rem; }
+.vb[data-block-width='wide'],
+.cs-article .vb-showcase[data-width='frame'] {
+  inline-size: min(100vw - 2 * var(--space-gutter), var(--block-wide-max));
+  margin-inline: calc(50% - min(50vw - var(--space-gutter), var(--block-wide-max) / 2));
+}
+/* In the editor the sheet is the container: wide blocks reach into its margins, so the
+   difference is visible while writing (a frame-wide showcase does the same). */
+.write-document { container-type: inline-size; }
+.write-block .vb[data-block-width='wide'],
+.write-block .vb-showcase[data-width='frame'] {
+  inline-size: min(100cqi - 2 * var(--space-24), 56rem);
+  margin-inline: calc((100% - min(100cqi - 2 * var(--space-24), 56rem)) / 2);
+}
+/* Background: a padded, rounded panel behind the block. */
+.vb[data-block-surface] {
+  padding: var(--space-block);
+  border-radius: var(--radius-container);
+}
+.vb[data-block-surface='muted'] { background: var(--color-background-muted); }
+.vb[data-block-surface='brand'] { background: color-mix(in srgb, var(--color-brand-text) 12%, var(--color-background-surface)); }
+.vb[data-block-surface='inverse'] {
+  background: var(--color-background-inverted);
+  color: var(--text-gray-inverse);
+}
+.vb[data-block-surface='inverse'] :is(.vb-metric-value, .vb-metric-label, .vb-metric-detail, .cs-caption, p, h2, h3, h4) {
+  color: inherit;
+}
+.vb[data-block-surface='inverse'] .vb-metric { border-color: color-mix(in srgb, var(--text-gray-inverse) 30%, transparent); }
+
+/* Metrics: large figures, centred. */
+.vb-metrics[data-size='large'] .vb-metric-value {
+  font-family: var(--font-display);
+  font-size: var(--type-display-m-size);
+  line-height: 1;
+}
+.vb-metrics[data-text-align='center'] .vb-metric { text-align: center; justify-items: center; }
+.vb-metrics[data-text-align='center'] .cs-caption { text-align: center; }
+
+/* Quote: centred. */
+.vb-quote[data-text-align='center'] { text-align: center; justify-items: center; }
+.vb-quote[data-text-align='center'] .vb-quote-by { justify-items: center; }
+.vb-quote[data-text-align='center'][data-style='bordered'] {
+  padding-inline-start: 0;
+  border-inline-start: 0;
+  padding-block: var(--spacing-6);
+  border-block: 3px solid var(--color-brand-text);
+}
+
+/* T3 (editor spec §9.3): tablet and phone column overrides from the inspector's "Tablet and phone"
+   group. The renderer sets --vb-columns-tablet / --vb-columns-phone and a data flag only when the
+   person changed them; otherwise the automatic rules above apply. */
+@media screen and (min-width: 768px) and (max-width: 1023.98px) {
+  .vb-grid[data-columns-tablet],
+  .vb-metrics-grid[data-columns-tablet],
+  .vb .vb-sequence-list[data-columns-tablet] {
+    grid-template-columns: repeat(var(--vb-columns-tablet), minmax(0, 1fr));
+  }
+  .vb-grid[data-arrangement='masonry'][data-columns-tablet] { columns: var(--vb-columns-tablet); }
+}
+@media screen and (max-width: 767.98px) {
+  .vb-metrics-grid[data-columns-phone],
+  .vb .vb-sequence-list[data-columns-phone] {
+    grid-template-columns: repeat(var(--vb-columns-phone), minmax(0, 1fr));
+  }
+}
+
+/* ==== T4: content cards, Research insights, Chart (editor spec §8.5). DNA semantic tokens only. ==== */
+
+/* Placeholder text inside visual blocks in the editor (never in the preview). */
+
+
+/* ---- Research insights: a list of finding cards ---- */
+.vb .vb-insights-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--vb-columns, 3), minmax(0, 1fr));
+  gap: var(--space-16);
+}
+.vb .vb-insight {
+  margin: 0;
+  display: grid;
+  gap: var(--space-8);
+  align-content: start;
+  padding: var(--space-20);
+  border: 1px solid var(--border-gray-subtle);
+  border-radius: var(--radius-16);
+  background: var(--bg-gray-inverse);
+}
+.vb-insights[data-layout='list'] .vb-insight {
+  padding: 0 0 0 var(--space-16);
+  border: 0;
+  border-inline-start: 2px solid var(--border-brand-normal);
+  border-radius: 0;
+  background: none;
+}
+.vb .vb-insight p { margin: 0; }
+.vb .vb-insight-number {
+  font-size: var(--overline-sm-size);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-brand-primary);
+}
+.vb .vb-insight-finding {
+  font-size: var(--heading-sm-size);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-gray-primary);
+}
+.vb .vb-insight-evidence { font-size: var(--body-lg-size); line-height: 1.5; color: var(--text-gray-secondary); }
+.vb .vb-insight-source { font-size: var(--caption-md-size); color: var(--text-gray-tertiary); }
+@media screen and (max-width: 767.98px) {
+  .vb .vb-insights-list { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- Chart ---- */
+.vb-chart {
+  --chart-1: var(--bg-brand-normal);
+  --chart-2: var(--bg-accent-mint-normal);
+  --chart-3: var(--bg-accent-orange-normal);
+  --chart-4: var(--bg-accent-slate-normal);
+  --chart-5: var(--bg-accent-pink-normal);
+  --chart-other: var(--icon-gray-normal);
+  --chart-track: var(--bg-gray-moderate);
+  display: grid;
+  gap: var(--space-12);
+}
+.vb .vb-chart p { margin: 0; }
+.vb .vb-chart-title { font-size: var(--heading-sm-size); font-weight: 600; color: var(--text-gray-primary); }
+.vb .vb-chart-empty {
+  padding: var(--space-24);
+  border: 1px dashed var(--border-gray-intense);
+  border-radius: var(--radius-12);
+  font-size: var(--body-lg-size);
+  color: var(--text-gray-secondary);
+  text-align: center;
+}
+.vb-chart-plot { position: relative; }
+.vb .vb-chart-source { font-size: var(--caption-md-size); color: var(--text-gray-tertiary); }
+
+/* Bars and progress: thin marks, rounded at the data end, from a zero baseline. */
+.vb-bars, .vb-progress { display: grid; gap: var(--space-12); }
+.vb-bar-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, 30%) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-12);
+}
+.vb-bar-label, .vb-progress-label { font-size: var(--body-lg-size); color: var(--text-gray-primary); overflow-wrap: anywhere; }
+.vb-bar-value, .vb-progress-value { font-size: var(--body-lg-size); font-weight: 600; color: var(--text-gray-primary); font-variant-numeric: tabular-nums; }
+.vb-bar-track { display: block; }
+.vb-bar {
+  display: block;
+  min-inline-size: 2px;
+  block-size: var(--space-14);
+  border-radius: 0 var(--radius-4) var(--radius-4) 0;
+  background: var(--chart-1);
+}
+.vb-progress-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-6) var(--space-12);
+}
+.vb-progress-track {
+  grid-column: 1 / -1;
+  display: block;
+  block-size: var(--space-10);
+  border-radius: var(--radius-round);
+  background: var(--chart-track);
+  overflow: hidden;
+}
+.vb-progress-fill { display: block; block-size: 100%; border-radius: var(--radius-round); background: var(--chart-1); }
+
+/* Line: a 2px line, 8px markers with a 2px surface ring, recessive grid and axes. */
+.vb-line { position: relative; }
+.vb-line-svg { display: block; inline-size: 100%; block-size: auto; overflow: visible; }
+.vb-chart-grid { stroke: var(--border-gray-subtle); stroke-width: 1; }
+.vb-chart-crosshair { stroke: var(--border-gray-intense); stroke-width: 1; stroke-dasharray: 4 4; }
+.vb-chart-axis { font-size: 12px; fill: var(--text-gray-tertiary); font-family: var(--font-family-primary); }
+.vb-chart-value { font-size: 13px; font-weight: 600; fill: var(--text-gray-primary); font-family: var(--font-family-primary); }
+.vb-line-path { fill: none; stroke: var(--chart-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.vb-line-point { fill: var(--chart-1); stroke: var(--bg-gray-inverse); stroke-width: 2; }
+.vb-chart-hit { fill: transparent; }
+.vb-chart-tip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - var(--space-12)));
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-10);
+  border: 1px solid var(--border-gray-normal);
+  border-radius: var(--radius-8);
+  background: var(--bg-gray-inverse);
+  box-shadow: 0 4px 6px -2px rgb(0 0 0 / 0.05), 0 8px 15px -3px rgb(0 0 0 / 0.1);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.vb-chart-tip-label { font-size: var(--caption-md-size); color: var(--text-gray-secondary); }
+.vb-chart-tip-value { font-size: var(--body-lg-size); font-weight: 600; color: var(--text-gray-primary); }
+
+/* Donut: parts with a 2px gap, a legend with each label, value and share. */
+.vb-donut { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-24); }
+.vb-donut-svg { inline-size: min(12rem, 100%); block-size: auto; flex: none; }
+.vb-donut-part { fill: none; stroke: var(--chart-1); transition: stroke-width 120ms ease, opacity 120ms ease; }
+.vb-donut-part[data-dim] { opacity: 0.35; }
+.vb-donut-centre { font-size: 22px; font-weight: 600; fill: var(--text-gray-primary); font-family: var(--font-family-primary); }
+.vb [data-slot='2'] { --slot: var(--chart-2); }
+.vb [data-slot='3'] { --slot: var(--chart-3); }
+.vb [data-slot='4'] { --slot: var(--chart-4); }
+.vb [data-slot='5'] { --slot: var(--chart-5); }
+.vb [data-slot='other'] { --slot: var(--chart-other); }
+.vb-donut-part[data-slot] { stroke: var(--slot, var(--chart-1)); }
+.vb .vb-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-8); flex: 1 1 12rem; }
+.vb .vb-legend-item { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-8); font-size: var(--body-lg-size); }
+.vb-legend-swatch { inline-size: var(--space-12); block-size: var(--space-12); border-radius: var(--radius-2); background: var(--slot, var(--chart-1)); }
+.vb-legend-label { color: var(--text-gray-primary); }
+.vb-legend-value { color: var(--text-gray-secondary); font-variant-numeric: tabular-nums; }
+.vb-legend-item[data-active] .vb-legend-label { font-weight: 600; }
+
+/* The figures as a table (also what screen readers use). */
+.vb-chart-table summary { cursor: pointer; font-size: var(--label-lg-size); color: var(--text-brand-primary); inline-size: fit-content; }
+.vb-chart-table table { margin-block-start: var(--space-8); }
+
+@media (forced-colors: active) {
+  .vb-bar, .vb-progress-fill, .vb-legend-swatch { forced-color-adjust: none; border: 1px solid CanvasText; }
+}
+@media print {
+  .vb-chart-table { display: none; }
+  .vb-chart-tip { display: none; }
+}
+
+/* Last, so it beats each block's own text colours. */
+.vb p[data-placeholder], .vb dt[data-placeholder], .vb dd[data-placeholder] { color: var(--text-gray-placeholder); }
+
+/* ==== T6: device composition tools (editor spec §11). Editor only: nothing here renders in the preview. ==== */
+.vb-guide {
+  position: absolute;
+  z-index: 1000;
+  pointer-events: none;
+  background: var(--border-brand-normal);
+}
+.vb-guide[data-axis='x'] { inset-block: 0; inline-size: 1px; transform: translateX(-0.5px); }
+.vb-guide[data-axis='y'] { inset-inline: 0; block-size: 1px; transform: translateY(-0.5px); }
+/* Grouped devices: a dashed outline instead of the solid one. */
+.vb-device-slot[data-selected][data-grouped] .vb-device { outline-style: dashed; }
+.vb-device-slot[data-locked] { cursor: default; }
+/* The rotate handle: a small round knob above the selected device, on a short stem. */
+.vb-rotate-handle {
+  position: absolute;
+  inset-block-start: calc(-1 * var(--space-32));
+  inset-inline-start: 50%;
+  inline-size: var(--space-14);
+  block-size: var(--space-14);
+  margin-inline-start: calc(-1 * var(--space-14) / 2);
+  border: 2px solid var(--border-brand-normal);
+  border-radius: var(--radius-round);
+  background: var(--bg-gray-inverse);
+  cursor: grab;
+  touch-action: none;
+}
+.vb-rotate-handle::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 50%;
+  inline-size: 1px;
+  block-size: var(--space-16);
+  background: var(--border-brand-normal);
+}
+@media (pointer: coarse) {
+  .vb-rotate-handle { inline-size: var(--space-24); block-size: var(--space-24); margin-inline-start: calc(-1 * var(--space-24) / 2); inset-block-start: calc(-1 * var(--space-48)); }
+}
+/* Locked devices show a small lock in the corner. */
+.vb-lock-badge {
+  position: absolute;
+  inset-block-start: calc(-1 * var(--space-8));
+  inset-inline-end: calc(-1 * var(--space-8));
+  inline-size: var(--space-20);
+  block-size: var(--space-20);
+  border-radius: var(--radius-round);
+  background: var(--bg-gray-inverse);
+  box-shadow: 0 0 0 1px var(--border-gray-normal);
+  pointer-events: none;
+}
+/* The lock icon as a mask, so its colour is a token. */
+.vb-lock-badge::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--icon-gray-intense);
+  -webkit-mask: no-repeat center / var(--space-12) var(--lock-icon);
+  mask: no-repeat center / var(--space-12) var(--lock-icon);
+  --lock-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='11' x='3' y='11' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
+}
+
+/* ==== T7: version history dialog ==== */
+.history { display: grid; gap: var(--space-24); }
+.history[data-open] { grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); align-items: start; }
+.history-list { min-inline-size: 0; }
+.history-error { color: var(--text-error-normal); }
+.history-day { font-size: var(--label-md-size); font-weight: 600; }
+.history-items { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
+.history-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-12);
+  border-radius: var(--radius-12);
+}
+.history-item:hover { background: var(--bg-gray-normal); }
+.history-item[data-active] { background: var(--bg-brand-subtle); box-shadow: inset 0 0 0 1px var(--border-brand-light); }
+.history-open {
+  display: grid;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  padding: var(--space-4) 0;
+  border: 0;
+  background: none;
+  text-align: start;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.history-open:focus-visible { outline: 2px solid var(--border-brand-normal); outline-offset: 2px; border-radius: var(--radius-4); }
+.history-time { font-size: var(--label-lg-size); font-weight: 600; color: var(--text-gray-primary); }
+.history-label { font-size: var(--label-md-size); color: var(--text-brand-primary); }
+.history-title { font-size: var(--caption-md-size); color: var(--text-gray-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-preview { min-inline-size: 0; }
+.history-doc {
+  max-block-size: 62dvh;
+  overflow: auto;
+  padding: var(--space-24);
+  border: 1px solid var(--border-gray-subtle);
+  border-radius: var(--radius-16);
+  background: var(--bg-gray-inverse);
+}
+.history-doc-title { margin: 0 0 var(--space-8); font-family: var(--font-family-secondary); font-size: var(--heading-xxl-size); line-height: 1.2; }
+.history-doc-subtitle { margin: 0 0 var(--space-24); font-size: var(--body-xxl-size); color: var(--text-gray-secondary); }
+@media screen and (max-width: 767.98px) {
+  .history[data-open] { grid-template-columns: minmax(0, 1fr); }
+}

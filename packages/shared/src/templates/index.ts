@@ -20,6 +20,7 @@ export * from './technicalDesignDocument';
 export * from './architectureDecisionRecord';
 export * from './standardOperatingProcedure';
 export * from './samples';
+export * from './marketing';
 
 /**
  * The four Release 1 vertical templates (Phase 4).

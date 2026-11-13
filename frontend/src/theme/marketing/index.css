@@ -1,0 +1,23 @@
+/*
+ * Public marketing site styles (docs/marketing/design-system.md). Loaded by
+ * app/(marketing)/layout.tsx after app/globals.css. Order: tokens → components →
+ * patterns → page-only rules → motion.
+ */
+/* Shared foundations, in the Studio's order: the Astryx Stone theme (element defaults for
+   headings, paragraphs, code), DNA tokens, the bridge that maps the DNA font variables to the
+   loaded Outfit/Bricolage faces, layout defaults (.sr-only, .only-wide), typography.
+   Astryx's component library (astryx.css, ~43 KB gz) isn't needed: no Astryx components here. */
+@import '../theme.css';
+@import '../dna-tokens.css';
+@import '../dna-bridge.css';
+@import '../foundation.css';
+@import '../typography.css';
+@import './tokens.css';
+@import './components.css';
+@import './patterns.css';
+@import './pages/home.css';
+@import './pages/product.css';
+@import './pages/templates.css';
+@import './pages/resources.css';
+@import './pages/legal.css';
+@import './motion.css';

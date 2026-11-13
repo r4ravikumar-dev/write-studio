@@ -1,0 +1,117 @@
+/* ==========================================================================
+ * Write Studio marketing site: page patterns (Phase 4).
+ * Recurring page structures, built from --m-* tokens. Pages compose these;
+ * page-only rules live in marketing/pages/*.css.
+ * ========================================================================== */
+
+/* ── Page hero head: eyebrow → title → lead → actions → note ─────────── */
+.m-hero-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-20);
+  max-width: var(--m-container-narrow);
+  margin-inline: auto;
+  text-align: center;
+}
+.m-hero-head > * { margin: 0; }
+.m-hero-head .m-title-display { max-width: 20ch; }
+.m-hero-head .m-subtitle { margin-inline: auto; }
+.m-hero-head .m-actions { justify-content: center; margin-top: var(--space-12); }
+.m-hero-head--left { align-items: flex-start; text-align: left; margin-inline: 0; }
+.m-hero-head--left .m-subtitle { margin-inline: 0; }
+.m-hero-head--left .m-actions { justify-content: flex-start; }
+.m-hero-note { font-size: var(--m-caption); color: var(--m-text-muted); }
+
+/* ── Breadcrumbs ───────────────────────────────────────────────────────── */
+.m-breadcrumbs { padding-top: var(--space-24); }
+.m-breadcrumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-6); list-style: none; margin: 0; padding: 0; font-size: var(--m-body-sm); }
+.m-breadcrumbs li { display: inline-flex; align-items: center; gap: var(--space-6); color: var(--m-text-secondary); }
+.m-breadcrumbs li + li::before { content: '/'; color: var(--m-text-subtle); }
+.m-breadcrumbs a { color: var(--m-text-secondary); text-decoration: none; }
+.m-breadcrumbs a:hover { color: var(--m-text-primary); text-decoration: underline; text-underline-offset: 0.2em; }
+.m-breadcrumbs [aria-current='page'] { color: var(--m-text-primary); font-weight: var(--m-weight-semibold); }
+
+/* ── Section footer: a centred row of actions after a grid ─────────────── */
+.m-section-foot { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--m-gap-inline); margin-top: var(--space-48); }
+
+/* ── Lists ─────────────────────────────────────────────────────────────── */
+.m-checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--m-gap-list); }
+.m-checklist li { display: grid; grid-template-columns: var(--m-icon-md) minmax(0, 1fr); gap: var(--space-10); align-items: start; font-size: var(--m-body); line-height: var(--m-leading-body); color: var(--m-text-secondary); }
+.m-checklist li::before {
+  content: '';
+  width: var(--m-icon-md);
+  height: var(--m-icon-md);
+  margin-top: calc((1lh - var(--m-icon-md)) / 2);
+  border-radius: var(--m-radius-full);
+}
+.m-checklist li::before {
+  /* a filled tick, drawn as a mask so it takes the brand colour */
+  background: var(--m-text-brand);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 0a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.4-5.4 1.4 1.4-6.8 6.8Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 0a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 14.2-4-4 1.4-1.4 2.6 2.6 5.4-5.4 1.4 1.4-6.8 6.8Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.m-checklist strong { color: var(--m-text-primary); font-weight: var(--m-weight-semibold); }
+.m-bullets { margin: 0; padding-left: var(--space-20); display: flex; flex-direction: column; gap: var(--space-8); color: var(--m-text-secondary); font-size: var(--m-body); line-height: var(--m-leading-body); }
+
+/* Bordered rows (outlines, facts, matrices). */
+.m-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: var(--m-border-thin) solid var(--m-border-default); border-radius: var(--m-radius-card); background: var(--m-surface-card); overflow: hidden; }
+.m-rows > li, .m-rows > div { display: flex; align-items: center; justify-content: space-between; gap: var(--space-16); padding: var(--space-14) var(--space-20); font-size: var(--m-body-sm); color: var(--m-text-primary); }
+.m-rows > * + * { border-top: var(--m-border-thin) solid var(--m-border-subtle); }
+.m-row-title { font-weight: var(--m-weight-semibold); }
+.m-row-sub { display: block; margin-top: var(--space-2); font-size: var(--m-caption); color: var(--m-text-secondary); font-weight: var(--m-weight-regular); }
+.m-row-index { min-width: var(--size-24); font-variant-numeric: tabular-nums; color: var(--m-text-muted); font-weight: var(--m-weight-semibold); }
+
+/* ── Panel: a quiet container for a visual or a list beside text ──────── */
+.m-panel { display: flex; flex-direction: column; gap: var(--space-16); padding: var(--m-card-padding-lg); border: var(--m-border-thin) solid var(--m-border-default); border-radius: var(--m-radius-showcase); background: var(--m-bg-muted); }
+.m-panel > * { margin: 0; }
+.m-panel--card { background: var(--m-surface-card); box-shadow: var(--m-shadow-card); border-color: var(--m-border-subtle); }
+
+/* ── Numbered steps ────────────────────────────────────────────────────── */
+.m-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--m-grid-gap); counter-reset: m-step; }
+.m-step { display: grid; grid-template-columns: var(--size-48) minmax(0, 1fr); gap: var(--space-20); padding: var(--m-card-padding-lg); border: var(--m-border-thin) solid var(--m-border-default); border-radius: var(--m-radius-card); background: var(--m-surface-card); }
+.m-step > div > * { margin: 0; }
+.m-step > div { display: flex; flex-direction: column; gap: var(--space-12); }
+.m-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-48);
+  height: var(--size-48);
+  border-radius: var(--m-radius-md);
+  background: var(--m-brand-soft);
+  color: var(--m-text-brand);
+  font-family: var(--m-font-display);
+  font-weight: var(--m-weight-semibold);
+  font-size: var(--m-h6);
+  font-variant-numeric: tabular-nums;
+}
+@media screen and (max-width: 639px) {
+  .m-step { grid-template-columns: minmax(0, 1fr); gap: var(--space-12); }
+}
+
+/* ── Tables (comparison, pricing, cookies) ─────────────────────────────── */
+.m-table-wrap { overflow-x: auto; border: var(--m-border-thin) solid var(--m-border-default); border-radius: var(--m-radius-card); background: var(--m-surface-card); }
+.m-table { width: 100%; border-collapse: collapse; font-size: var(--m-body-sm); line-height: var(--m-leading-body); }
+.m-table :is(th, td) { padding: var(--m-cell-padding); text-align: left; vertical-align: top; border-bottom: var(--m-border-thin) solid var(--m-border-subtle); }
+.m-table thead th { background: var(--m-bg-muted); font-weight: var(--m-weight-semibold); color: var(--m-text-primary); white-space: nowrap; }
+.m-table tbody th { font-weight: var(--m-weight-semibold); color: var(--m-text-primary); }
+.m-table td { color: var(--m-text-secondary); }
+.m-table tr:last-child > * { border-bottom: 0; }
+
+/* ── Legal & long-form documents ───────────────────────────────────────── */
+.m-doc-head { display: flex; flex-direction: column; gap: var(--space-16); margin-bottom: var(--space-48); padding-bottom: var(--space-32); border-bottom: var(--m-border-thin) solid var(--m-border-default); }
+.m-doc-head > * { margin: 0; }
+.m-doc-head .m-title-display { font-size: var(--m-h1); }
+
+/* ── Inverse band (dark) ───────────────────────────────────────────────── */
+.m-section--inverse { background: var(--m-bg-inverse); color: var(--m-text-inverse); }
+.m-section--inverse :is(.m-title-h2, .m-title-h3, .m-card-title) { color: var(--m-text-inverse); }
+.m-section--inverse :is(.m-subtitle, .m-text) { color: var(--m-text-inverse-secondary); }
+
+/* ── Split helpers ─────────────────────────────────────────────────────── */
+.m-split > .m-split-copy { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-20); }
+.m-split > .m-split-copy > * { margin: 0; }
+@media screen and (min-width: 1024px) {
+  .m-split--reverse > :first-child { order: 2; }
+}
